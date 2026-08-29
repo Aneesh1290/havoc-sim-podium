@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Havoc Sim Podium — Admin</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --gold: #e5b869;
+            --gold-glow: rgba(229,184,105,0.25);
+            --bg: #0a0a0c;
+            --card: #111114;
+            --border: rgba(255,255,255,0.08);
+            --muted: rgba(255,255,255,0.45);
+            --input-bg: #1a1a1f;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Ambient glow effects */
+        body::before {
+            content: '';
+            position: fixed;
+            top: -20%;
+            left: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(229,184,105,0.06) 0%, transparent 70%);
+            pointer-events: none;
+        }
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -20%;
+            right: -10%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(229,184,105,0.04) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 3rem 2.5rem;
+            width: 100%;
+            max-width: 420px;
+            position: relative;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03) inset;
+        }
+
+        .card-header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+        }
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 1.5rem;
+        }
+        .brand-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .brand-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .brand-name {
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: 3px;
+            color: var(--gold);
+            line-height: 1.1;
+        }
+        .brand-sub {
+            font-size: 0.65rem;
+            letter-spacing: 2px;
+            color: var(--muted);
+            text-transform: uppercase;
+        }
+
+        h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.4rem;
+        }
+        .subtitle {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .field {
+            margin-bottom: 1.25rem;
+        }
+        .field label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 0.6rem;
+        }
+        
+        /* Key fix: use a wrapper to prevent autofill from overflowing */
+        .input-wrap {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: border-color 0.25s;
+            background: var(--input-bg);
+        }
+        .input-wrap:focus-within {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px var(--gold-glow);
+        }
+        .input-wrap input {
+            width: 100%;
+            padding: 0.9rem 1.1rem;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            display: block;
+            /* Autofill override trick */
+            -webkit-text-fill-color: #fff;
+            /* Hide autofill background by making transition last forever */
+            transition: background-color 999999s ease-in-out 0s;
+        }
+        /* Override Chrome's autofill yellow/white bg */
+        .input-wrap input:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 9999px var(--input-bg) inset !important;
+            box-shadow: 0 0 0 9999px var(--input-bg) inset !important;
+            -webkit-text-fill-color: #fff !important;
+            caret-color: #fff;
+        }
+
+        .error-msg {
+            background: rgba(248,113,113,0.1);
+            border: 1px solid rgba(248,113,113,0.3);
+            color: #f87171;
+            font-size: 0.875rem;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.25rem;
+            display: none;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s;
+            margin-top: 0.75rem;
+            letter-spacing: 1px;
+        }
+        .btn-gold {
+            background: linear-gradient(135deg, var(--gold), #c59b4c);
+            color: #000;
+        }
+        .btn-gold:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(229,184,105,0.35);
+        }
+        .btn-gold:active { transform: translateY(0); }
+
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 1.5rem 0;
+        }
+
+        #totp-field { display: none; }
+
+        .totp-hint {
+            font-size: 0.82rem;
+            color: var(--muted);
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        /* Loading spinner on button */
+        .btn.loading {
+            opacity: 0.7;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <div class="card-header">
+            <div class="brand">
+                <div class="brand-icon"><img src="havoc_logo.png" alt="Havoc Logo"></div>
+                <div>
+                    <div class="brand-name">HAVOC</div>
+                    <div class="brand-sub">Sim Podium</div>
+                </div>
+            </div>
+            <h2>Admin Portal</h2>
+            <p class="subtitle">Secure access for staff only</p>
+        </div>
+
+        <div id="errorMsg" class="error-msg"></div>
+
+        <form id="loginForm" autocomplete="off">
+            <!-- Honeypot to trick browser autocomplete OFF -->
+            <input type="text" style="display:none" aria-hidden="true">
+            <input type="password" style="display:none" aria-hidden="true">
+
+            <div class="field" id="user-field">
+                <label>Username</label>
+                <div class="input-wrap">
+                    <input type="text" id="username" autocomplete="new-password" spellcheck="false" placeholder="Enter username">
+                </div>
+            </div>
+
+            <div class="field" id="pass-field">
+                <label>Password</label>
+                <div class="input-wrap">
+                    <input type="password" id="password" autocomplete="new-password" placeholder="••••••••">
+                </div>
+            </div>
+
+            <div class="divider" id="totp-divider" style="display:none;"></div>
+
+            <div class="field" id="totp-field">
+                <label>Authenticator Code</label>
+                <div class="input-wrap">
+                    <input type="text" id="totp" autocomplete="one-time-code" maxlength="6" placeholder="6-digit code" style="letter-spacing: 6px; font-size: 1.2rem; text-align: center;">
+                </div>
+                <p class="totp-hint">Enter the code from Microsoft/Google Authenticator</p>
+            </div>
+
+            <button type="submit" class="btn btn-gold" id="submitBtn">Login</button>
+        </form>
+
+        <form id="resetPasswordForm" autocomplete="off" style="display:none;">
+            <p style="color:var(--muted); font-size:0.9rem; margin-bottom: 1.5rem;">For security reasons, you must change your default password before accessing the dashboard.</p>
+            <div class="field">
+                <label>New Password</label>
+                <div class="input-wrap">
+                    <input type="password" id="newPassword" autocomplete="new-password" placeholder="••••••••">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-gold" id="resetBtn">Set Password & Login</button>
+        </form>
+    </div>
+
+    <script src="admin-login.js"></script>
+</body>
+</html>

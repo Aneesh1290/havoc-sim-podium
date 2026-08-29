@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Havoc Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --gold: #e5b869;
+            --gold-glow: rgba(229,184,105,0.2);
+            --bg: #0a0a0c;
+            --sidebar-bg: #0e0e11;
+            --card: #111114;
+            --card2: #141418;
+            --border: rgba(255,255,255,0.07);
+            --muted: rgba(255,255,255,0.45);
+            --input-bg: #1a1a1f;
+            --green: #4ade80;
+            --yellow: #fbbf24;
+            --red: #f87171;
+        }
+
+        html, body { height: 100%; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: #fff;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 260px;
+            min-height: 100vh;
+            background: var(--sidebar-bg);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 2rem 1.5rem;
+            position: fixed;
+            top: 0; left: 0; bottom: 0;
+            z-index: 10;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 3rem;
+            text-decoration: none;
+        }
+        .brand-icon {
+            width: 64px;
+            height: 64px;
+            border-radius: 12px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .brand-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+        }
+        .brand-name {
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: 3px;
+            color: var(--gold);
+            line-height: 1.1;
+        }
+        .brand-sub {
+            font-size: 0.8rem;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .nav-section {
+            font-size: 0.68rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--muted);
+            padding: 0 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .nav-items {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            flex: 1;
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            text-align: left;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            font-family: 'Outfit', sans-serif;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        .nav-btn .icon { font-size: 1.1rem; width: 22px; text-align: center; }
+        .nav-btn:hover {
+            background: rgba(229,184,105,0.07);
+            color: rgba(255,255,255,0.8);
+        }
+        .nav-btn.active {
+            background: rgba(229,184,105,0.12);
+            color: var(--gold);
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .logout-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            background: transparent;
+            border: 1px solid rgba(248,113,113,0.25);
+            color: var(--red);
+            padding: 0.7rem 1rem;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.2s;
+        }
+        .logout-btn:hover { background: rgba(248,113,113,0.1); }
+
+        /* ===== MAIN CONTENT ===== */
+        .main {
+            margin-left: 260px;
+            flex: 1;
+            padding: 2.5rem 3rem;
+            min-height: 100vh;
+        }
+
+        .page-header {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .page-title {
+            font-size: 1.6rem;
+            font-weight: 700;
+        }
+        .page-title span {
+            color: var(--gold);
+        }
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ===== STAT CARDS ===== */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.5rem;
+        }
+        .stat-label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 0.75rem;
+        }
+        .stat-value {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #fff;
+        }
+        .stat-value.gold { color: var(--gold); }
+        .stat-value.green { color: var(--green); }
+
+        .table-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+        }
+        .table-card-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .table-card-title {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th {
+            padding: 1rem 1.5rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--muted);
+            border-bottom: 1px solid var(--border);
+            background: rgba(255,255,255,0.01);
+        }
+        td {
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.9rem;
+        }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(255,255,255,0.015); }
+
+        td small { color: var(--muted); font-size: 0.8rem; }
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.7rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .badge-paid { background: rgba(74,222,128,0.1); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+        .badge-pending { background: rgba(251,191,36,0.1); color: var(--yellow); border: 1px solid rgba(251,191,36,0.2); }
+        .badge-attended { background: rgba(59,130,246,0.1); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
+        .badge-cash { background: rgba(167,139,250,0.1); color: #a78bfa; border: 1px solid rgba(167,139,250,0.2); }
+        .badge-cancelled { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.2); }
+
+        /* ===== CUSTOM STATUS DROPDOWN ===== */
+        .custom-dropdown {
+            position: relative;
+            display: inline-block;
+        }
+        .custom-dropdown-btn {
+            padding: 0.35rem 0.75rem;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            color: rgba(255,255,255,0.75);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+            white-space: nowrap;
+        }
+        .custom-dropdown-btn:hover {
+            background: rgba(229,184,105,0.1);
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+        .custom-dropdown-menu {
+            display: none;
+            position: absolute;
+            top: calc(100% + 6px);
+            left: 0;
+            min-width: 160px;
+            background: #1c1c21;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 0.4rem;
+            z-index: 999;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+        .custom-dropdown-menu.open { display: block; }
+        .custom-dropdown-item {
+            padding: 0.55rem 0.85rem;
+            border-radius: 7px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.15s;
+            white-space: nowrap;
+        }
+        .custom-dropdown-item:hover {
+            background: rgba(229,184,105,0.12);
+            color: var(--gold);
+        }
+
+        .empty-state {
+            padding: 3rem;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        /* ===== AVAILABILITY CARDS ===== */
+        .availability-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .time-group-header {
+            grid-column: 1 / -1;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+        }
+        
+        .avail-card {
+            background: var(--card2);
+            border-radius: 12px;
+            padding: 1.25rem;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .avail-card.is-available {
+            cursor: pointer;
+        }
+        
+        .avail-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        .card-header {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+        
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        .card-subtitle {
+            font-size: 0.85rem;
+            color: var(--muted);
+        }
+        
+        .card-status-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #fff;
+            margin-top: 0.5rem;
+        }
+        
+        .status-bar-container {
+            width: 100%;
+            height: 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .status-bar-fill {
+            height: 100%;
+            border-radius: 6px;
+            width: 100%;
+            transition: background 0.3s;
+        }
+        
+        .status-bar-fill.available { background: var(--green); }
+        .status-bar-fill.booked { background: var(--red); }
+        
+        .card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+        }
+        
+        .card-badge {
+            padding: 0.25rem 0.6rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .badge-gray { background: rgba(255,255,255,0.1); color: var(--muted); border: 1px solid rgba(255,255,255,0.1); }
+        .badge-green { background: rgba(74,222,128,0.15); color: var(--green); border: 1px solid rgba(74,222,128,0.2); }
+        .badge-red { background: rgba(248,113,113,0.15); color: var(--red); border: 1px solid rgba(248,113,113,0.3); }
+
+        /* ===== COUPON FORM ===== */
+        .add-coupon-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .add-coupon-card h3 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin-bottom: 1.25rem;
+            color: rgba(255,255,255,0.8);
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+        .field { display: flex; flex-direction: column; gap: 0.5rem; }
+        .field label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+        .input-wrap {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: border-color 0.25s;
+            background: var(--input-bg);
+            margin-bottom: 0.5rem;
+        }
+        .input-wrap:focus-within {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px var(--gold-glow);
+        }
+        .field .input-wrap input {
+            width: 100%;
+            padding: 0.9rem 1.1rem;
+            background: transparent !important;
+            border: none !important;
+            outline: none;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            display: block;
+            margin-top: 0 !important;
+        }
+        /* AUTOFILL FIX - Chrome overrides background on autofill, this forces dark bg */
+        @keyframes autofillFix {
+            from { background-color: #1a1a1f; }
+            to { background-color: #1a1a1f; }
+        }
+        .field .input-wrap input:-webkit-autofill,
+        .field .input-wrap input:-webkit-autofill:hover,
+        .field .input-wrap input:-webkit-autofill:focus,
+        .field .input-wrap input:-webkit-autofill:active,
+        .field input:-webkit-autofill,
+        .field input:-webkit-autofill:hover,
+        .field input:-webkit-autofill:focus,
+        .field input:-webkit-autofill:active {
+            animation-name: autofillFix;
+            animation-fill-mode: both;
+            -webkit-box-shadow: 0 0 0 9999px #1a1a1f inset !important;
+            box-shadow: 0 0 0 9999px #1a1a1f inset !important;
+            -webkit-text-fill-color: #fff !important;
+            caret-color: #fff !important;
+            background-color: #1a1a1f !important;
+            color: #fff !important;
+        }
+        select option {
+            background: #0a0a0c;
+            color: #fff;
+        }
+        .field input, .field select {
+            box-sizing: border-box;
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            outline: none;
+        }
+        .field input:focus, .field select:focus { border-color: var(--gold); }
+        .field select option { background: #1a1a1f; }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 9px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+        .btn-gold {
+            background: linear-gradient(135deg, var(--gold), #c59b4c);
+            color: #000;
+        }
+        .btn-gold:hover { transform: translateY(-1px); box-shadow: 0 5px 20px rgba(229,184,105,0.3); }
+        .btn-delete {
+            background: transparent;
+            color: var(--red);
+            border: 1px solid rgba(248,113,113,0.3);
+            padding: 0.35rem 0.75rem;
+            font-size: 0.8rem;
+        }
+        .btn-delete:hover { background: rgba(248,113,113,0.1); }
+
+        /* ===== 2FA MODAL ===== */
+        #totpModal {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(8px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal-box {
+            background: var(--card);
+            border: 1px solid rgba(229,184,105,0.3);
+            border-radius: 20px;
+            padding: 2.5rem;
+            max-width: 420px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 30px 80px rgba(0,0,0,0.7), 0 0 40px rgba(229,184,105,0.08);
+        }
+        .modal-box h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+        .modal-box p {
+            color: var(--muted);
+            font-size: 0.87rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+        .qr-wrap {
+            background: #fff;
+            display: inline-block;
+            padding: 12px;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+        }
+        .qr-wrap img { display: block; width: 180px; height: 180px; }
+        .totp-input {
+            width: 100%;
+            padding: 1rem;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.4rem;
+            letter-spacing: 8px;
+            text-align: center;
+            outline: none;
+            margin-bottom: 1rem;
+            transition: border-color 0.2s;
+        }
+        .totp-input:focus { border-color: var(--gold); }
+        .totp-error {
+            color: var(--red);
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+        .modal-box .btn { width: 100%; padding: 0.9rem; font-size: 1rem; }
+        @media (max-width: 900px) {
+            body { flex-direction: column; }
+            .sidebar {
+                position: relative;
+                width: 100%;
+                min-height: auto;
+                padding: 1rem 1.5rem;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+            .brand { margin-bottom: 1.5rem; }
+            .nav-items { flex-direction: row; flex-wrap: wrap; gap: 0.5rem; }
+            .nav-btn { width: auto; padding: 0.5rem 1rem; }
+            .nav-section { display: none; }
+            .sidebar-footer { padding-top: 1rem; border-top: none; margin-top: 0; }
+            
+            .main {
+                margin-left: 0;
+                padding: 1.5rem 1rem;
+                min-width: 0;
+                width: 100%;
+            }
+            .stats-row { grid-template-columns: 1fr; }
+            
+            /* Make tables scrollable within the card */
+            .table-card { width: 100%; overflow: hidden; }
+            table { 
+                display: block; 
+                width: 100%; 
+                overflow-x: auto; 
+                white-space: nowrap; 
+            }
+            
+            .page-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+            .page-header > div { flex-wrap: wrap; }
+            
+            .staff-grid { grid-template-columns: 1fr !important; }
+            
+            .grid-2 { grid-template-columns: 1fr !important; }
+            .form-row { grid-template-columns: 1fr !important; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Walk-in Booking Modal -->
+    <div class="modal-overlay" id="walkinModal" style="display:none; z-index: 10000;">
+        <div class="modal-box" style="max-width: 500px; text-align: left;">
+            <h2 style="margin-bottom: 1.5rem; text-align: center;">Book Walk-in Slot</h2>
+            <form id="walkinForm">
+                <div class="form-row" style="grid-template-columns: 1fr 1fr;">
+                    <div class="field">
+                        <label>Simulator</label>
+                        <input type="text" id="walkinSim" disabled style="background: rgba(255,255,255,0.05); color: var(--muted);">
+                    </div>
+                    <div class="field">
+                        <label>Date & Time</label>
+                        <input type="text" id="walkinDateTime" disabled style="background: rgba(255,255,255,0.05); color: var(--muted);">
+                    </div>
+                </div>
+                <div class="field" style="margin-top: 1rem;">
+                    <label>Customer Name (Optional)</label>
+                    <input type="text" id="walkinName" placeholder="e.g. Walk-in">
+                </div>
+                <div class="form-row" style="grid-template-columns: 1fr 1fr; margin-top: 1rem;">
+                    <div class="field">
+                        <label>Phone (Optional)</label>
+                        <input type="text" id="walkinPhone" placeholder="10-digit number">
+                    </div>
+                    <div class="field">
+                        <label>Email (Optional)</label>
+                        <input type="email" id="walkinEmail" placeholder="customer@email.com">
+                    </div>
+                </div>
+                <div class="form-row" style="grid-template-columns: 1fr 1fr; margin-top: 1rem; align-items: end;">
+                    <div class="field">
+                        <label>Status</label>
+                        <select id="walkinStatus" style="width:100%; padding: 0.9rem 1.1rem; border: 1px solid var(--border); border-radius: 9px; background: var(--input-bg); color: #fff; font-family: 'Outfit';">
+                            <option value="CASH">Paid (Cash)</option>
+                            <option value="PAID">Paid (Online)</option>
+                            <option value="PENDING">Pending</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label>Price (₹)</label>
+                        <input type="number" id="walkinPrice" value="0">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" class="btn" style="flex:1; background: rgba(255,255,255,0.1); color: #fff;" onclick="document.getElementById('walkinModal').style.display='none'">Cancel</button>
+                    <button type="submit" class="btn btn-gold" style="flex:1;">Confirm Booking</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+        <a href="index.html" class="brand">
+            <div class="brand-icon"><img src="havoc_logo.png" alt="Havoc Logo"></div>
+            <div class="brand-text">
+                <span class="brand-name">HAVOC</span>
+                <span class="brand-sub">Sim Podium</span>
+            </div>
+        </a>
+
+        <p class="nav-section">Navigation</p>
+        <div class="nav-items">
+            <button class="nav-btn active" data-target="tab-bookings">
+                <span class="icon">📋</span> Bookings
+            </button>
+            <button class="nav-btn" data-target="tab-availability">
+                <span class="icon">📅</span> Availability
+            </button>
+            <button class="nav-btn" data-target="tab-coupons" id="nav-coupons">
+                <span class="icon">🎟️</span> Coupons
+            </button>
+            <button class="nav-btn" data-target="tab-staff" id="nav-staff">
+                <span class="icon">👥</span> Staff
+            </button>
+        </div>
+
+        <div class="sidebar-footer">
+            <button class="logout-btn" id="logoutBtn">
+                <span>⏎</span> Logout
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+
+        <!-- BOOKINGS TAB -->
+        <div id="tab-bookings" class="tab-content active">
+            <div class="page-header">
+                <h1 class="page-title">Recent <span>Bookings</span></h1>
+            </div>
+
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-label">Total Bookings</div>
+                    <div class="stat-value" id="statTotal">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Confirmed</div>
+                    <div class="stat-value green" id="statPaid">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Pending</div>
+                    <div class="stat-value gold" id="statPending">—</div>
+                </div>
+            </div>
+
+            <div class="table-card">
+                <div class="table-card-header">
+                    <span class="table-card-title">All Bookings</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Date & Time</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="bookingsTableBody">
+                        <tr><td colspan="5" class="empty-state">Loading bookings…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- AVAILABILITY TAB -->
+        <div id="tab-availability" class="tab-content">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h1 class="page-title">Slot <span>Availability</span></h1>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <label style="color: var(--muted); font-size: 0.9rem; font-weight: 600;">Select Date:</label>
+                    <select id="availDateSelect" style="padding: 0.6rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit'; font-size: 1rem; outline: none; cursor: pointer; min-width: 150px;">
+                        <!-- Populated by JS with dates like Aug 31 -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="sim-filters" id="simFilters" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; background: var(--card-bg); padding: 0.5rem; border-radius: 12px; border: 1px solid var(--border);">
+                <!-- Buttons injected by JS -->
+            </div>
+
+            <div id="availGridContainer" class="availability-grid">
+                <!-- Cards injected by JS -->
+            </div>
+            
+            <div style="margin-top: 1.5rem; display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--muted);">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <div style="width: 16px; height: 16px; border-radius: 4px; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3);"></div>
+                    Available for Walk-ins
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <div style="width: 16px; height: 16px; border-radius: 4px; background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3);"></div>
+                    Booked / Unavailable
+                </div>
+            </div>
+        </div>
+
+        <!-- COUPONS TAB -->
+        <div id="tab-coupons" class="tab-content">
+            <div class="page-header">
+                <h1 class="page-title">Manage <span>Coupons</span></h1>
+            </div>
+
+            <div class="add-coupon-card">
+                <h3>+ Add New Coupon</h3>
+                <form id="addCouponForm" autocomplete="off">
+                    <input type="text" style="display:none" aria-hidden="true">
+                    <div class="form-row">
+                        <div class="field">
+                            <label>Coupon Code</label>
+                            <input type="text" id="couponCode" autocomplete="new-password" required placeholder="e.g. SUMMER20">
+                        </div>
+                        <div class="field">
+                            <label>Discount Type</label>
+                            <select id="couponType">
+                                <option value="percent">Percentage (%)</option>
+                                <option value="flat">Flat Amount (₹)</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Value</label>
+                            <input type="number" id="couponValue" autocomplete="new-password" required placeholder="10">
+                        </div>
+                        <button type="submit" class="btn btn-gold">Add</button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="table-card">
+                <div class="table-card-header">
+                    <span class="table-card-title">Active Coupons</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Code</th>
+                            <th>Type</th>
+                            <th>Value</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="couponsTableBody">
+                        <tr><td colspan="4" class="empty-state">Loading coupons…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- STAFF TAB -->
+        <div id="tab-staff" class="tab-content">
+            <div class="page-header">
+                <h1 class="page-title">Staff <span>Accounts</span></h1>
+                <p style="color: var(--muted); margin-top: 0.5rem;">Manage worker login access to this dashboard.</p>
+            </div>
+
+            <div class="staff-grid" style="display: grid; grid-template-columns: 1fr 350px; gap: 2rem; align-items: start;">
+                
+                <div class="table-card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>User ID</th>
+                                <th>Username</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="staffTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="add-coupon-card">
+                    <h3 style="margin-bottom: 1.5rem; font-size: 1.2rem;">Create Account</h3>
+                    <form id="addStaffForm" autocomplete="off">
+                        <!-- Honeypot -->
+                        <input type="text" style="display:none" aria-hidden="true">
+                        <input type="password" style="display:none" aria-hidden="true">
+                        
+                        <div class="field">
+                            <label>Username</label>
+                            <!-- honeypot to trick browser autofill to target these hidden fields instead -->
+                            <input type="text" name="fakeusernameremembered" style="display:none;" tabindex="-1" aria-hidden="true">
+                            <input type="password" name="fakepasswordremembered" style="display:none;" tabindex="-1" aria-hidden="true">
+                            <div class="input-wrap">
+                                <input type="text" id="staffUsername" name="new-staff-username" placeholder="e.g. rohan" required autocomplete="off">
+                            </div>
+                        </div>
+                        
+                        <div class="field" style="margin-bottom: 1.5rem;">
+                            <label>Role</label>
+                            <div class="input-wrap">
+                                <select id="staffRole" style="width:100%; padding: 0.9rem 1.1rem; background: transparent !important; border: none !important; outline: none; color: #fff; font-family: 'Outfit', sans-serif; font-size: 0.95rem; display: block; appearance: none; -webkit-appearance: none;">
+                                    <option value="staff">Staff (Bookings & Availability)</option>
+                                    <option value="super_admin">Super Admin (Full Access)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <p style="font-size: 0.75rem; color: var(--muted); margin-bottom: 1.5rem;">A default password (sabharwal@65) will be assigned. The user will be forced to change it on their first login.</p>
+                        <button type="submit" class="btn btn-gold">Create Account</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- 2FA Setup Modal -->
+    <div id="totpModal">
+        <div class="modal-box">
+            <h2>Setup 2FA Authentication</h2>
+            <p>Scan this QR code with <strong>Microsoft Authenticator</strong> or Google Authenticator, then enter the 6-digit code to confirm.</p>
+            <div class="qr-wrap">
+                <img id="qrCodeImg" src="" alt="QR Code">
+            </div>
+            <input type="text" class="totp-input" id="totpVerifyCode" maxlength="6" placeholder="000000" autocomplete="one-time-code">
+            <p id="totpError" class="totp-error"></p>
+            <button class="btn btn-gold" id="btnVerifyTotp">Verify & Activate 2FA</button>
+        </div>
+    </div>
+
+    <script src="admin-dashboard.js"></script>
+</body>
+</html>

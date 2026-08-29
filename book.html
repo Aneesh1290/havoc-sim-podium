@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Tickets - Havoc Sim Podium</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="book.css">
+    <link rel="icon" type="image/png" href="havoc_logo.png">
+</head>
+<body class="booking-page">
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">
+                <img src="havoc_logo.png" alt="Havoc Logo" class="logo-icon">
+                <div class="logo-text">
+                    <div class="logo-main">HAVOC</div>
+                    <div class="logo-sub">SIM PODIUM</div>
+                </div>
+            </a>
+            
+            <nav class="nav-links">
+                <a href="index.html">HOME</a>
+                <a href="index.html#simulators">SIMULATORS</a>
+                <a href="index.html#contact">CONTACT</a>
+            </nav>
+
+            <button class="hamburger-menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <main class="book-main">
+        <!-- View 1: Month Selector -->
+        <section id="monthView" class="book-view active">
+            <div class="month-header">
+                <h1 class="book-title">CHOOSE YOUR <span class="accent-text">MONTH</span></h1>
+            </div>
+            <div class="month-selector" id="dynamicMonthSelector">
+                <!-- Months will be dynamically injected here by JS -->
+            </div>
+        </section>
+
+        <!-- View 2: Product Grid -->
+        <section id="productView" class="book-view">
+            <div class="product-header">
+                <div class="breadcrumbs">
+                    <a href="index.html">Home</a> &gt; <span id="currentMonthText">September 2026</span>
+                </div>
+                <div class="product-filters">
+                    <span>6 products</span>
+                    <select class="sort-select">
+                        <option>Sort by: Recommended</option>
+                        <option>Racing Simulators</option>
+                        <option>Flight Simulators</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="product-layout">
+                <!-- Sidebar Filters -->
+                <aside class="product-sidebar">
+                    <h3>Browse by</h3>
+                    <ul class="filter-list" id="dynamicMonthSidebar">
+                        <!-- Sidebar months dynamically injected here by JS -->
+                    </ul>
+                    
+
+                </aside>
+
+                <!-- Product Grid -->
+                <div class="product-grid">
+                    <div class="product-card" data-category="flight">
+                        <img src="assets/rc-flying-sim.png" alt="RC Flying Sim">
+                        <div class="product-info">
+                            <h4>Sep - RC Flying Sim - 30 Minutes</h4>
+                            <div class="product-price">₹300.00</div>
+                            <button class="btn btn-product add-to-cart">Add to Cart</button>
+                        </div>
+                    </div>
+                    
+                    <div class="product-card" data-category="flight">
+                        <img src="assets/flight-sim-pro.png" alt="Flight Sim Pro">
+                        <div class="product-info">
+                            <h4>Sep - Flight Sim Pro - 30 Minutes</h4>
+                            <div class="product-price">₹1,500.00</div>
+                            <button class="btn btn-product add-to-cart">Add to Cart</button>
+                        </div>
+                    </div>
+                    
+                    <div class="product-card" data-category="racing">
+                        <img src="assets/race-sim-gt.png" alt="Race Sim GT">
+                        <div class="product-info">
+                            <h4>Sep - Race Sim GT - 30 Minutes</h4>
+                            <div class="product-price">₹500.00</div>
+                            <button class="btn btn-product add-to-cart">Add to Cart</button>
+                        </div>
+                    </div>
+
+                    <div class="product-card" data-category="racing">
+                        <img src="assets/race-sim-f1.png" alt="Race Sim F1">
+                        <div class="product-info">
+                            <h4>Sep - Race Sim F1 - 30 Minutes</h4>
+                            <div class="product-price">₹600.00</div>
+                            <button class="btn btn-product add-to-cart">Add to Cart</button>
+                        </div>
+                    </div>
+
+                    <div class="product-card" data-category="racing">
+                        <img src="assets/race-sim-jr.png" alt="Race Sim Jr">
+                        <div class="product-info">
+                            <h4>Sep - Race Sim Jr. - 30 Minutes</h4>
+                            <div class="product-price">₹400.00</div>
+                            <button class="btn btn-product add-to-cart">Add to Cart</button>
+                        </div>
+                    </div>
+
+                    <div class="product-card" data-category="racing">
+                        <img src="assets/race-sim-beginner.png" alt="Race Sim Beginner">
+                        <div class="product-info">
+                            <h4>Sep - Race Sim Beginner - 30 Minutes</h4>
+                            <div class="product-price">₹300.00</div>
+                            <button class="btn btn-product add-to-cart">Add to Cart</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Date & Slot Picker Modal -->
+    <div id="slotModal" class="slot-modal-overlay">
+        <div class="slot-modal">
+            <div class="slot-modal-header">
+                <div class="slot-modal-product">
+                    <img id="modalProductImg" src="" alt="" class="slot-modal-img">
+                    <div>
+                        <h3 id="modalProductName">Select Simulator</h3>
+                        <span id="modalProductPrice" class="slot-modal-price"></span>
+                    </div>
+                </div>
+                <button class="slot-modal-close" id="slotModalClose">&times;</button>
+            </div>
+
+            <div class="slot-modal-body">
+                <div class="slot-section">
+                    <h4>Select Date <span class="slot-required">*</span></h4>
+                    <div class="date-pills" id="datePills"></div>
+                </div>
+
+                <div class="slot-section">
+                    <h4>Select Time Slot <span class="slot-required">*</span></h4>
+                    <div class="time-pills" id="timePills"></div>
+                </div>
+            </div>
+
+            <div class="slot-modal-footer">
+                <div class="slot-selection-summary" id="slotSummary">Select a date and time slot to continue</div>
+                <button class="btn-add-confirm" id="confirmAddToCart" disabled>Add to Cart</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Slide-out Cart -->
+    <div id="cartDrawer" class="cart-drawer">
+        <div class="cart-header">
+            <h2>Cart (<span id="cartCount">1</span> item)</h2>
+            <button class="close-cart">&times;</button>
+        </div>
+        <div class="cart-body">
+            <div class="cart-item">
+                <img src="assets/race-sim-gt.png" alt="Sim" id="cartItemImage">
+                <div class="cart-item-details">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
+                        <h4 id="cartItemName" style="margin:0; flex:1; line-height:1.3;">Sep - Race Sim GT - 30 Minutes</h4>
+                        <button id="removeCartItem" aria-label="Remove item" style="background:transparent;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:1.8rem;line-height:0.8;padding:0;transition:0.2s;">&times;</button>
+                    </div>
+                    <div class="cart-price" id="cartItemPrice">₹500.00</div>
+                </div>
+            </div>
+        </div>
+        <div class="cart-footer">
+            <div class="cart-total">
+                <span>Estimated total</span>
+                <span class="total-amount" id="cartTotal">₹500.00</span>
+            </div>
+            <button class="btn btn-primary btn-full checkout-btn">CHECKOUT</button>
+        </div>
+    </div>
+
+    <script src="book.js"></script>
+</body>
+</html>

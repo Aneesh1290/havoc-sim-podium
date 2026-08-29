@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Havoc Sim Podium</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="havoc_logo.png">
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="#" class="logo">
+                <img src="havoc_logo.png" alt="Havoc Logo" class="logo-icon">
+                <div class="logo-text">
+                    <div class="logo-main">HAVOC</div>
+                    <div class="logo-sub">SIM PODIUM</div>
+                </div>
+            </a>
+            
+            <nav class="nav-links">
+                <a href="#home" class="active">HOME</a>
+                <a href="#simulators">SIMULATORS</a>
+                <a href="#about">ABOUT</a>
+                <a href="#contact">CONTACT</a>
+                <a href="book.html" class="cta-button nav-cta">BOOK NOW &rarr;</a>
+            </nav>
+
+            <a href="book.html" class="btn btn-primary" style="display: none;">BOOK NOW &rarr;</a>
+
+            <button class="hamburger-menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section id="home" class="hero-section" style="background-image: url('main_background.png');">
+            <div class="hero-overlay"></div>
+            <div class="hero-grid">
+                <div class="hero-left">
+                    <h1 class="hero-title">
+                        DRIVE.<br>
+                        FLY.<br>
+                        <span class="accent-text">COMPETE.</span><br>
+                        EXPERIENCE.
+                    </h1>
+                    <p class="hero-subtitle">Premium Racing & Flight Simulators<br>in Bengaluru.</p>
+                    
+                    <div class="hero-cta">
+                    <a href="book.html" class="btn btn-primary hero-btn-main">BOOK YOUR EXPERIENCE &rarr;</a>
+                    <a href="#simulators" class="btn btn-secondary">EXPLORE SIMULATORS</a>
+                </div>
+                    
+                    <div class="hero-social-proof">
+                        <div class="avatars">
+                            <div class="avatar"></div>
+                            <div class="avatar"></div>
+                            <div class="avatar"></div>
+                        </div>
+                        <div class="rating-text">
+                            <strong>4.9</strong> <span class="stars">★★★★★</span> 500+ Happy Racers
+                        </div>
+                    </div>
+                </div>
+
+
+                <div class="hero-right">
+                    <ul class="feature-list">
+                        <li>
+                            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg></div>
+                            <div class="feature-text">
+                                <strong>PROFESSIONAL</strong>
+                                <span>SIM RIGS</span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="2" y="6" width="20" height="12" rx="2"></rect><circle cx="16" cy="12" r="2"></circle><line x1="6" y1="12" x2="10" y2="12"></line><line x1="8" y1="10" x2="8" y2="14"></line></svg></div>
+                            <div class="feature-text">
+                                <strong>MULTIPLE</strong>
+                                <span>EXPERIENCES</span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7c0 3.31 2.69 6 6 6s6-2.69 6-6V2z"></path></svg></div>
+                            <div class="feature-text">
+                                <strong>COMPETITIVE</strong>
+                                <span>EVENTS</span>
+                            </div>
+                        </li>
+                        <li>
+                            <div class="feature-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg></div>
+                            <div class="feature-text">
+                                <strong>SAFE & FUN</strong>
+                                <span>ENVIRONMENT</span>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <section class="stats-bar">
+            <div class="stat-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <div class="stat-text">
+                    <strong>500+</strong>
+                    <span>HAPPY RIDERS</span>
+                </div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"></line><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"></line><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"></line><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"></line></svg>
+                <div class="stat-text">
+                    <strong>5+</strong>
+                    <span>SIMULATORS</span>
+                </div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                <div class="stat-text">
+                    <strong>4.8★</strong>
+                    <span>GOOGLE RATING</span>
+                </div>
+            </div>
+        </section>
+
+        <section id="simulators" class="main-content-grid">
+            <div class="simulators-section">
+                <div class="section-header">
+                    <h2>CHOOSE YOUR <span class="accent-text">EXPERIENCE</span></h2>
+
+                </div>
+                
+                <div class="experience-tabs">
+                    <button class="tab-btn active">RACING SIMULATORS</button>
+                    <button class="tab-btn">FLIGHT SIMULATORS</button>
+                </div>
+
+                <div class="carousel-container">
+                    <button class="nav-btn prev">&lt;</button>
+                    <div class="simulator-cards">
+                        <!-- Card 1 -->
+                        <div class="sim-card" data-category="racing">
+                            <div class="sim-img-wrap"><img src="assets/race-sim-beginner.png" alt="Beginner"></div>
+                            <div class="sim-info">
+                                <div class="sim-type">RACE SIM</div>
+                                <h3>BEGINNER</h3>
+                                <div class="sim-meta">
+                                    <span>⏱ 30 MINUTES</span>
+                                </div>
+                                <div class="sim-price">₹300</div>
+                                <a href="book.html" class="btn btn-card">BOOK NOW</a>
+                            </div>
+                        </div>
+                        <!-- Card 2 -->
+                        <div class="sim-card" data-category="racing">
+                            <div class="sim-img-wrap"><img src="assets/race-sim-jr.png" alt="Junior"></div>
+                            <div class="sim-info">
+                                <div class="sim-type">RACE SIM</div>
+                                <h3>JUNIOR</h3>
+                                <div class="sim-meta">
+                                    <span>⏱ 30 MINUTES</span>
+                                </div>
+                                <div class="sim-price">₹400</div>
+                                <a href="book.html" class="btn btn-card">BOOK NOW</a>
+                            </div>
+                        </div>
+                        <!-- Card 3 -->
+                        <div class="sim-card active" data-category="racing">
+                            <div class="badge">POPULAR</div>
+                            <div class="sim-img-wrap"><img src="assets/race-sim-gt.png" alt="GT"></div>
+                            <div class="sim-info">
+                                <div class="sim-type">RACE SIM</div>
+                                <h3>GT</h3>
+                                <div class="sim-meta">
+                                    <span>⏱ 30 MINUTES</span>
+                                </div>
+                                <div class="sim-price">₹500</div>
+                                <a href="book.html" class="btn btn-card primary">BOOK NOW</a>
+                            </div>
+                        </div>
+                        <!-- Card 4 -->
+                        <div class="sim-card" data-category="racing">
+                            <div class="sim-img-wrap"><img src="assets/race-sim-f1.png" alt="F1"></div>
+                            <div class="sim-info">
+                                <div class="sim-type">RACE SIM</div>
+                                <h3>F1</h3>
+                                <div class="sim-meta">
+                                    <span>⏱ 30 MINUTES</span>
+                                </div>
+                                <div class="sim-price">₹600</div>
+                                <a href="book.html" class="btn btn-card">BOOK NOW</a>
+                            </div>
+                        </div>
+                        <!-- Card 5 -->
+                        <div class="sim-card" data-category="flight" style="display: none;">
+                            <div class="sim-img-wrap"><img src="assets/flight-sim-pro.png" alt="Pro"></div>
+                            <div class="sim-info">
+                                <div class="sim-type">RACE SIM</div>
+                                <h3>PRO</h3>
+                                <div class="sim-meta">
+                                    <span>⏱ 30 MINUTES</span>
+                                </div>
+                                <div class="sim-price">₹800</div>
+                                <a href="book.html" class="btn btn-card">BOOK NOW</a>
+                            </div>
+                        </div>
+                        <!-- Card 6 (Flight) -->
+                        <div class="sim-card" data-category="flight" style="display: none;">
+                            <div class="sim-img-wrap"><img src="assets/rc-flying-sim.png" alt="RC Flying"></div>
+                            <div class="sim-info">
+                                <div class="sim-type">FLIGHT SIM</div>
+                                <h3>RC FLYING</h3>
+                                <div class="sim-meta">
+                                    <span>⏱ 30 MINUTES</span>
+                                </div>
+                                <div class="sim-price">₹300</div>
+                                <a href="book.html" class="btn btn-card">BOOK NOW</a>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="nav-btn next">&gt;</button>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="venue-widget">
+                    <h3>OUR VENUE</h3>
+                    <img src="C:\Users\anees\.gemini\antigravity-ide\brain\d44ea021-ee79-43e1-ab0b-96b842cf6359\sim_gt_1787311835495.jpg" alt="Venue" class="venue-img">
+                    <div class="venue-icons">
+                        <div class="v-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                            <span>PREMIUM<br>LOCATION</span>
+                        </div>
+                        <div class="v-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 17V7h4a3 3 0 0 1 0 6H9"></path></svg>
+                            <span>PARKING<br>AVAILABLE</span>
+                        </div>
+                        <div class="v-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path></svg>
+                            <span>FOOD &<br>BEVERAGES</span>
+                        </div>
+                        <div class="v-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            <span>OPEN EVERYDAY<br>11 AM - 11 PM</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="about" class="about-section">
+            <div class="marquee">
+                <div class="marquee-content">
+                    Join the Fun | Visit Havoc Sim Podium &nbsp;&nbsp;&nbsp;&nbsp; Join the Fun | Visit Havoc Sim Podium &nbsp;&nbsp;&nbsp;&nbsp; Join the Fun | Visit Havoc Sim Podium &nbsp;&nbsp;&nbsp;&nbsp; Join the Fun | Visit Havoc Sim Podium
+                </div>
+            </div>
+            
+            <div class="about-container">
+                <div class="about-left">
+                    <h2>Why Choose Us</h2>
+                    <span class="about-subtitle">The Ultimate Simulator Experience</span>
+                    <p>Experience the ultimate blend of RC action and immersive simulation, where technology meets excitement. Havoc Sim Podium brings you thrilling experiences in a safe, engaging, and fun-filled environment for everyone.</p>
+                    <a href="book.html" class="btn btn-primary">BOOK NOW &rarr;</a>
+                </div>
+                
+                <div class="about-right">
+                    <div class="feature-grid">
+                        <div class="f-box">
+                            <div class="f-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                            </div>
+                            <h3>Exciting Games</h3>
+                            <span class="f-sub">Wide Game Selection</span>
+                            <p>Enjoy a wide selection of games that cater to different tastes and preferences, ensuring there's something for everyone.</p>
+                        </div>
+                        <div class="f-box">
+                            <div class="f-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><path d="M8 14s1.5 2 4 2 4-2 4-2"></path><line x1="9" y1="9" x2="9.01" y2="9"></line><line x1="15" y1="9" x2="15.01" y2="9"></line></svg>
+                            </div>
+                            <h3>Prize Redemption</h3>
+                            <span class="f-sub">Win Big Prizes</span>
+                            <p>Test your skills and luck at our redemption games for a chance to win exciting prizes and rewards.</p>
+                        </div>
+                        <div class="f-box">
+                            <div class="f-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path></svg>
+                            </div>
+                            <h3>Special Events</h3>
+                            <span class="f-sub">Engaging Activities</span>
+                        </div>
+                        <div class="f-box">
+                            <div class="f-icon">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path><path d="M4 22h16"></path><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"></path><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"></path><path d="M18 2H6v7a6 6 0 0 0 12 0V2z"></path></svg>
+                            </div>
+                            <h3>Tournaments</h3>
+                            <span class="f-sub">Compete and Win</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer id="contact" class="light-footer">
+        <div class="footer-top">
+            <div class="newsletter">
+                <h3>STAY IN THE LOOP</h3>
+                <p>Get updates on events, offers & more!</p>
+                <div class="input-group">
+                    <input type="email" placeholder="Enter your email">
+                    <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+                </div>
+                <p class="copyright">&copy; 2026 Havoc Sim Podium. All rights reserved.</p>
+            </div>
+            
+            <div class="footer-brand">
+                <div class="footer-logo">
+                    <img src="havoc_logo.png" alt="Havoc Logo" class="logo-icon">
+                    <div class="logo-text">
+                        <div class="logo-main" style="color:#000;">HAVOC</div>
+                        <div class="logo-sub" style="color:#555;">SIM PODIUM</div>
+                    </div>
+                </div>
+                <div class="socials">
+                    <a href="https://www.instagram.com/havocsimpodium/" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                        <svg viewBox="0 0 24 24" width="20" height="20">
+                            <defs>
+                                <linearGradient id="igGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+                                    <stop offset="0%" stop-color="#f09433"/>
+                                    <stop offset="25%" stop-color="#e6683c"/>
+                                    <stop offset="50%" stop-color="#dc2743"/>
+                                    <stop offset="75%" stop-color="#cc2366"/>
+                                    <stop offset="100%" stop-color="#bc1888"/>
+                                </linearGradient>
+                            </defs>
+                            <path fill="url(#igGrad)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm3.98-10.169a1.44 1.44 0 100 2.88 1.44 1.44 0 000-2.88z"/>
+                        </svg>
+                    </a>
+                    <a href="https://maps.app.goo.gl/adbVXA7vAeKKxRBb9" target="_blank" rel="noopener noreferrer" aria-label="Google Maps">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/a/aa/Google_Maps_icon_%282020%29.svg" alt="Google Maps" style="width: 20px; height: 20px; object-fit: contain;">
+                    </a>
+                    <a href="https://search.google.com/local/writereview?placeid=ChIJb8-vOgMVrjsRW__4-FpHspA" target="_blank" rel="noopener noreferrer" aria-label="Google Reviews">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+
+            <div class="footer-links">
+                <div class="col">
+                    <h4>QUICK LINKS</h4>
+                    <a href="#">Simulators</a>
+                    <a href="#">About Us</a>
+                    <a href="#">Contact</a>
+                </div>
+                <div class="col">
+                    <h4>CONTACT US</h4>
+                    <p>📞 +91 95355 45654</p>
+                    <p>✉️ havocsim@gmail.com</p>
+                    <p>📍 KH, Bus Stand, Double Rd,<br>Shantinagar, Sudhama Nagar,<br>Bengaluru, Karnataka 560027</p>
+                </div>
+            </div>
+
+            <div class="footer-hours">
+                <div class="legal" style="margin-top: 0;">
+                    <a href="privacy-policy.html">Privacy Policy</a>
+                    <a href="terms-conditions.html">Terms & Conditions</a>
+                    <a href="refund-policy.html">Refund Policy</a>
+                    <a href="accessibility-statement.html">Accessibility Statement</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+</html>
