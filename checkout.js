@@ -23,7 +23,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const cart = raw ? JSON.parse(raw) : null;
 
     if (!cart || !cart.itemName) {
-        window.location.href = "book.html";
+        window.location.href = "/book";
         return;
     }
 

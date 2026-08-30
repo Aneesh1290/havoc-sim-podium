@@ -1,5 +1,5 @@
 const token = localStorage.getItem('admin_token');
-if (!token) window.location.href = 'admin-login.html';
+if (!token) window.location.href = "/admin-login";
 
 const BACKEND_URL = 'http://localhost:3000';
 
@@ -13,7 +13,7 @@ async function fetchAuth(url, options = {}) {
     const res = await fetch(`${BACKEND_URL}${url}`, { ...options, headers });
     if (res.status === 401 || res.status === 403) {
         localStorage.removeItem('admin_token');
-        window.location.href = 'admin-login.html';
+        window.location.href = "/admin-login";
     }
     return res;
 }
@@ -53,7 +53,7 @@ if (urlParams.get('setup') === 'true') {
         if (data.success) {
             alert('2FA Setup Successful! Please login again with your new code.');
             localStorage.removeItem('admin_token');
-            window.location.href = 'admin-login.html';
+            window.location.href = "/admin-login";
         } else {
             errorMsg.textContent = data.error || 'Verification failed';
             errorMsg.style.display = 'block';
@@ -80,7 +80,7 @@ tabs.forEach(tab => {
 // ---- Logout ----
 document.getElementById('logoutBtn').addEventListener('click', () => {
     localStorage.removeItem('admin_token');
-    window.location.href = 'admin-login.html';
+    window.location.href = "/admin-login";
 });
 
 // ---- Fetch Data ----

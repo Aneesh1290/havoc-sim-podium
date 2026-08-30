@@ -20,7 +20,7 @@ app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 // Serve all HTML, CSS, JS, and asset files from the project root
-app.use(express.static(path.join(__dirname)));
+app.use(express.static(path.join(__dirname), { extensions: ['html'] }));
 
 // Cashfree Credentials & Environment
 const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;

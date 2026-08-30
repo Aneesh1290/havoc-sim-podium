@@ -374,7 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
             slot:      selectedSlot             || ""
         };
         localStorage.setItem("havoc_cart", JSON.stringify(cartData));
-        window.location.href = "checkout.html";
+        window.location.href = "/checkout";
     });
 
     // =============================================

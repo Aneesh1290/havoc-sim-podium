@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
             clickCount++;
             
             if (clickCount === 3) {
-                window.location.href = 'admin-login.html';
+                window.location.href = "/admin-login";
                 clickCount = 0;
             }
 

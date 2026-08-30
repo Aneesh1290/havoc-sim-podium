@@ -43,9 +43,9 @@ form.addEventListener('submit', async (e) => {
             } else {
                 // Redirect
                 if (data.totpSetup === false) {
-                    window.location.href = 'admin-dashboard.html?setup=true';
+                    window.location.href = "/admin-dashboard?setup=true";
                 } else {
-                    window.location.href = 'admin-dashboard.html';
+                    window.location.href = "/admin-dashboard";
                 }
             }
         } else {
@@ -109,7 +109,7 @@ if (resetForm) {
             
             if (res.ok && data.success) {
                 // Success! Redirect to dashboard
-                window.location.href = 'admin-dashboard.html';
+                window.location.href = "/admin-dashboard";
             } else {
                 errorMsg.textContent = data.error || 'Failed to update password.';
                 errorMsg.style.display = 'block';
