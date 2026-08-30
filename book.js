@@ -182,7 +182,8 @@ document.addEventListener("DOMContentLoaded", () => {
         timePillsEl.innerHTML = "";
 
         const now         = new Date();
-        const isToday     = selectedDateStr === today.toISOString().split("T")[0];
+        const localDateStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+        const isToday     = selectedDateStr === localDateStr;
         const currentHour = now.getHours();
         const currentMin  = now.getMinutes();
 
