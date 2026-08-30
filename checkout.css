@@ -3,7 +3,7 @@
    ============================================= */
 
 body.checkout-page {
-    background: #121212;
+    background: #1e1f2c;
     color: #fff;
     min-height: 100vh;
     font-family: "Outfit", sans-serif;
@@ -15,8 +15,8 @@ body.checkout-page {
     align-items: center;
     justify-content: space-between;
     padding: 1.2rem 3rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    background: rgba(18, 18, 18, 0.9);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(30, 31, 44, 0.95);
     backdrop-filter: blur(10px);
     position: sticky;
     top: 0;
@@ -97,8 +97,8 @@ body.checkout-page {
 
 .co-field input,
 .co-field select {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 10px;
     padding: 0.9rem 1rem;
     color: #fff;

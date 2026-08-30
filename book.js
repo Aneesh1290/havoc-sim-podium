@@ -144,17 +144,32 @@ document.addEventListener("DOMContentLoaded", () => {
         const year  = activeMonthYear;
         const month = activeMonthIdx;
         const daysInMonth = new Date(year, month + 1, 0).getDate();
+        
+        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
         for (let d = 1; d <= daysInMonth; d++) {
             const dateObj  = new Date(year, month, d);
             const isPast   = dateObj < today;
-            const label    = `${monthNames[month].substring(0,3)} ${d}`;
+            const isMonday = dateObj.getDay() === 1;
+            const dayName  = dayNames[dateObj.getDay()];
+            
+            const label    = `${monthNames[month].substring(0,3)} ${d} (${dayName})`;
             const pill     = document.createElement("button");
-            pill.className = "pill" + (isPast ? " pill-disabled" : "");
-            pill.textContent = label;
+            
+            const isDisabled = isPast || isMonday;
+            pill.className = "pill" + (isDisabled ? " pill-disabled" : "");
+            
+            // Show 'Closed' for Mondays if it's not already passed
+            if (isMonday && !isPast) {
+                pill.textContent = `${label} - Closed`;
+            } else {
+                pill.textContent = label;
+            }
+            
             pill.dataset.date = `${year}-${String(month+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
             pill.dataset.label = label;
-            if (!isPast) {
+            
+            if (!isDisabled) {
                 pill.addEventListener("click", () => selectDate(pill));
             }
             datePillsEl.appendChild(pill);

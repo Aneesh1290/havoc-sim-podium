@@ -695,7 +695,33 @@
         </div>
     </div>
 
-    <!-- Sidebar -->
+    <!-- Change Password Modal -->
+    <div class="modal-overlay" id="changePwModal" style="display:none; z-index: 10001;">
+        <div class="modal-box" style="max-width: 420px; text-align: left;">
+            <h2 style="margin-bottom: 0.4rem;">🔑 Change Password</h2>
+            <p style="color: var(--muted); font-size: 0.85rem; margin-bottom: 1.5rem;">Enter your current password and choose a new one.</p>
+            <div class="field" style="margin-bottom: 1rem;">
+                <label style="font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 0.4rem;">Current Password</label>
+                <input type="password" id="cpCurrentPw" placeholder="Your current password" style="width:100%; padding: 0.85rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 9px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+            </div>
+            <div class="field" style="margin-bottom: 1rem;">
+                <label style="font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 0.4rem;">New Password</label>
+                <input type="password" id="cpNewPw" placeholder="At least 6 characters" style="width:100%; padding: 0.85rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 9px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+            </div>
+            <div class="field" style="margin-bottom: 1.5rem;">
+                <label style="font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 0.4rem;">Confirm New Password</label>
+                <input type="password" id="cpConfirmPw" placeholder="Re-enter new password" style="width:100%; padding: 0.85rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 9px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+            </div>
+            <p id="cpError" style="color: var(--red); font-size: 0.85rem; margin-bottom: 1rem; display: none;"></p>
+            <p id="cpSuccess" style="color: var(--green); font-size: 0.85rem; margin-bottom: 1rem; display: none;">✅ Password changed successfully!</p>
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn" style="flex:1; background: rgba(255,255,255,0.1); color: #fff;" id="cpCancelBtn">Cancel</button>
+                <button class="btn btn-gold" style="flex:1;" id="cpSubmitBtn">Update Password</button>
+            </div>
+        </div>
+    </div>
+
+
     <aside class="sidebar">
         <a href="index.html" class="brand">
             <div class="brand-icon"><img src="havoc_logo.png" alt="Havoc Logo"></div>
@@ -722,6 +748,9 @@
         </div>
 
         <div class="sidebar-footer">
+            <button class="logout-btn" style="margin-bottom: 0.6rem; border-color: rgba(229,184,105,0.3); color: var(--gold);" onclick="document.getElementById('changePwModal').style.display='flex'">
+                <span>🔑</span> Change Password
+            </button>
             <button class="logout-btn" id="logoutBtn">
                 <span>⏎</span> Logout
             </button>
@@ -894,7 +923,7 @@
                             <input type="text" name="fakeusernameremembered" style="display:none;" tabindex="-1" aria-hidden="true">
                             <input type="password" name="fakepasswordremembered" style="display:none;" tabindex="-1" aria-hidden="true">
                             <div class="input-wrap">
-                                <input type="text" id="staffUsername" name="new-staff-username" placeholder="e.g. rohan" required autocomplete="off">
+                                <input type="text" id="staffUsername" name="new-staff-username" placeholder="e.g. rohan" required autocomplete="new-password">
                             </div>
                         </div>
                         

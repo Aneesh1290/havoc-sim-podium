@@ -1,6 +1,6 @@
 /* Booking Page Specific Styles */
 body.booking-page {
-    background: linear-gradient(to right, rgba(5,5,5,0.95), rgba(5,5,5,0.9)), url('assets/race-sim-f1.png');
+    background: linear-gradient(to right, rgba(10,10,18,0.72), rgba(10,10,18,0.65)), url('assets/race-sim-f1.png');
     background-size: cover;
     background-position: center;
     background-attachment: fixed;
@@ -53,8 +53,8 @@ body.booking-page {
 .month-card-btn {
     width: 340px;
     height: 400px;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 16px;
     backdrop-filter: blur(20px);
     display: flex;
@@ -65,7 +65,7 @@ body.booking-page {
     transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     position: relative;
     overflow: hidden;
-    box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.2);
 }
 
 .month-card-btn::before {
@@ -104,7 +104,7 @@ body.booking-page {
     display: block;
     font-size: 4rem;
     font-weight: 800;
-    color: rgba(255, 255, 255, 0.4);
+    color: rgba(255, 255, 255, 0.65);
     margin-bottom: 2.5rem;
     transition: color 0.4s ease;
 }

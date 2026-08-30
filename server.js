@@ -153,6 +153,32 @@ app.post('/api/admin/change-password', verifyToken, async (req, res) => {
     }
 });
 
+// 5. Change Own Password (Admin self-service, verifies current password)
+app.post('/api/admin/change-my-password', verifyToken, async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword || newPassword.length < 6) {
+        return res.status(400).json({ error: 'Invalid input. New password must be at least 6 characters.' });
+    }
+
+    db.get("SELECT * FROM admin_auth WHERE id = ?", [req.user.id], async (err, user) => {
+        if (err || !user) return res.status(404).json({ error: 'User not found.' });
+
+        const match = await bcrypt.compare(currentPassword, user.password_hash);
+        if (!match) return res.status(401).json({ error: 'Current password is incorrect.' });
+
+        try {
+            const hash = await bcrypt.hash(newPassword, 10);
+            db.run("UPDATE admin_auth SET password_hash = ?, must_change_password = 0 WHERE id = ?", [hash, req.user.id], (err) => {
+                if (err) return res.status(500).json({ error: 'Database error.' });
+                res.json({ success: true });
+            });
+        } catch (e) {
+            res.status(500).json({ error: 'Error updating password.' });
+        }
+    });
+});
+
+
 // ==========================================
 // USER MANAGEMENT ROUTES
 // ==========================================

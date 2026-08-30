@@ -615,3 +615,69 @@ renderSimFilters();
 loadBookings();
 loadAvailability();
 checkRole();
+
+// ==========================================
+// CHANGE MY PASSWORD LOGIC
+// ==========================================
+document.getElementById('cpCancelBtn').addEventListener('click', () => {
+    document.getElementById('changePwModal').style.display = 'none';
+    document.getElementById('cpCurrentPw').value = '';
+    document.getElementById('cpNewPw').value = '';
+    document.getElementById('cpConfirmPw').value = '';
+    document.getElementById('cpError').style.display = 'none';
+    document.getElementById('cpSuccess').style.display = 'none';
+});
+
+document.getElementById('cpSubmitBtn').addEventListener('click', async () => {
+    const currentPw  = document.getElementById('cpCurrentPw').value.trim();
+    const newPw      = document.getElementById('cpNewPw').value.trim();
+    const confirmPw  = document.getElementById('cpConfirmPw').value.trim();
+    const errorEl    = document.getElementById('cpError');
+    const successEl  = document.getElementById('cpSuccess');
+
+    errorEl.style.display = 'none';
+    successEl.style.display = 'none';
+
+    if (!currentPw || !newPw || !confirmPw) {
+        errorEl.textContent = 'Please fill in all fields.';
+        errorEl.style.display = 'block';
+        return;
+    }
+    if (newPw.length < 6) {
+        errorEl.textContent = 'New password must be at least 6 characters.';
+        errorEl.style.display = 'block';
+        return;
+    }
+    if (newPw !== confirmPw) {
+        errorEl.textContent = 'New passwords do not match.';
+        errorEl.style.display = 'block';
+        return;
+    }
+
+    const btn = document.getElementById('cpSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Updating...';
+
+    const res = await fetchAuth('/api/admin/change-my-password', {
+        method: 'POST',
+        body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw })
+    });
+    const data = await res.json();
+
+    btn.disabled = false;
+    btn.textContent = 'Update Password';
+
+    if (res.ok) {
+        successEl.style.display = 'block';
+        document.getElementById('cpCurrentPw').value = '';
+        document.getElementById('cpNewPw').value = '';
+        document.getElementById('cpConfirmPw').value = '';
+        setTimeout(() => {
+            document.getElementById('changePwModal').style.display = 'none';
+            successEl.style.display = 'none';
+        }, 2000);
+    } else {
+        errorEl.textContent = data.error || 'Failed to update password.';
+        errorEl.style.display = 'block';
+    }
+});
