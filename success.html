@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -148,7 +148,7 @@
     </div>
 
     <script>
-        const BACKEND_URL = "http://localhost:3000";
+        const BACKEND_URL = "";
         const urlParams = new URLSearchParams(window.location.search);
         const orderId = urlParams.get('order_id');
 
@@ -193,13 +193,19 @@
 
         async function verifyPayment() {
             if (!orderId) {
-                // If they just navigated directly, check if we have a booked session
-                const rawBooking = localStorage.getItem('havoc_booking');
+                // If they just navigated directly or came from COD, check if we have a booked session
+                const rawBooking = localStorage.getItem('havoc_recent_booking');
                 if (rawBooking) {
-                    showSuccess(JSON.parse(rawBooking), JSON.parse(rawBooking).orderId);
-                } else {
-                    window.location.href = 'index.html';
+                    const booking = JSON.parse(rawBooking);
+                    if (booking.status === 'confirmed') {
+                        // COD success case
+                        showSuccess(booking, booking.orderId || 'PAY-AT-DESK');
+                        localStorage.removeItem('havoc_cart'); // clean up
+                        return;
+                    }
                 }
+                // No valid booking found
+                window.location.href = 'index.html';
                 return;
             }
 
@@ -214,13 +220,13 @@
 
                 if (data.success && data.status === 'PAID') {
                     // Payment successful!
-                    const pendingRaw = localStorage.getItem('havoc_pending_booking');
+                    const pendingRaw = localStorage.getItem('havoc_recent_booking');
                     let booking = pendingRaw ? JSON.parse(pendingRaw) : {};
                     booking.orderId = orderId;
                     
                     // Save as final booking and clean up
-                    localStorage.setItem('havoc_booking', JSON.stringify(booking));
-                    localStorage.removeItem('havoc_pending_booking');
+                    booking.status = 'confirmed';
+                    localStorage.setItem('havoc_recent_booking', JSON.stringify(booking));
                     localStorage.removeItem('havoc_cart');
 
                     showSuccess(booking, orderId);
