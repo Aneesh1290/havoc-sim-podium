@@ -198,6 +198,18 @@ document.addEventListener("DOMContentLoaded", () => {
             return hour + min / 60;
         };
 
+        // Fetch booked slots
+        let bookedSlots = [];
+        try {
+            timePillsEl.innerHTML = "<span style='color:#555;font-size:0.82rem;'>Checking availability...</span>";
+            const res = await fetch(`/api/availability/${dateStr}`);
+            const data = await res.json();
+            if (data.bookedSlots) bookedSlots = data.bookedSlots;
+        } catch (e) {
+            console.error("Error fetching availability", e);
+        }
+        timePillsEl.innerHTML = "";
+
         TIME_SLOTS.forEach(slot => {
             let isPast = false;
             if (isToday) {
@@ -206,21 +218,28 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (slotHour <= nowDecimal) isPast = true;
             }
 
+            // Check if slot is already booked
+            const isBooked = bookedSlots.includes(slot);
+
             const pill = document.createElement("button");
-            pill.className = "pill" + (isPast ? " pill-disabled" : "");
+            pill.className = "pill" + (isPast || isBooked ? " pill-disabled" : "");
             pill.textContent = slot;
-            if (!isPast) {
+            
+            if (isBooked) {
+                pill.title = "Already booked";
+            } else if (!isPast) {
                 pill.addEventListener("click", () => selectSlot(pill));
             }
+            
             timePillsEl.appendChild(pill);
         });
     };
 
-    const selectDate = (pill) => {
+    const selectDate = async (pill) => {
         datePillsEl.querySelectorAll(".pill").forEach(p => p.classList.remove("selected"));
         pill.classList.add("selected");
         selectedDate = { iso: pill.dataset.date, label: pill.dataset.label };
-        buildTimePills(pill.dataset.date);
+        await buildTimePills(pill.dataset.date);
         selectedSlot = null;
         updateSummary();
     };
