@@ -10,6 +10,7 @@ const bcrypt = require('bcrypt');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const db = require('./database');
+const { sendConfirmationEmail } = require('./mailer');
 
 const path = require('path');
 const app = express();
@@ -484,7 +485,14 @@ app.post('/verify-payment', async (req, res) => {
         if (data.order_status === 'PAID') {
             console.log(`[${new Date().toISOString()}] Payment verified: ${order_id}`);
             // Update booking status in DB
-            db.run("UPDATE bookings SET status = 'PAID' WHERE order_id = ?", [order_id]);
+            db.run("UPDATE bookings SET status = 'PAID' WHERE order_id = ?", [order_id], () => {
+                // Fetch booking details and send confirmation email
+                db.get("SELECT * FROM bookings WHERE order_id = ?", [order_id], (err, row) => {
+                    if (!err && row && row.email) {
+                        sendConfirmationEmail(row);
+                    }
+                });
+            });
             res.json({ success: true, status: data.order_status });
         } else {
             console.warn(`[${new Date().toISOString()}] Payment not completed for order: ${order_id}, Status: ${data.order_status}`);
