@@ -395,6 +395,37 @@ app.post('/api/admin/bookings', verifyToken, (req, res) => {
     );
 });
 
+// Create a COD / Pay at Desk booking (Public checkout)
+app.post('/api/bookings/cod', (req, res) => {
+    const { amount, customer_details, booking_data } = req.body;
+    
+    // Validate required fields
+    if (!booking_data.item_name || !booking_data.date || !booking_data.time) {
+        return res.status(400).json({ error: 'Missing required booking details' });
+    }
+
+    const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const orderId = `COD_${shortCode}`;
+    const orderAmount = parseFloat(amount).toFixed(2);
+
+    db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+        [orderId, customer_details.name, customer_details.email, customer_details.phone, booking_data.item_name, orderAmount, booking_data.date, booking_data.time, 'CASH'], 
+        function(err) {
+            if (err) return res.status(500).json({ error: 'Database error' });
+            
+            // Send confirmation email
+            db.get("SELECT * FROM bookings WHERE order_id = ?", [orderId], (err, row) => {
+                if (!err && row && row.email) {
+                    sendConfirmationEmail(row);
+                }
+            });
+
+            res.json({ success: true, order_id: orderId });
+        }
+    );
+});
+
 // ==========================================
 // CASHFREE PAYMENT ROUTES
 // ==========================================

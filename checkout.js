@@ -120,6 +120,24 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+    // ---- 1.6 Payment Option Selection ----
+    const paymentOptions = document.querySelectorAll('.payment-option');
+    let selectedPaymentMethod = 'cashfree';
+
+    paymentOptions.forEach(option => {
+        option.addEventListener('click', () => {
+            paymentOptions.forEach(opt => opt.classList.remove('selected'));
+            option.classList.add('selected');
+            selectedPaymentMethod = option.getAttribute('data-method');
+            
+            if (selectedPaymentMethod === 'cod') {
+                payBtnLabelEl.innerText = "BOOK & PAY AT DESK";
+            } else {
+                payBtnLabelEl.innerText = "PAY " + cart.itemPrice;
+            }
+        });
+    });
+
     // ---- 2. PAY NOW button ----
     const payBtn = document.getElementById("payNowBtn");
 
@@ -153,36 +171,64 @@ document.addEventListener("DOMContentLoaded", () => {
             };
             localStorage.setItem("havoc_recent_booking", JSON.stringify(bookingDetails));
 
-            // Create Order via backend
-            const orderRes = await fetch(BACKEND_URL + "/create-order", {
-                method:  "POST",
-                headers: { "Content-Type": "application/json" },
-                body:    JSON.stringify({ 
-                    amount, 
-                    customer_details: { name, email, phone },
-                    order_meta: { return_url: window.location.origin + "/success.html" },
-                    booking_data: {
-                        item_name: cart.itemName,
-                        date: cart.dateLabel,
-                        time: cart.slot
-                    }
-                })
-            });
+            if (selectedPaymentMethod === 'cod') {
+                // COD Flow
+                bookingDetails.status = 'confirmed';
+                bookingDetails.paymentMethod = 'cod';
+                localStorage.setItem("havoc_recent_booking", JSON.stringify(bookingDetails));
 
-            if (!orderRes.ok) {
-                const errData = await orderRes.json();
-                throw new Error(errData.error || "Failed to create order");
+                const orderRes = await fetch(BACKEND_URL + "/api/bookings/cod", {
+                    method:  "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body:    JSON.stringify({ 
+                        amount, 
+                        customer_details: { name, email, phone },
+                        booking_data: {
+                            item_name: cart.itemName,
+                            date: cart.dateLabel,
+                            time: cart.slot
+                        }
+                    })
+                });
+
+                if (!orderRes.ok) {
+                    const errData = await orderRes.json();
+                    throw new Error(errData.error || "Failed to create booking");
+                }
+
+                // Redirect to success immediately
+                window.location.href = "/success.html";
+
+            } else {
+                // Cashfree Flow
+                const orderRes = await fetch(BACKEND_URL + "/create-order", {
+                    method:  "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body:    JSON.stringify({ 
+                        amount, 
+                        customer_details: { name, email, phone },
+                        order_meta: { return_url: window.location.origin + "/success.html" },
+                        booking_data: {
+                            item_name: cart.itemName,
+                            date: cart.dateLabel,
+                            time: cart.slot
+                        }
+                    })
+                });
+
+                if (!orderRes.ok) {
+                    const errData = await orderRes.json();
+                    throw new Error(errData.error || "Failed to create order");
+                }
+                
+                const { payment_session_id } = await orderRes.json();
+
+                let checkoutOptions = {
+                    paymentSessionId: payment_session_id,
+                    redirectTarget: "_self"
+                };
+                cashfree.checkout(checkoutOptions);
             }
-            
-            const { payment_session_id } = await orderRes.json();
-
-            // Redirect to Cashfree checkout
-            let checkoutOptions = {
-                paymentSessionId: payment_session_id,
-                redirectTarget: "_self"
-            };
-
-            cashfree.checkout(checkoutOptions);
 
         } catch (err) {
             console.error("Payment error:", err);
