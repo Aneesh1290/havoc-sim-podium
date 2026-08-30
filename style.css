@@ -27,6 +27,52 @@ body {
     overflow-x: hidden;
 }
 
+.legal-page {
+    padding: 8rem 5% 4rem;
+    max-width: 1000px;
+    margin: 0 auto;
+    color: var(--text-primary);
+}
+.legal-page h1 {
+    font-size: 3rem;
+    margin-bottom: 2rem;
+    color: var(--text-primary);
+}
+.legal-page h2 {
+    font-size: 1.8rem;
+    margin: 2.5rem 0 1rem;
+    color: var(--accent-gold);
+    font-weight: 600;
+}
+.legal-page h3 {
+    font-size: 1.4rem;
+    margin: 2rem 0 1rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+.legal-page p {
+    margin-bottom: 1.2rem;
+    line-height: 1.7;
+    font-size: 1.05rem;
+    color: rgba(255, 255, 255, 0.85);
+}
+.legal-page ul {
+    margin-bottom: 1.5rem;
+    padding-left: 1.5rem;
+    color: rgba(255, 255, 255, 0.85);
+}
+.legal-page li {
+    margin-bottom: 0.8rem;
+    line-height: 1.6;
+    font-size: 1.05rem;
+}
+.legal-page a {
+    color: var(--accent-gold);
+    text-decoration: none;
+}
+.legal-page a:hover {
+    text-decoration: underline;
+}
+
 a {
     text-decoration: none;
     color: inherit;
