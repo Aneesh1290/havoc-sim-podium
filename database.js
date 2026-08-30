@@ -2,7 +2,7 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const bcrypt = require('bcrypt');
 
-const dbPath = path.resolve(__dirname, 'havoc.db');
+const dbPath = process.env.DB_PATH || path.resolve(__dirname, 'havoc.db');
 const db = new sqlite3.Database(dbPath);
 
 const initDb = () => {
