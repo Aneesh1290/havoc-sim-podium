@@ -275,11 +275,12 @@ function renderSimFilters() {
 function initAvailabilityDates() {
     const today = new Date();
     const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     
     for (let i = 0; i < 14; i++) {
         const d = new Date(today);
         d.setDate(today.getDate() + i);
-        const label = `${monthNames[d.getMonth()]} ${d.getDate()}`;
+        const label = `${monthNames[d.getMonth()]} ${d.getDate()} (${dayNames[d.getDay()]})`;
         const option = document.createElement('option');
         option.value = label;
         option.textContent = i === 0 ? `Today (${label})` : label;

@@ -202,7 +202,11 @@ document.addEventListener("DOMContentLoaded", () => {
         let bookedSlots = [];
         try {
             timePillsEl.innerHTML = "<span style='color:#555;font-size:0.82rem;'>Checking availability...</span>";
-            const res = await fetch(`/api/availability/${encodeURIComponent(selectedDate.label)}`);
+            let url = `/api/availability/${encodeURIComponent(selectedDate.label)}`;
+            if (pendingProduct && pendingProduct.name) {
+                url += `?item=${encodeURIComponent(pendingProduct.name)}`;
+            }
+            const res = await fetch(url);
             const data = await res.json();
             if (data.bookedSlots) bookedSlots = data.bookedSlots;
         } catch (e) {

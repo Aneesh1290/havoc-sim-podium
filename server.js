@@ -316,8 +316,17 @@ app.delete('/api/admin/coupons/:code', verifyToken, verifySuperAdmin, (req, res)
 // Get booked slots for a specific date (Public)
 app.get('/api/availability/:date', (req, res) => {
     const { date } = req.params;
-    // We consider slots taken if they are PAID, ATTENDED, or CASH (Pay at Desk). PENDING slots are ignored.
-    db.all("SELECT booking_time FROM bookings WHERE booking_date = ? AND status IN ('PAID', 'ATTENDED', 'CASH')", [date], (err, rows) => {
+    const { item } = req.query;
+
+    let query = "SELECT booking_time FROM bookings WHERE booking_date = ? AND status IN ('PAID', 'ATTENDED', 'CASH')";
+    let params = [date];
+
+    if (item) {
+        query += " AND item_name = ?";
+        params.push(item);
+    }
+
+    db.all(query, params, (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         const bookedSlots = rows.map(r => r.booking_time);
         res.json({ bookedSlots });
