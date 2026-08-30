@@ -24,7 +24,7 @@ form.addEventListener('submit', async (e) => {
             payload.token = totpToken;
         }
 
-        const res = await fetch('http://localhost:3000/api/admin/login', {
+        const res = await fetch('/api/admin/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -96,7 +96,7 @@ if (resetForm) {
         resetBtn.innerText = 'Updating...';
         
         try {
-            const res = await fetch('http://localhost:3000/api/admin/change-password', {
+            const res = await fetch('/api/admin/change-password', {
                 method: 'POST',
                 headers: { 
                     'Content-Type': 'application/json',

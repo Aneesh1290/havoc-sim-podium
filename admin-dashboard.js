@@ -1,7 +1,7 @@
 const token = localStorage.getItem('admin_token');
 if (!token) window.location.href = "/admin-login";
 
-const BACKEND_URL = 'http://localhost:3000';
+const BACKEND_URL = '';
 
 // API Wrapper with Auth Header
 async function fetchAuth(url, options = {}) {

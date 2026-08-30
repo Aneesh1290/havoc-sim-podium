@@ -3,7 +3,7 @@
 // =============================================
 
 // Backend URL -- Replace with deployed server URL in production
-const BACKEND_URL = "http://localhost:3000";
+const BACKEND_URL = "";
 
 document.addEventListener("DOMContentLoaded", () => {
 
