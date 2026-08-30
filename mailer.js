@@ -56,10 +56,13 @@ const sendConfirmationEmail = async (booking) => {
     `;
 
     try {
+        const textContent = `Booking Confirmed!\nOrder ID: ${order_id}\n\nHi ${name},\nYour booking at Havoc Sim Podium has been confirmed. Get ready to race!\n\nExperience: ${item_name}\nDate: ${booking_date}\nTime: ${booking_time}\nAmount Paid: ₹${price}\n\nPlease arrive 10 minutes before your slot.\nVisit Website: https://havocsimpodium.com`;
+
         await transporter.sendMail({
             from: `"Havoc Sim Podium" <${process.env.SMTP_USER}>`,
             to: email,
             subject: `Booking Confirmed: ${item_name} - ${booking_date}`,
+            text: textContent,
             html: htmlContent
         });
         console.log(`[${new Date().toISOString()}] Confirmation email sent to ${email} for order ${order_id}`);
