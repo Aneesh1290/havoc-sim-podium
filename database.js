@@ -16,16 +16,7 @@ const initDb = () => {
             active INTEGER DEFAULT 1
         )`);
 
-        // Seed some initial coupons if none exist
-        db.get("SELECT COUNT(*) as count FROM coupons", (err, row) => {
-            if (!err && row.count === 0) {
-                const stmt = db.prepare("INSERT INTO coupons (code, type, value) VALUES (?, ?, ?)");
-                stmt.run("HAVOC10", "percent", 10);
-                stmt.run("FIRST50", "flat", 50);
-                stmt.run("VIP", "percent", 20);
-                stmt.finalize();
-            }
-        });
+
 
         // 2. Bookings Table
         db.run(`CREATE TABLE IF NOT EXISTS bookings (
