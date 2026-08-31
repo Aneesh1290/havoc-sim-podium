@@ -40,9 +40,6 @@ document.addEventListener("DOMContentLoaded", () => {
     if (itemNameEl)    itemNameEl.innerText    = cart.itemName;
     if (itemPriceEl)   itemPriceEl.innerText   = cart.itemPrice;
     if (itemImgEl)     itemImgEl.src           = cart.itemImage;
-    if (subtotalEl)    subtotalEl.innerText    = cart.itemPrice;
-    if (totalEl)       totalEl.innerText       = cart.itemPrice;
-    if (payBtnLabelEl) payBtnLabelEl.innerText = "PAY " + cart.itemPrice;
 
     // Pre-fill date/slot from cart
     if (cart.dateLabel && dateMetaEl) dateMetaEl.innerText = "Date: " + cart.dateLabel;
@@ -67,9 +64,34 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ---- 1.5 Discount Logic (Dynamic) ----
+    const gstEl = document.getElementById("co-gst");
     let appliedDiscount = 0;
     const originalPrice = parseFloat((cart.itemPrice || "0").replace(/[^\d.]/g, ""));
     let finalAmount = originalPrice;
+    let selectedPaymentMethod = 'cod'; // default
+
+    function updatePricing() {
+        let taxableAmount = originalPrice - appliedDiscount;
+        if (taxableAmount < 0) taxableAmount = 0;
+        
+        let gstAmount = taxableAmount * 0.18;
+        finalAmount = taxableAmount + gstAmount;
+
+        if (subtotalEl) subtotalEl.innerText = `₹${originalPrice.toFixed(2)}`;
+        if (gstEl) gstEl.innerText = `₹${gstAmount.toFixed(2)}`;
+        if (totalEl) totalEl.innerText = `₹${finalAmount.toFixed(2)}`;
+        
+        if (payBtnLabelEl) {
+            if (selectedPaymentMethod === 'cod') {
+                payBtnLabelEl.innerText = "BOOK & PAY AT DESK";
+            } else {
+                payBtnLabelEl.innerText = `PAY ₹${finalAmount.toFixed(2)}`;
+            }
+        }
+    }
+    
+    // Call initially
+    updatePricing();
 
     const applyBtn = document.getElementById("apply-discount-btn");
     const codeInput = document.getElementById("co-discount-code");
@@ -103,8 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 discountRow.style.display = "flex";
                 discountAmtEl.textContent = `-₹${appliedDiscount.toFixed(2)}`;
                 
-                if (totalEl) totalEl.innerText = `₹${finalAmount.toFixed(2)}`;
-                if (payBtnLabelEl) payBtnLabelEl.innerText = `PAY ₹${finalAmount.toFixed(2)}`;
+                updatePricing();
                 
                 codeInput.disabled = true;
                 applyBtn.disabled = true;
@@ -122,19 +143,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ---- 1.6 Payment Option Selection ----
     const paymentOptions = document.querySelectorAll('.payment-option');
-    let selectedPaymentMethod = 'cod';
+
 
     paymentOptions.forEach(option => {
         option.addEventListener('click', () => {
             paymentOptions.forEach(opt => opt.classList.remove('selected'));
             option.classList.add('selected');
             selectedPaymentMethod = option.getAttribute('data-method');
-            
-            if (selectedPaymentMethod === 'cod') {
-                payBtnLabelEl.innerText = "BOOK & PAY AT DESK";
-            } else {
-                payBtnLabelEl.innerText = "PAY " + cart.itemPrice;
-            }
+            updatePricing();
         });
     });
 
@@ -240,7 +256,7 @@ document.addEventListener("DOMContentLoaded", () => {
             console.error("Payment error:", err);
             alert("Could not connect to payment server. " + err.message);
             payBtn.disabled         = false;
-            payBtnLabelEl.innerText = "PAY " + cart.itemPrice;
+            updatePricing();
         }
     });
 });
