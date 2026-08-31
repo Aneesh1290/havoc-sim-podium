@@ -25,7 +25,7 @@ app.use(helmet({
             scriptSrc: ["'self'", "https://sdk.cashfree.com"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
-            imgSrc: ["'self'", "data:"],
+            imgSrc: ["'self'", "data:", "https://www.cashfree.com"],
             connectSrc: ["'self'", "https://api.cashfree.com", "https://sandbox.cashfree.com"],
             frameAncestors: ["'none'"],
             objectSrc: ["'none'"]
