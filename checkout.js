@@ -122,7 +122,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // ---- 1.6 Payment Option Selection ----
     const paymentOptions = document.querySelectorAll('.payment-option');
-    let selectedPaymentMethod = 'cashfree';
+    let selectedPaymentMethod = 'cod';
 
     paymentOptions.forEach(option => {
         option.addEventListener('click', () => {
