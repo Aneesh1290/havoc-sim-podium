@@ -441,9 +441,18 @@ app.post('/api/bookings/cod', (req, res) => {
 
     const orderAmount = parseFloat(amount).toFixed(2);
     
-    // Parse "Aug 30 (Sun)" into "30AUG"
+    // Parse "Aug 30 (Sun)" into "30AUG26"
     const dateParts = booking_data.date.split(' ');
-    const formattedDate = dateParts.length >= 2 ? (dateParts[1] + dateParts[0]).toUpperCase() : 'DATE';
+    let formattedDate = 'DATE';
+    if (dateParts.length >= 2) {
+        let year = new Date().getFullYear();
+        // Handle year wrap-around for up to 90 days advance booking (e.g. booked in Dec for Jan)
+        const monthIndex = new Date(`${dateParts[0]} 1`).getMonth();
+        if (monthIndex < new Date().getMonth() && monthIndex <= 2) {
+            year += 1;
+        }
+        formattedDate = (dateParts[1] + dateParts[0]).toUpperCase() + String(year).slice(-2);
+    }
 
     db.get("SELECT COUNT(*) as count FROM bookings WHERE booking_date = ?", [booking_data.date], (err, row) => {
         const count = (row ? row.count : 0) + 1;
