@@ -17,6 +17,8 @@ const sendConfirmationEmail = async (booking) => {
 
     const { order_id, name, email, item_name, price, booking_date, booking_time } = booking;
 
+    const amountLabel = booking.status === 'CASH' ? 'Amount Due (at Desk)' : 'Amount Paid';
+
     const htmlContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #111114; color: #ffffff; padding: 20px; border-radius: 10px; border: 1px solid #333;">
         <div style="text-align: center; margin-bottom: 20px;">
@@ -42,7 +44,7 @@ const sendConfirmationEmail = async (booking) => {
                     <td style="padding: 10px 0; border-bottom: 1px solid #333; text-align: right; font-weight: bold;">${booking_time}</td>
                 </tr>
                 <tr>
-                    <td style="padding: 10px 0; color: #888;">Amount Paid</td>
+                    <td style="padding: 10px 0; color: #888;">${amountLabel}</td>
                     <td style="padding: 10px 0; text-align: right; font-weight: bold; color: #e5b869;">₹${price}</td>
                 </tr>
             </table>
@@ -56,7 +58,7 @@ const sendConfirmationEmail = async (booking) => {
     `;
 
     try {
-        const textContent = `Booking Confirmed!\nOrder ID: ${order_id}\n\nHi ${name},\nYour booking at Havoc Sim Podium has been confirmed. Get ready to race!\n\nExperience: ${item_name}\nDate: ${booking_date}\nTime: ${booking_time}\nAmount Paid: ₹${price}\n\nPlease arrive 10 minutes before your slot.\nVisit Website: https://havocsimpodium.com`;
+        const textContent = `Booking Confirmed!\nOrder ID: ${order_id}\n\nHi ${name},\nYour booking at Havoc Sim Podium has been confirmed. Get ready to race!\n\nExperience: ${item_name}\nDate: ${booking_date}\nTime: ${booking_time}\n${amountLabel}: ₹${price}\n\nPlease arrive 10 minutes before your slot.\nVisit Website: https://havocsimpodium.com`;
 
         await transporter.sendMail({
             from: `"Havoc Sim Podium" <${process.env.SMTP_USER}>`,
