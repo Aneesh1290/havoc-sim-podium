@@ -87,12 +87,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (f.getAttribute("data-target") === monthStr) f.classList.add("active");
         });
 
-        productTitles.forEach(title => {
-            const parts = title.innerText.split("-");
-            if (parts.length > 1) {
-                title.innerText = `${shortMonth} - ${parts[1].trim()} - ${parts[2].trim()}`;
-            }
-        });
+
 
         if (monthView && productView) {
             monthView.classList.remove("active");
