@@ -149,7 +149,7 @@ async function loadBookings() {
     });
 }
 
-async function deleteBookingRow(orderId) {
+window.deleteBookingRow = async function(orderId) {
     if (!confirm('Are you sure you want to delete this booking?')) return;
     try {
         const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}`, { method: 'DELETE' });
@@ -164,7 +164,7 @@ async function deleteBookingRow(orderId) {
     }
 }
 
-async function markAttended(orderId) {
+window.markAttended = async function(orderId) {
     if (!confirm('Mark this customer as attended?')) return;
     try {
         const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}/attend`, { method: 'PUT' });
@@ -469,7 +469,7 @@ document.getElementById('addCouponForm').addEventListener('submit', async (e) =>
 window.deleteCoupon = async (code) => {
     if (!confirm(`Are you sure you want to delete coupon ${code}?`)) return;
     
-    const res = await fetchAuth(`/api/admin/coupons/${code}`, {
+    const res = await fetchAuth(`/api/admin/coupons/${encodeURIComponent(code)}`, {
         method: 'DELETE'
     });
     
@@ -542,7 +542,7 @@ document.getElementById('addStaffForm').addEventListener('submit', async (e) => 
 window.deleteStaff = async (id, username) => {
     if (!confirm(`Are you sure you want to delete staff account '${username}'?`)) return;
     
-    const res = await fetchAuth(`/api/admin/users/${id}`, {
+    const res = await fetchAuth(`/api/admin/users/${encodeURIComponent(id)}`, {
         method: 'DELETE'
     });
     
@@ -555,7 +555,7 @@ window.deleteStaff = async (id, username) => {
 };
 
 window.updateStaffRole = async (id, username, newRole) => {
-    const res = await fetchAuth(`/api/admin/users/${id}/role`, {
+    const res = await fetchAuth(`/api/admin/users/${encodeURIComponent(id)}/role`, {
         method: 'PUT',
         body: JSON.stringify({ role: newRole })
     });
@@ -573,7 +573,7 @@ window.updateStaffRole = async (id, username, newRole) => {
 window.resetStaffPassword = async (id, username) => {
     if (!confirm(`Reset password for '${username}' to the default (sabharwal@65)?\nThey will be forced to change it on their next login.`)) return;
     
-    const res = await fetchAuth(`/api/admin/users/${id}/reset-password`, {
+    const res = await fetchAuth(`/api/admin/users/${encodeURIComponent(id)}/reset-password`, {
         method: 'POST'
     });
     
