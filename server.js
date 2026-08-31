@@ -22,12 +22,13 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://sdk.cashfree.com"],
+            scriptSrc: ["'self'", "https://sdk.cashfree.com"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
             imgSrc: ["'self'", "data:"],
             connectSrc: ["'self'", "https://api.cashfree.com", "https://sandbox.cashfree.com"],
-            frameAncestors: ["'none'"]
+            frameAncestors: ["'none'"],
+            objectSrc: ["'none'"]
         }
     }
 }));
