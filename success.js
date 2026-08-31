@@ -47,13 +47,26 @@ const showSuccess = (booking, oId) => {
 };
 
 async function verifyPayment() {
+    // Bypass Cashfree verification for Pay at Desk (COD) orders
+    if (orderId && orderId.startsWith('PAYDUE')) {
+        const rawBooking = localStorage.getItem('havoc_recent_booking');
+        if (rawBooking) {
+            const booking = JSON.parse(rawBooking);
+            if (booking.status === 'confirmed' || booking.paymentMethod === 'cod') {
+                showSuccess(booking, orderId);
+                localStorage.removeItem('havoc_cart');
+                return;
+            }
+        }
+    }
+
     if (!orderId) {
-        // If they just navigated directly or came from COD, check if we have a booked session
+        // If they just navigated directly, check if we have a booked session
         const rawBooking = localStorage.getItem('havoc_recent_booking');
         if (rawBooking) {
             const booking = JSON.parse(rawBooking);
             if (booking.status === 'confirmed') {
-                // COD success case
+                // COD success case (fallback if no order_id in URL)
                 showSuccess(booking, booking.orderId || 'PAY-AT-DESK');
                 localStorage.removeItem('havoc_cart'); // clean up
                 return;
