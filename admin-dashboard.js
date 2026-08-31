@@ -152,7 +152,7 @@ async function loadBookings() {
 async function deleteBookingRow(orderId) {
     if (!confirm('Are you sure you want to delete this booking?')) return;
     try {
-        const res = await fetchAuth(`/api/admin/bookings/${orderId}`, { method: 'DELETE' });
+        const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}`, { method: 'DELETE' });
         if (res.ok) {
             loadBookings();
         } else {
@@ -167,7 +167,7 @@ async function deleteBookingRow(orderId) {
 async function markAttended(orderId) {
     if (!confirm('Mark this customer as attended?')) return;
     try {
-        const res = await fetchAuth(`/api/admin/bookings/${orderId}/attend`, { method: 'PUT' });
+        const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}/attend`, { method: 'PUT' });
         if (res.ok) {
             loadBookings();
         } else {
@@ -200,7 +200,7 @@ window.updateBookingStatus = async (orderId, newStatus) => {
     const menu = document.getElementById(`menu-${orderId}`);
     if (menu) menu.classList.remove('open');
     
-    const res = await fetchAuth(`/api/admin/bookings/${orderId}/status`, {
+    const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}/status`, {
         method: 'PUT',
         body: JSON.stringify({ status: newStatus })
     });
