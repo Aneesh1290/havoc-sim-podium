@@ -227,7 +227,7 @@ const TIME_SLOTS = [
 ];
 
 const SIMULATORS = [
-    "RC Flying Sim", "Flight Sim Pro", "Race Sim GT", 
+    "RC Flying Sim", "Flight Sim Pro (Airbus Edition)", "Race Sim GT", 
     "Race Sim F1", "Race Sim Jr.", "Race Sim Beginner"
 ];
 
@@ -379,7 +379,7 @@ window.openWalkinModal = (sim, time, date) => {
     // Set a default price based on sim
     let basePrice = 0;
     if (sim.includes('RC Flying Sim')) basePrice = 300;
-    else if (sim.includes('Flight Sim Pro')) basePrice = 1500;
+    else if (sim.includes('Flight Sim Pro (Airbus Edition)')) basePrice = 1500;
     else if (sim.includes('Race Sim GT')) basePrice = 500;
     else if (sim.includes('Race Sim F1')) basePrice = 600;
     else if (sim.includes('Race Sim Jr.')) basePrice = 400;
