@@ -13,10 +13,24 @@ const db = require('./database');
 const { sendConfirmationEmail } = require('./mailer');
 
 const path = require('path');
+const helmet = require('helmet');
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'havoc-super-secret-key-123';
 
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "https://sdk.cashfree.com"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:"],
+            connectSrc: ["'self'", "https://api.cashfree.com", "https://sandbox.cashfree.com"],
+            frameAncestors: ["'none'"]
+        }
+    }
+}));
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
