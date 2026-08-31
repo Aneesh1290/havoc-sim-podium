@@ -34,6 +34,11 @@ const showSuccess = (booking, oId) => {
     fmt('s-price',  booking.price);
     fmt('s-name',   booking.name);
     fmt('s-orderid', oId);
+    if (oId === 'PAY-AT-DESK') {
+        fmt('s-price-label', 'Amount Due (at Desk)');
+    } else {
+        fmt('s-price-label', 'Amount Paid');
+    }
     if (booking.date) {
         const d = new Date(booking.date);
         fmt('s-date', d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
