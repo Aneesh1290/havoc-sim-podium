@@ -34,7 +34,7 @@ const showSuccess = (booking, oId) => {
     fmt('s-price',  booking.price);
     fmt('s-name',   booking.name);
     fmt('s-orderid', oId);
-    if (oId === 'PAY-AT-DESK') {
+    if (oId && oId.startsWith('PAYDUE')) {
         fmt('s-price-label', 'Amount Due (at Desk)');
     } else {
         fmt('s-price-label', 'Amount Paid');

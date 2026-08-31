@@ -196,8 +196,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     throw new Error(errData.error || "Failed to create booking");
                 }
 
+                const orderData = await orderRes.json();
+                if (orderData.success) {
+                    bookingDetails.orderId = orderData.order_id;
+                    localStorage.setItem("havoc_recent_booking", JSON.stringify(bookingDetails));
+                }
+
                 // Redirect to success immediately
-                window.location.href = "/success.html";
+                window.location.href = `/success.html?order_id=${orderData.order_id || ''}`;
 
             } else {
                 // Cashfree Flow
