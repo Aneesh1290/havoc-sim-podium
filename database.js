@@ -26,7 +26,24 @@ const initDb = () => {
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )`);
 
-
+        // Auto-seed default products if empty
+        db.get("SELECT COUNT(*) AS count FROM products", (err, row) => {
+            if (!err && row.count === 0) {
+                const defaultProducts = [
+                    { name: "RC Flying Sim", type: "Simulator", price: 300, stock: 10 },
+                    { name: "Flight Sim Pro (Airbus Edition)", type: "Simulator", price: 1500, stock: 10 },
+                    { name: "Flight Sim Pro (Boeing Edition)", type: "Simulator", price: 1500, stock: 10 },
+                    { name: "Race Sim GT", type: "Simulator", price: 500, stock: 10 },
+                    { name: "Race Sim F1", type: "Simulator", price: 600, stock: 10 },
+                    { name: "Race Sim Jr.", type: "Simulator", price: 400, stock: 10 },
+                    { name: "Race Sim Beginner", type: "Simulator", price: 300, stock: 10 }
+                ];
+                const stmt = db.prepare("INSERT INTO products (name, type, price, stock_quantity) VALUES (?, ?, ?, ?)");
+                defaultProducts.forEach(p => stmt.run(p.name, p.type, p.price, p.stock));
+                stmt.finalize();
+                console.log("Auto-seeded default products.");
+            }
+        });
 
         // 2. Bookings Table
         db.run(`CREATE TABLE IF NOT EXISTS bookings (
