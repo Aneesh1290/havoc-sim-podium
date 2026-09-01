@@ -297,6 +297,54 @@ app.post('/api/admin/users/:id/reset-password', verifyToken, verifySuperAdmin, (
 });
 
 // ==========================================
+// PRODUCT MANAGEMENT ROUTES
+// ==========================================
+
+// Get all products (Protected)
+app.get('/api/admin/products', verifyToken, (req, res) => {
+    db.all("SELECT * FROM products ORDER BY created_at DESC", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows);
+    });
+});
+
+// Add a product (Protected)
+app.post('/api/admin/products', verifyToken, (req, res) => {
+    const { name, type, price, stock_quantity } = req.body;
+    db.run(
+        "INSERT INTO products (name, type, price, stock_quantity) VALUES (?, ?, ?, ?)",
+        [name, type, price, stock_quantity || 0],
+        function(err) {
+            if (err) return res.status(500).json({ error: 'Error creating product' });
+            res.json({ success: true, id: this.lastID });
+        }
+    );
+});
+
+// Update a product (Protected)
+app.put('/api/admin/products/:id', verifyToken, (req, res) => {
+    const { id } = req.params;
+    const { name, type, price, stock_quantity } = req.body;
+    db.run(
+        "UPDATE products SET name = ?, type = ?, price = ?, stock_quantity = ? WHERE id = ?",
+        [name, type, price, stock_quantity, id],
+        function(err) {
+            if (err) return res.status(500).json({ error: 'Error updating product' });
+            res.json({ success: true });
+        }
+    );
+});
+
+// Delete a product (Protected)
+app.delete('/api/admin/products/:id', verifyToken, (req, res) => {
+    const { id } = req.params;
+    db.run("DELETE FROM products WHERE id = ?", [id], function(err) {
+        if (err) return res.status(500).json({ error: 'Error deleting product' });
+        res.json({ success: true });
+    });
+});
+
+// ==========================================
 // COUPON MANAGEMENT ROUTES
 // ==========================================
 
@@ -594,20 +642,20 @@ app.get('/', (req, res) => {
 });
 
 // ---- Background Cleanup Job ----
-// Auto-delete pending bookings older than 15 minutes
-setInterval(() => {
-    const query = `
-        DELETE FROM bookings 
-        WHERE status = 'PENDING' 
-        AND datetime(created_at) <= datetime('now', '-15 minutes')
-    `;
-    db.run(query, function(err) {
-        if (err) console.error("Cleanup Job Error:", err);
-        else if (this.changes > 0) {
-            console.log(`[${new Date().toISOString()}] Cleanup: Auto-deleted ${this.changes} expired pending booking(s)`);
-        }
-    });
-}, 5 * 60 * 1000); // Run every 5 minutes
+// Auto-delete pending bookings older than 15 minutes (DISABLED)
+// setInterval(() => {
+//     const query = `
+//         DELETE FROM bookings 
+//         WHERE status = 'PENDING' 
+//         AND datetime(created_at) <= datetime('now', '-15 minutes')
+//     `;
+//     db.run(query, function(err) {
+//         if (err) console.error("Cleanup Job Error:", err);
+//         else if (this.changes > 0) {
+//             console.log(`[${new Date().toISOString()}] Cleanup: Auto-deleted ${this.changes} expired pending booking(s)`);
+//         }
+//     });
+// }, 5 * 60 * 1000); // Run every 5 minutes
 
 app.listen(PORT, () => {
     console.log(`\n Havoc Sim Podium backend running at http://localhost:${PORT}`);

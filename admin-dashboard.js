@@ -84,36 +84,95 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 });
 
 // ---- Fetch Data ----
+window.allBookings = []; // cache for frontend filtering
+window.selectedBookings = new Set(); // store selected order IDs for bulk actions
+
 async function loadBookings() {
-    const tbody = document.getElementById('bookingsTableBody');
     const res = await fetchAuth('/api/admin/bookings');
-    const bookings = await res.json();
+    window.allBookings = await res.json();
+    renderBookings(window.allBookings);
+}
+
+function renderBookings(bookingsToRender) {
+    const tbody = document.getElementById('bookingsTableBody');
     
-    // Update stat cards
-    const paid = bookings.filter(b => b.status?.toLowerCase() === 'paid').length;
-    const pending = bookings.filter(b => b.status?.toLowerCase() === 'pending').length;
+    // Clear selections when re-rendering
+    window.selectedBookings.clear();
+    updateBulkActionsUI();
+    const selectAllCheckbox = document.getElementById('selectAllBookings');
+    if (selectAllCheckbox) selectAllCheckbox.checked = false;
+    
+    // Update stat cards (stats always based on all bookings, or filtered? Wix usually shows stats for all or filtered depending on context. Let's base stats on filtered for better UX)
+    const paid = bookingsToRender.filter(b => b.status?.toLowerCase() === 'paid').length;
+    const pending = bookingsToRender.filter(b => b.status?.toLowerCase() === 'pending').length;
     const statTotal = document.getElementById('statTotal');
     const statPaid = document.getElementById('statPaid');
     const statPending = document.getElementById('statPending');
-    if (statTotal) statTotal.textContent = bookings.length;
+    if (statTotal) statTotal.textContent = bookingsToRender.length;
     if (statPaid) statPaid.textContent = paid;
     if (statPending) statPending.textContent = pending;
 
     tbody.innerHTML = '';
-    if (!bookings.length) {
-        tbody.innerHTML = '<tr><td colspan="6" style="padding:3rem; text-align:center; color:rgba(255,255,255,0.35);">No bookings yet</td></tr>';
+    if (!bookingsToRender.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:3rem; text-align:center; color:rgba(255,255,255,0.35);">No bookings found</td></tr>';
         return;
     }
-    bookings.forEach(b => {
-        let statusClass = 'badge-pending';
-        if (b.status?.toUpperCase() === 'PAID') statusClass = 'badge-paid';
-        if (b.status?.toUpperCase() === 'ATTENDED') statusClass = 'badge-attended';
-        if (b.status?.toUpperCase() === 'CANCELLED') statusClass = 'badge-cancelled';
-        if (b.status?.toUpperCase() === 'CASH') statusClass = 'badge-cash';
+    bookingsToRender.forEach(b => {
+        const isPending = (b.status || 'PENDING').toUpperCase() === 'PENDING';
+        const isCancelled = (b.status || '').toUpperCase() === 'CANCELLED';
+        const isAttended = (b.status || '').toUpperCase() === 'ATTENDED';
         
+        let paymentBadge = isPending ? 'UNPAID' : (isCancelled ? 'REFUNDED' : 'PAID');
+        let fulfillBadge = isAttended ? 'FULFILLED' : (isCancelled ? 'CANCELED' : 'UNFULFILLED');
+        
+        // Pick CSS classes for the badges based on the text
+        const getBadgeClass = (text) => {
+            if (text === 'PAID') return 'badge-paid';
+            if (text === 'UNPAID' || text === 'PENDING') return 'badge-pending';
+            if (text === 'CASH') return 'badge-cash';
+            if (text === 'FULFILLED' || text === 'ATTENDED') return 'badge-attended';
+            if (text === 'UNFULFILLED') return 'badge-pending';
+            if (text === 'CANCELED' || text === 'REFUNDED' || text === 'CANCELLED') return 'badge-cancelled';
+            return 'badge-pending';
+        };
+
+        // Date Formatting
+        let dateFormatted = b.booking_date;
+        let timeFormatted = b.booking_time;
+        try {
+            const d = new Date(`${b.booking_date}T${b.booking_time}`);
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+            const month = monthNames[d.getMonth()];
+            const day = d.getDate();
+            const weekday = dayNames[d.getDay()];
+            dateFormatted = `${month} ${day} (${weekday})`;
+
+            const formatTimeStr = (dateObj) => {
+                let h = dateObj.getHours();
+                let m = dateObj.getMinutes();
+                let ampm = h >= 12 ? 'PM' : 'AM';
+                h = h % 12; h = h ? h : 12;
+                return m === 0 ? `${h}${ampm}` : `${h}:${m.toString().padStart(2, '0')}${ampm}`;
+            };
+            const startTime = formatTimeStr(d);
+            d.setMinutes(d.getMinutes() + 30);
+            const endTime = formatTimeStr(d);
+            timeFormatted = `${startTime}-${endTime}`;
+        } catch(e) {}
+
         const tr = document.createElement('tr');
         tr.setAttribute('data-order-id', b.order_id);
+        tr.style.cursor = 'pointer';
+        tr.onclick = (e) => {
+            // Prevent opening details if clicking on actions dropdown or delete or checkbox
+            if(e.target.closest('.custom-dropdown') || e.target.closest('.btn-delete') || e.target.type === 'checkbox') return;
+            openOrderDetails(b.order_id);
+        };
         tr.innerHTML = `
+            <td>
+                <input type="checkbox" class="row-checkbox" value="${b.order_id}" onclick="toggleBookingSelection(event, '${b.order_id}')">
+            </td>
             <td style="font-family:monospace; color:rgba(255,255,255,0.6); font-size:0.8rem;">#${b.order_id}</td>
             <td>
                 <div style="font-weight:600">${b.name}</div>
@@ -121,27 +180,16 @@ async function loadBookings() {
                 <div style="font-size: 0.75rem; color: var(--gold); margin-top: 4px; font-weight: 600;">${b.item_name || 'Simulator'}</div>
             </td>
             <td>
-                <div>${b.booking_date}</div>
-                <small style="color:#e5b869">${b.booking_time}</small>
+                <div style="font-weight:600; color:#fff;">${dateFormatted}</div>
+                <small style="color:#e5b869">${timeFormatted}</small>
             </td>
             <td style="font-weight:600">₹${b.price}</td>
             <td>
-                <span class="badge ${statusClass}">${b.status}</span>
+                <span class="badge ${getBadgeClass(paymentBadge)}">${paymentBadge}</span>
+                <span class="badge ${getBadgeClass(fulfillBadge)}" style="margin-left:4px;">${fulfillBadge}</span>
             </td>
             <td>
                 <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                    <div class="custom-dropdown" id="dropdown-${b.order_id}">
-                        <button class="custom-dropdown-btn" onclick="toggleStatusDropdown('${b.order_id}', event)">
-                            Set Status <span style="font-size:0.65rem; margin-left:4px;">▼</span>
-                        </button>
-                        <div class="custom-dropdown-menu" id="menu-${b.order_id}">
-                            <div class="custom-dropdown-item" onclick="updateBookingStatus('${b.order_id}', 'PENDING')">🟡 Pending</div>
-                            <div class="custom-dropdown-item" onclick="updateBookingStatus('${b.order_id}', 'PAID')">🟢 Paid (Online)</div>
-                            <div class="custom-dropdown-item" onclick="updateBookingStatus('${b.order_id}', 'CASH')">🟣 Paid (Cash)</div>
-                            <div class="custom-dropdown-item" onclick="updateBookingStatus('${b.order_id}', 'ATTENDED')">🔵 Attended</div>
-                            <div class="custom-dropdown-item" onclick="updateBookingStatus('${b.order_id}', 'CANCELLED')">🔴 Cancelled</div>
-                        </div>
-                    </div>
                     <button class="btn btn-delete" onclick="deleteBookingRow('${b.order_id}')">Delete</button>
                 </div>
             </td>
@@ -207,6 +255,241 @@ window.updateBookingStatus = async (orderId, newStatus) => {
     });
     if (res.ok) {
         loadBookings();
+    } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to update status');
+    }
+};
+
+window.closeOrderDetails = () => {
+    document.getElementById('order-details-view').classList.remove('active');
+    document.getElementById('tab-bookings').style.display = 'block';
+};
+
+window.openOrderDetails = (orderId) => {
+    const order = window.allBookings.find(b => b.order_id === orderId);
+    if(!order) return;
+
+    const view = document.getElementById('order-details-view');
+    const tab = document.getElementById('tab-bookings');
+    
+    // Hide table, show details
+    tab.style.display = 'none';
+    
+    const isPending = (order.status || 'PENDING').toUpperCase() === 'PENDING';
+    const isCancelled = (order.status || '').toUpperCase() === 'CANCELLED';
+    const isAttended = (order.status || '').toUpperCase() === 'ATTENDED';
+    
+    let paymentBadge = isPending ? 'UNPAID' : (isCancelled ? 'REFUNDED' : 'PAID');
+    let fulfillBadge = isAttended ? 'FULFILLED' : (isCancelled ? 'CANCELED' : 'UNFULFILLED');
+
+    const getBadgeClass = (text) => {
+        if (text === 'PAID') return 'badge-paid';
+        if (text === 'UNPAID') return 'badge-pending';
+        if (text === 'FULFILLED') return 'badge-attended';
+        if (text === 'UNFULFILLED') return 'badge-pending';
+        if (text === 'CANCELED' || text === 'REFUNDED') return 'badge-cancelled';
+        return 'badge-pending';
+    };
+
+    const priceFormatted = (order.price || 0).toFixed(2);
+    
+    // Fallback date
+    let placedDateObj = new Date();
+    if(order.created_at) placedDateObj = new Date(order.created_at);
+    else if(order.booking_date) placedDateObj = new Date(order.booking_date);
+    
+    const placedDateStr = placedDateObj.toLocaleString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'});
+    const placedDateOnlyStr = placedDateObj.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+    const placedTimeOnlyStr = placedDateObj.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+
+    view.innerHTML = `
+<div class="od-breadcrumb" onclick="closeOrderDetails()">Orders &gt; <span>Order #${order.order_id}</span></div>
+<div class="od-header">
+    <div class="od-title-area">
+        <h2>Order #${order.order_id}</h2>
+        <span class="od-badge ${getBadgeClass(paymentBadge)}">${paymentBadge}</span>
+        <span class="od-badge ${getBadgeClass(fulfillBadge)}">${fulfillBadge}</span>
+        <div class="od-date">Placed on ${placedDateStr}</div>
+    </div>
+    <div class="od-actions">
+        <div class="custom-dropdown">
+            <button class="btn-secondary" onclick="togglePaymentDropdown('${order.order_id}', 'more', event)">More Actions ˅</button>
+            <div class="custom-dropdown-menu" id="pay-menu-more-${order.order_id}" style="right:0; left:auto; min-width: 240px; background: #1c1c21;">
+                <div class="custom-dropdown-item" onclick="markOrderAsFulfilled('${order.order_id}')">✓ Mark as fulfilled</div>
+                <div class="custom-dropdown-item" onclick="markOrderAsUnfulfilled('${order.order_id}')">✗ Mark as unfulfilled</div>
+                <div class="custom-dropdown-item" onclick="cancelOrder('${order.order_id}')">✗ Cancel order</div>
+            </div>
+        </div>
+        <div class="custom-dropdown">
+            <button class="btn-blue" onclick="togglePaymentDropdown('${order.order_id}', 'header', event)">Collect Payment ˅</button>
+            <div class="custom-dropdown-menu" id="pay-menu-header-${order.order_id}" style="right:0; left:auto; min-width: 200px;">
+                <div class="custom-dropdown-item" onclick="markOrderAsPaid('${order.order_id}')">✓ Mark as paid</div>
+                <div class="custom-dropdown-item" onclick="markOrderAsUnpaid('${order.order_id}')">✗ Mark as unpaid</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="od-grid">
+    <!-- LEFT COL -->
+    <div>
+        <div class="od-card">
+            <div class="od-card-title">Items (1)</div>
+            <div class="od-item-row">
+                <div style="display: flex; gap: 1rem;">
+                    <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.1); border-radius: 8px; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.3); font-size: 0.7rem;">IMG</div>
+                    <div>
+                        <div style="font-weight: 600; display:flex; align-items:center; gap:0.5rem; flex-wrap: wrap;">
+                            ${order.item_name || 'Simulator'}
+                            <span class="od-badge ${getBadgeClass(paymentBadge)}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem; margin-left: 0;">${paymentBadge}</span>
+                            <span class="od-badge ${getBadgeClass(fulfillBadge)}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem; margin-left: 0;">${fulfillBadge}</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem;">Select Date: ${order.booking_date}</div>
+                        <div style="font-size: 0.8rem; color: var(--muted);">Select Time Slot: ${order.booking_time}</div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 2rem; align-items: center;">
+                    <span style="color: var(--muted);">₹${priceFormatted}</span>
+                    <span style="color: var(--muted);">X 1</span>
+                    <span style="font-weight: 600;">₹${priceFormatted}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="od-card">
+            <div class="od-card-title">
+                <div>Payment info <span class="od-badge ${getBadgeClass(paymentBadge)}" style="font-size: 0.65rem; margin-left: 0.5rem;">${paymentBadge}</span></div>
+            </div>
+            <div class="od-summary-row"><span>Items</span><span>₹${priceFormatted}</span></div>
+            <div class="od-summary-row"><span>Shipping</span><span>₹0.00</span></div>
+            <div class="od-summary-row"><span>Tax</span><span>₹0.00</span></div>
+            <div class="od-summary-row total"><span>Total</span><span>₹${priceFormatted}</span></div>
+            <div class="od-summary-row" style="margin-top: 1rem; margin-bottom: 0;"><span>Amount due</span><span style="font-weight: 700; color: #fff;">₹${isPending ? priceFormatted : '0.00'}</span></div>
+        </div>
+    </div>
+
+    <!-- RIGHT COL -->
+    <div>
+        <div class="od-card">
+            <div class="od-card-title">Order info <span style="color: #60a5fa; cursor: pointer;">✎</span></div>
+            
+            <div class="od-info-group">
+                <div class="od-info-label">Contact info</div>
+                <div class="od-info-value" style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <div style="width: 24px; height: 24px; background: #60a5fa; color: #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; font-weight: 700;">${(order.name || '?').charAt(0).toUpperCase()}</div>
+                    <span style="color: #60a5fa;">${order.name}</span>
+                </div>
+                <div class="od-info-value">${order.email}</div>
+                <div class="od-info-value">${order.phone}</div>
+            </div>
+
+        </div>
+
+        <div class="od-card">
+            <div class="od-card-title">Tags</div>
+            <button style="width: 100%; padding: 0.75rem; background: transparent; border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px; color: #60a5fa; font-family: 'Outfit'; cursor: pointer; text-align: left;">+ Assign Tags</button>
+        </div>
+    </div>
+</div>
+    `;
+
+    view.classList.add('active');
+};
+
+window.togglePaymentDropdown = (orderId, prefix, event) => {
+    event.stopPropagation();
+    // Close other dropdowns
+    document.querySelectorAll('.custom-dropdown-menu.open').forEach(menu => {
+        if (menu.id !== `pay-menu-${prefix}-${orderId}`) menu.classList.remove('open');
+    });
+    const menu = document.getElementById(`pay-menu-${prefix}-${orderId}`);
+    if (menu) menu.classList.toggle('open');
+};
+
+window.markOrderAsPaid = async (orderId) => {
+    // Close all open menus
+    document.querySelectorAll('.custom-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+    
+    const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'PAID' })
+    });
+    
+    if (res.ok) {
+        await loadBookings(); // Await to ensure table is fresh
+        
+        // If order details view is still active, refresh it
+        const view = document.getElementById('order-details-view');
+        if (view && view.classList.contains('active')) {
+            openOrderDetails(orderId);
+        }
+    } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to update status');
+    }
+};
+
+window.markOrderAsFulfilled = async (orderId) => {
+    document.querySelectorAll('.custom-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+    const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'ATTENDED' })
+    });
+    if (res.ok) {
+        await loadBookings();
+        const view = document.getElementById('order-details-view');
+        if (view && view.classList.contains('active')) openOrderDetails(orderId);
+    } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to update status');
+    }
+};
+
+window.markOrderAsUnpaid = async (orderId) => {
+    document.querySelectorAll('.custom-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+    const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'PENDING' })
+    });
+    if (res.ok) {
+        await loadBookings();
+        const view = document.getElementById('order-details-view');
+        if (view && view.classList.contains('active')) openOrderDetails(orderId);
+    } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to update status');
+    }
+};
+
+window.markOrderAsUnfulfilled = async (orderId) => {
+    document.querySelectorAll('.custom-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+    const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}/status`, {
+        method: 'PUT',
+        // If they mark as unfulfilled, it means it is still paid, so revert to PAID
+        body: JSON.stringify({ status: 'PAID' })
+    });
+    if (res.ok) {
+        await loadBookings();
+        const view = document.getElementById('order-details-view');
+        if (view && view.classList.contains('active')) openOrderDetails(orderId);
+    } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to update status');
+    }
+};
+
+window.cancelOrder = async (orderId) => {
+    if(!confirm('Are you sure you want to cancel this order?')) return;
+    document.querySelectorAll('.custom-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+    const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'CANCELLED' })
+    });
+    if (res.ok) {
+        await loadBookings();
+        const view = document.getElementById('order-details-view');
+        if (view && view.classList.contains('active')) openOrderDetails(orderId);
     } else {
         const data = await res.json();
         alert(data.error || 'Failed to update status');
@@ -683,4 +966,300 @@ document.getElementById('cpSubmitBtn').addEventListener('click', async () => {
         errorEl.textContent = data.error || 'Failed to update password.';
         errorEl.style.display = 'block';
     }
+});
+
+// ---- Filter Sidebar Logic ----
+document.addEventListener('DOMContentLoaded', () => {
+    const filterBtn = document.getElementById('openFilterBtn');
+    const filterOverlay = document.getElementById('filterOverlay');
+    const filterSidebar = document.getElementById('filterSidebar');
+    const closeFilterBtn = document.getElementById('closeFilterBtn');
+
+    if (filterBtn) {
+        filterBtn.addEventListener('click', () => {
+            filterOverlay.classList.add('show');
+            filterSidebar.classList.add('open');
+        });
+    }
+
+    function closeFilter() {
+        if(filterOverlay) filterOverlay.classList.remove('show');
+        if(filterSidebar) filterSidebar.classList.remove('open');
+    }
+
+    if (closeFilterBtn) closeFilterBtn.addEventListener('click', closeFilter);
+    if (filterOverlay) filterOverlay.addEventListener('click', closeFilter);
+
+    // Accordion Logic
+    const accordions = document.querySelectorAll('.accordion-header');
+    accordions.forEach(acc => {
+        acc.addEventListener('click', function() {
+            this.classList.toggle('active');
+            const content = this.nextElementSibling;
+            if (content.style.maxHeight) {
+                content.style.maxHeight = null;
+            } else {
+                content.style.maxHeight = content.scrollHeight + "px";
+            }
+        });
+    });
+
+    // Frontend Filtering Logic
+    const filterInputs = document.querySelectorAll('.filter-sidebar input');
+    filterInputs.forEach(input => {
+        input.addEventListener('change', applyFilters);
+        if(input.type === 'text') input.addEventListener('input', applyFilters);
+    });
+
+    const clearFiltersBtn = document.querySelector('.clear-filters');
+    if(clearFiltersBtn) {
+        clearFiltersBtn.addEventListener('click', () => {
+            filterInputs.forEach(input => {
+                if (input.type === 'radio' && input.value === 'All') input.checked = true;
+                else if (input.type === 'radio') input.checked = false;
+                else if (input.type === 'checkbox') input.checked = false;
+                else if (input.type === 'text') input.value = '';
+            });
+            applyFilters();
+        });
+    }
+
+    function applyFilters() {
+        let filtered = [...(window.allBookings || [])];
+
+        // 1. Date created
+        const dateCreated = document.querySelector('input[name="dateCreated"]:checked')?.value;
+        if (dateCreated && dateCreated !== 'All' && dateCreated !== 'Custom') {
+            const now = new Date();
+            filtered = filtered.filter(b => {
+                const bDate = new Date(b.created_at || b.booking_date);
+                const diffTime = Math.abs(now - bDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                if (dateCreated === 'Last 7 days') return diffDays <= 7;
+                if (dateCreated === 'Last 14 days') return diffDays <= 14;
+                if (dateCreated === 'Last month') return diffDays <= 30;
+                return true;
+            });
+        }
+
+        // 2. Fulfillment status (mapped to Session status roughly)
+        const fulfillmentChecks = Array.from(document.querySelectorAll('input[name="fulfillmentStatus"]:checked')).map(cb => cb.value.toUpperCase());
+        if (fulfillmentChecks.length > 0) {
+            filtered = filtered.filter(b => {
+                const s = (b.status || '').toUpperCase();
+                if (fulfillmentChecks.includes('UNFULFILLED') && s === 'PENDING') return true;
+                if (fulfillmentChecks.includes('FULFILLED') && (s === 'PAID' || s === 'CASH' || s === 'ATTENDED')) return true;
+                if (fulfillmentChecks.includes('CANCELED') && s === 'CANCELLED') return true;
+                return false;
+            });
+        }
+
+        // 3. Product Search
+        const productSearch = document.getElementById('productSearchInput').value.toLowerCase();
+        if (productSearch) {
+            filtered = filtered.filter(b => (b.item_name || '').toLowerCase().includes(productSearch));
+        }
+
+        // 4. Payment status
+        const paymentChecks = Array.from(document.querySelectorAll('input[name="paymentStatus"]:checked')).map(cb => cb.value.toUpperCase());
+        if (paymentChecks.length > 0) {
+            filtered = filtered.filter(b => {
+                const s = (b.status || '').toUpperCase();
+                if (paymentChecks.includes('PAID') && (s === 'PAID' || s === 'CASH' || s === 'ATTENDED')) return true;
+                if (paymentChecks.includes('UNPAID') && s === 'PENDING') return true;
+                if (paymentChecks.includes('CANCELED') && s === 'CANCELLED') return true;
+                if (paymentChecks.includes('PENDING') && s === 'PENDING') return true;
+                return false;
+            });
+        }
+
+        renderBookings(filtered);
+    }
+});
+
+// ---- Bulk Actions Logic ----
+window.toggleBookingSelection = (e, orderId) => {
+    e.stopPropagation();
+    if (e.target.checked) {
+        window.selectedBookings.add(orderId);
+    } else {
+        window.selectedBookings.delete(orderId);
+    }
+    updateBulkActionsUI();
+    
+    // Check if all are selected to update the "select all" checkbox state
+    const allCheckboxes = document.querySelectorAll('.row-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAllBookings');
+    if (selectAllCheckbox && allCheckboxes.length > 0) {
+        selectAllCheckbox.checked = Array.from(allCheckboxes).every(cb => cb.checked);
+    }
+};
+
+window.toggleAllBookings = (el) => {
+    const checkboxes = document.querySelectorAll('.row-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = el.checked;
+        if (el.checked) {
+            window.selectedBookings.add(cb.value);
+        } else {
+            window.selectedBookings.delete(cb.value);
+        }
+    });
+    updateBulkActionsUI();
+};
+
+window.updateBulkActionsUI = () => {
+    const bulkActions = document.getElementById('bulkActions');
+    const bulkCount = document.getElementById('bulkCount');
+    
+    if (!bulkActions || !bulkCount) return;
+    
+    if (window.selectedBookings.size > 0) {
+        bulkActions.style.display = 'flex';
+        bulkCount.textContent = `${window.selectedBookings.size} selected`;
+    } else {
+        bulkActions.style.display = 'none';
+    }
+};
+
+window.deleteSelectedBookings = async () => {
+    if (window.selectedBookings.size === 0) return;
+    
+    if (!confirm(`Are you sure you want to delete ${window.selectedBookings.size} bookings?`)) return;
+    
+    try {
+        const orderIds = Array.from(window.selectedBookings);
+        for (const orderId of orderIds) {
+            await fetchAuth(`/api/admin/bookings/${orderId}`, {
+                method: 'DELETE'
+            });
+        }
+        window.selectedBookings.clear();
+        await loadBookings();
+    } catch (e) {
+        console.error("Failed to delete selected bookings:", e);
+        alert("Failed to delete some bookings.");
+    }
+};
+
+// ==========================================
+// INVENTORY MANAGEMENT LOGIC
+// ==========================================
+
+let inventoryData = [];
+
+async function loadInventory() {
+    try {
+        const res = await fetchAuth('/api/admin/products');
+        inventoryData = await res.json();
+        renderInventory(inventoryData);
+    } catch (err) {
+        console.error('Failed to load inventory', err);
+    }
+}
+
+function renderInventory(products) {
+    const tbody = document.getElementById('inventoryTableBody');
+    if (!tbody) return;
+
+    if (products.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No products found.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = products.map(product => `
+        <tr>
+            <td>
+                <div style="font-weight:700; color:#fff;">${product.name}</div>
+            </td>
+            <td><span class="badge-gray" style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${product.type || 'N/A'}</span></td>
+            <td style="color:var(--green); font-weight:600;">₹${(product.price || 0).toFixed(2)}</td>
+            <td>
+                <span class="${product.stock_quantity <= 5 ? 'badge-red' : (product.stock_quantity <= 15 ? 'badge-pending' : 'badge-green')}" style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; border: 1px solid currentColor; background: transparent;">
+                    ${product.stock_quantity}
+                </span>
+            </td>
+            <td>
+                <button class="btn" style="background: rgba(255,255,255,0.1); padding: 0.4rem 0.8rem; font-size: 0.75rem; color:#fff; border:none; margin-right: 0.5rem;" onclick='openProductModal(${JSON.stringify(product).replace(/'/g, "&apos;")})'>Edit</button>
+                <button class="btn-delete" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="deleteProduct(${product.id})">Delete</button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+window.openProductModal = (product = null) => {
+    const modal = document.getElementById('productModal');
+    const title = document.getElementById('productModalTitle');
+    const form = document.getElementById('productForm');
+    
+    if (product) {
+        title.textContent = 'Edit Product';
+        document.getElementById('productId').value = product.id;
+        document.getElementById('productName').value = product.name;
+        document.getElementById('productType').value = product.type;
+        document.getElementById('productPrice').value = product.price;
+        document.getElementById('productStock').value = product.stock_quantity;
+    } else {
+        title.textContent = 'Add Product';
+        form.reset();
+        document.getElementById('productId').value = '';
+    }
+    
+    modal.style.display = 'flex';
+};
+
+window.closeProductModal = () => {
+    document.getElementById('productModal').style.display = 'none';
+};
+
+window.deleteProduct = async (id) => {
+    if (!confirm('Are you sure you want to delete this product?')) return;
+    try {
+        const res = await fetchAuth(`/api/admin/products/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+            loadInventory();
+        } else {
+            alert('Failed to delete product');
+        }
+    } catch (err) {
+        alert('Error connecting to server');
+    }
+};
+
+const productForm = document.getElementById('productForm');
+if (productForm) {
+    productForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('productId').value;
+        const name = document.getElementById('productName').value;
+        const type = document.getElementById('productType').value;
+        const price = document.getElementById('productPrice').value;
+        const stock_quantity = document.getElementById('productStock').value;
+        
+        const payload = { name, type, price, stock_quantity };
+        
+        try {
+            const url = id ? `/api/admin/products/${id}` : '/api/admin/products';
+            const method = id ? 'PUT' : 'POST';
+            
+            const res = await fetchAuth(url, {
+                method,
+                body: JSON.stringify(payload)
+            });
+            
+            if (res.ok) {
+                closeProductModal();
+                loadInventory();
+            } else {
+                alert('Failed to save product');
+            }
+        } catch (err) {
+            alert('Error connecting to server');
+        }
+    });
+}
+
+// Initial load
+document.addEventListener('DOMContentLoaded', () => {
+    loadInventory();
 });

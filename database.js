@@ -16,6 +16,16 @@ const initDb = () => {
             active INTEGER DEFAULT 1
         )`);
 
+        // 1.5. Products Table
+        db.run(`CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            type TEXT,
+            price REAL,
+            stock_quantity INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )`);
+
 
 
         // 2. Bookings Table

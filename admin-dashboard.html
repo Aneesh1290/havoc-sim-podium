@@ -260,6 +260,7 @@
         .badge-attended { background: rgba(59,130,246,0.1); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
         .badge-cash { background: rgba(167,139,250,0.1); color: #a78bfa; border: 1px solid rgba(167,139,250,0.2); }
         .badge-cancelled { background: rgba(248,113,113,0.1); color: var(--red); border: 1px solid rgba(248,113,113,0.2); }
+        .badge-pink { background: #ffe3e3; color: #1e3a8a; border: none; border-radius: 4px; padding: 0.25rem 0.6rem; font-weight: 500; }
 
         /* ===== CUSTOM STATUS DROPDOWN ===== */
         .custom-dropdown {
@@ -317,6 +318,157 @@
             padding: 3rem;
             text-align: center;
             color: var(--muted);
+        }
+
+        /* ===== ORDER DETAILS VIEW ===== */
+        #order-details-view {
+            display: none; 
+            animation: fadeIn 0.3s ease-out forwards;
+        }
+        #order-details-view.active {
+            display: block;
+        }
+        .od-breadcrumb {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-bottom: 1.5rem;
+            cursor: pointer;
+        }
+        .od-breadcrumb span:hover {
+            color: var(--gold);
+        }
+        .od-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+        }
+        .od-title-area h2 {
+            font-size: 1.8rem;
+            margin-right: 1rem;
+            display: inline-block;
+        }
+        .od-date {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+        .od-actions {
+            display: flex;
+            gap: 1rem;
+        }
+        .od-actions .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 0.6rem 1.2rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: 'Outfit';
+        }
+        .od-actions .btn-blue {
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: 'Outfit';
+        }
+        .od-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
+        }
+        @media (max-width: 1024px) {
+            .od-grid { grid-template-columns: 1fr; }
+        }
+        .od-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+        .od-card-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            display: flex;
+            justify-content: space-between;
+        }
+        .od-item-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 1rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .od-item-row:last-child {
+            border-bottom: none;
+        }
+        .od-summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.8rem;
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+        .od-summary-row.total {
+            font-weight: 700;
+            color: #fff;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .od-activity-timeline {
+            border-left: 2px solid rgba(255,255,255,0.1);
+            padding-left: 1.5rem;
+            margin-top: 1.5rem;
+            position: relative;
+        }
+        .od-activity-item {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+        .od-activity-item::before {
+            content: '';
+            position: absolute;
+            left: -1.85rem;
+            top: 0.3rem;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--muted);
+            border: 2px solid var(--bg);
+        }
+        .od-info-group {
+            margin-bottom: 1.5rem;
+        }
+        .od-info-label {
+            font-size: 0.85rem;
+            color: #fff;
+            margin-bottom: 0.4rem;
+            text-decoration: underline;
+            text-decoration-color: rgba(255,255,255,0.3);
+        }
+        .od-info-value {
+            font-size: 0.9rem;
+            color: var(--muted);
+            line-height: 1.4;
+        }
+        .od-badge {
+            display: inline-block;
+            padding: 0.2rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 0.5rem;
+            vertical-align: middle;
+        }
+        .od-badge-red {
+            background: rgba(248,113,113,0.15);
+            color: #fca5a5;
         }
 
         /* ===== AVAILABILITY CARDS ===== */
@@ -639,7 +791,147 @@
             .staff-grid { grid-template-columns: 1fr !important; }
             
             .grid-2 { grid-template-columns: 1fr !important; }
-            .form-row { grid-template-columns: 1fr !important; }
+        }
+
+        /* ===== FILTER SIDEBAR ===== */
+        .filter-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(2px);
+            z-index: 1050;
+            display: none;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .filter-overlay.show {
+            display: block;
+            opacity: 1;
+        }
+        .filter-sidebar {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            max-width: 100%;
+            height: 100vh;
+            background: #1c1d26;
+            border-left: 1px solid var(--border);
+            z-index: 1100;
+            transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            box-shadow: -5px 0 25px rgba(0,0,0,0.5);
+        }
+        .filter-sidebar.open {
+            right: 0;
+        }
+        .filter-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .filter-header h2 {
+            font-size: 1.2rem;
+            font-weight: 700;
+        }
+        .filter-close {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .filter-close:hover {
+            color: #fff;
+        }
+        .filter-body {
+            padding: 1rem 0;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .filter-search {
+            padding: 0 1.5rem 1rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 0.5rem;
+        }
+        .filter-search input {
+            width: 100%;
+            padding: 0.75rem 1rem 0.75rem 2.5rem;
+            background: var(--input-bg) url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="%23888" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/></svg>') no-repeat 0.75rem center;
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            color: #fff;
+            font-family: \'Outfit\', sans-serif;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .filter-search input:focus {
+            border-color: var(--gold);
+        }
+        .accordion-item {
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .accordion-header {
+            width: 100%;
+            padding: 1rem 1.5rem;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-family: \'Outfit\', sans-serif;
+            font-size: 0.95rem;
+            text-align: left;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .accordion-header:hover {
+            background: rgba(255,255,255,0.02);
+        }
+        .accordion-header .arrow {
+            transition: transform 0.2s;
+            color: var(--muted);
+            font-size: 0.8rem;
+        }
+        .accordion-header.active .arrow {
+            transform: rotate(90deg);
+        }
+        .accordion-content {
+            padding: 0 1.5rem;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+        .accordion-content-inner {
+            padding: 0.5rem 0 1.5rem;
+        }
+        .filter-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--sidebar-bg);
+        }
+        .clear-filters {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            font-family: \'Outfit\', sans-serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+        .clear-filters:hover {
+            color: #fff;
         }
     </style>
 </head>
@@ -745,6 +1037,9 @@
             <button class="nav-btn" data-target="tab-staff" id="nav-staff">
                 <span class="icon">👥</span> Staff
             </button>
+            <button class="nav-btn" data-target="tab-inventory" id="nav-inventory">
+                <span class="icon">📦</span> Products
+            </button>
         </div>
 
         <div class="sidebar-footer">
@@ -760,10 +1055,21 @@
     <!-- Main -->
     <main class="main">
 
+        <!-- ORDER DETAILS VIEW -->
+        <div id="order-details-view">
+            <!-- Populated by JS -->
+        </div>
+
         <!-- BOOKINGS TAB -->
         <div id="tab-bookings" class="tab-content active">
-            <div class="page-header">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h1 class="page-title">Recent <span>Bookings</span></h1>
+                <button id="openFilterBtn" class="btn" style="background: var(--card2); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; gap: 8px; padding: 0.5rem 1rem;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/>
+                    </svg>
+                    Filter
+                </button>
             </div>
 
             <div class="stats-row">
@@ -782,16 +1088,21 @@
             </div>
 
             <div class="table-card">
-                <div class="table-card-header">
+                <div class="table-card-header" style="display: flex; justify-content: space-between; align-items: center;">
                     <span class="table-card-title">All Bookings</span>
+                    <div id="bulkActions" style="display:none; gap: 15px; align-items: center;">
+                        <span id="bulkCount" style="font-size: 0.85rem; color: var(--muted); font-weight: 600;">0 selected</span>
+                        <button class="btn-delete" onclick="deleteSelectedBookings()" style="padding: 0.4rem 1rem; border-radius: 6px; font-size: 0.8rem;">Delete Selected</button>
+                    </div>
                 </div>
                 <table>
                     <thead>
                         <tr>
-                            <th>Order ID</th>
-                            <th>Customer</th>
-                            <th>Date & Time</th>
-                            <th>Amount</th>
+                            <th width="4%"><input type="checkbox" id="selectAllBookings" onclick="toggleAllBookings(this)"></th>
+                            <th width="12%">Order ID</th>
+                            <th width="20%">Customer</th>
+                            <th width="15%">Date & Time</th>
+                            <th width="10%">Amount</th>
                             <th>Status</th>
                             <th>Action</th>
                         </tr>
@@ -944,7 +1255,160 @@
             </div>
         </div>
 
+        <!-- INVENTORY TAB -->
+        <div id="tab-inventory" class="tab-content">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h1 class="page-title">Products & <span>Inventory</span></h1>
+                <button class="btn btn-gold" onclick="openProductModal()">+ Add Product</button>
+            </div>
+
+            <div class="table-card">
+                <div class="table-card-header">
+                    <span class="table-card-title">All Products</span>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Price</th>
+                            <th>Stock</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryTableBody">
+                        <tr><td colspan="5" class="empty-state">Loading products…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
     </main>
+
+    <!-- Product Modal -->
+    <div id="productModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
+        <div class="modal-box" style="width: 400px; max-width: 90%; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 2rem;">
+            <h2 id="productModalTitle" style="margin-bottom: 1.5rem; font-size: 1.25rem;">Add Product</h2>
+            <form id="productForm" autocomplete="off">
+                <input type="hidden" id="productId">
+                <div class="field" style="margin-bottom: 1rem;">
+                    <label>Product Name</label>
+                    <input type="text" id="productName" required placeholder="e.g. Race Sim GT" style="width: 100%; padding: 0.75rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit';">
+                </div>
+                <div class="field" style="margin-bottom: 1rem;">
+                    <label>Type / Category</label>
+                    <input type="text" id="productType" required placeholder="e.g. Simulator, Merchandise" style="width: 100%; padding: 0.75rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit';">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                    <div class="field">
+                        <label>Price (₹)</label>
+                        <input type="number" id="productPrice" required placeholder="0" style="width: 100%; padding: 0.75rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit';">
+                    </div>
+                    <div class="field">
+                        <label>Stock Qty</label>
+                        <input type="number" id="productStock" required placeholder="0" style="width: 100%; padding: 0.75rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit';">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button type="button" class="btn" style="flex:1; background: rgba(255,255,255,0.1);" onclick="closeProductModal()">Cancel</button>
+                    <button type="submit" class="btn btn-gold" style="flex:1;">Save Product</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Filter Sidebar -->
+    <div class="filter-overlay" id="filterOverlay"></div>
+    <div class="filter-sidebar" id="filterSidebar">
+        <div class="filter-header">
+            <h2>Filter your orders</h2>
+            <button class="filter-close" id="closeFilterBtn">&times;</button>
+        </div>
+        <div class="filter-body">
+            <div class="filter-search">
+                <input type="text" placeholder="Search filters">
+            </div>
+            
+            <div class="accordion">
+                <!-- Date created -->
+                <div class="accordion-item">
+                    <button class="accordion-header">Date created <span class="arrow">▶</span></button>
+                    <div class="accordion-content">
+                        <div class="accordion-content-inner" style="display: flex; flex-direction: column; gap: 0.8rem;">
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+                                <input type="radio" name="dateCreated" value="All" checked> All
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+                                <input type="radio" name="dateCreated" value="Last 7 days"> Last 7 days
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+                                <input type="radio" name="dateCreated" value="Last 14 days"> Last 14 days
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+                                <input type="radio" name="dateCreated" value="Last month"> Last month
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+                                <input type="radio" name="dateCreated" value="Custom"> Custom
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <!-- Fulfillment status -->
+                <div class="accordion-item">
+                    <button class="accordion-header">Fulfillment status <span class="arrow">▶</span></button>
+                    <div class="accordion-content">
+                        <div class="accordion-content-inner" style="display: flex; flex-direction: column; gap: 0.8rem;">
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+                                <input type="checkbox" name="fulfillmentStatus" value="Unfulfilled"> Unfulfilled
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+                                <input type="checkbox" name="fulfillmentStatus" value="Fulfilled"> Fulfilled
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+                                <input type="checkbox" name="fulfillmentStatus" value="Partially fulfilled"> Partially fulfilled
+                            </label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
+                                <input type="checkbox" name="fulfillmentStatus" value="Canceled"> Canceled
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <!-- Product -->
+                <div class="accordion-item">
+                    <button class="accordion-header">Product <span class="arrow">▶</span></button>
+                    <div class="accordion-content">
+                        <div class="accordion-content-inner">
+                            <input type="text" id="productSearchInput" placeholder="Search by product name" style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit', sans-serif; outline: none; margin-bottom: 0.5rem;">
+                        </div>
+                    </div>
+                </div>
+                <!-- Payment status -->
+                <div class="accordion-item">
+                    <button class="accordion-header">Payment status <span class="arrow">▶</span></button>
+                    <div class="accordion-content">
+                        <div class="accordion-content-inner" style="display: flex; flex-direction: column; gap: 0.8rem;">
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"><input type="checkbox" name="paymentStatus" value="Paid"> Paid</label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"><input type="checkbox" name="paymentStatus" value="Unpaid"> Unpaid</label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"><input type="checkbox" name="paymentStatus" value="Refunded"> Refunded</label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"><input type="checkbox" name="paymentStatus" value="Partially refunded"> Partially refunded</label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"><input type="checkbox" name="paymentStatus" value="Partially paid"> Partially paid</label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"><input type="checkbox" name="paymentStatus" value="Authorized"> Authorized</label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"><input type="checkbox" name="paymentStatus" value="Pending"> Pending</label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"><input type="checkbox" name="paymentStatus" value="Declined"> Declined</label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"><input type="checkbox" name="paymentStatus" value="Canceled"> Canceled</label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"><input type="checkbox" name="paymentStatus" value="Pending refund"> Pending refund</label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"><input type="checkbox" name="paymentStatus" value="Chargeback"> Chargeback</label>
+                            <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"><input type="checkbox" name="paymentStatus" value="Chargeback reversed"> Chargeback reversed</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="filter-footer">
+            <span style="color: var(--muted); font-size: 0.9rem;">No filters applied</span>
+            <button class="clear-filters">Clear all</button>
+        </div>
+    </div>
 
     <!-- 2FA Setup Modal -->
     <div id="totpModal">
