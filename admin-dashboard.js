@@ -137,29 +137,33 @@ function renderBookings(bookingsToRender) {
         };
 
         // Date Formatting
-        let dateFormatted = b.booking_date;
-        let timeFormatted = b.booking_time;
-        try {
-            const d = new Date(`${b.booking_date}T${b.booking_time}`);
-            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-            const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-            const month = monthNames[d.getMonth()];
-            const day = d.getDate();
-            const weekday = dayNames[d.getDay()];
-            dateFormatted = `${month} ${day} (${weekday})`;
+        let dateFormatted = b.booking_date || '-';
+        let timeFormatted = b.booking_time || '-';
+        if (b.booking_date && b.booking_time) {
+            try {
+                const d = new Date(`${b.booking_date}T${b.booking_time}`);
+                if (!isNaN(d.getTime())) {
+                    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                    const month = monthNames[d.getMonth()];
+                    const day = d.getDate();
+                    const weekday = dayNames[d.getDay()];
+                    dateFormatted = `${month} ${day} (${weekday})`;
 
-            const formatTimeStr = (dateObj) => {
-                let h = dateObj.getHours();
-                let m = dateObj.getMinutes();
-                let ampm = h >= 12 ? 'PM' : 'AM';
-                h = h % 12; h = h ? h : 12;
-                return m === 0 ? `${h}${ampm}` : `${h}:${m.toString().padStart(2, '0')}${ampm}`;
-            };
-            const startTime = formatTimeStr(d);
-            d.setMinutes(d.getMinutes() + 30);
-            const endTime = formatTimeStr(d);
-            timeFormatted = `${startTime}-${endTime}`;
-        } catch(e) {}
+                    const formatTimeStr = (dateObj) => {
+                        let h = dateObj.getHours();
+                        let m = dateObj.getMinutes();
+                        let ampm = h >= 12 ? 'PM' : 'AM';
+                        h = h % 12; h = h ? h : 12;
+                        return m === 0 ? `${h}${ampm}` : `${h}:${m.toString().padStart(2, '0')}${ampm}`;
+                    };
+                    const startTime = formatTimeStr(d);
+                    d.setMinutes(d.getMinutes() + 30);
+                    const endTime = formatTimeStr(d);
+                    timeFormatted = `${startTime}-${endTime}`;
+                }
+            } catch(e) {}
+        }
 
         const tr = document.createElement('tr');
         tr.setAttribute('data-order-id', b.order_id);
