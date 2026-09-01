@@ -118,6 +118,7 @@ async function loadBookings() {
             <td>
                 <div style="font-weight:600">${b.name}</div>
                 <small>${b.email} &nbsp;|&nbsp; ${b.phone}</small>
+                <div style="font-size: 0.75rem; color: var(--gold); margin-top: 4px; font-weight: 600;">${b.item_name || 'Simulator'}</div>
             </td>
             <td>
                 <div>${b.booking_date}</div>
