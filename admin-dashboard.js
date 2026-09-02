@@ -975,8 +975,51 @@ document.getElementById('cpSubmitBtn').addEventListener('click', async () => {
     }
 });
 
-// ---- Filter Sidebar Logic ----
+// ---- Filter Sidebar & Export Logic ----
 document.addEventListener('DOMContentLoaded', () => {
+    // Export CSV Logic
+    const exportBtn = document.getElementById('exportCsvBtn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            if (!window.allBookings || window.allBookings.length === 0) {
+                alert("No bookings available to export.");
+                return;
+            }
+
+            // Create CSV Headers
+            const headers = ["Order ID", "Name", "Email", "Phone", "Product", "Price", "Date", "Time", "Status", "Created At"];
+            
+            // Map bookings to CSV rows
+            const rows = window.allBookings.map(b => {
+                return [
+                    `"${b.order_id || ''}"`,
+                    `"${(b.name || '').replace(/"/g, '""')}"`,
+                    `"${b.email || ''}"`,
+                    `"${b.phone || ''}"`,
+                    `"${(b.item_name || '').replace(/"/g, '""')}"`,
+                    `"${b.price || 0}"`,
+                    `"${b.booking_date || ''}"`,
+                    `"${b.booking_time || ''}"`,
+                    `"${b.status || 'PENDING'}"`,
+                    `"${b.created_at || ''}"`
+                ].join(',');
+            });
+            
+            // Combine headers and rows
+            const csvContent = headers.join(',') + '\n' + rows.join('\n');
+            
+            // Trigger download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Havoc_Bookings_Report_${new Date().toISOString().split('T')[0]}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+    }
+
     const filterBtn = document.getElementById('openFilterBtn');
     const filterOverlay = document.getElementById('filterOverlay');
     const filterSidebar = document.getElementById('filterSidebar');
