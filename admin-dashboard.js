@@ -200,6 +200,63 @@ function renderBookings(bookingsToRender) {
     });
 }
 
+function updateAnalyticsSummary(bookings) {
+    const now = new Date();
+    const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
+    const sixtyDaysAgo = new Date(now.getTime() - (60 * 24 * 60 * 60 * 1000));
+
+    let currentSales = 0, currentOrders = 0;
+    let prevSales = 0, prevOrders = 0;
+
+    bookings.forEach(b => {
+        if (b.status === 'CANCELLED' || b.status === 'REFUNDED') return;
+        
+        let dateStr = b.created_at || b.booking_date || '';
+        if (dateStr.includes(' ')) {
+            dateStr = dateStr.replace(' ', 'T');
+        }
+        const d = new Date(dateStr);
+        
+        if (!d || isNaN(d.getTime())) return;
+        
+        if (d >= thirtyDaysAgo) {
+            currentOrders++;
+            currentSales += (parseFloat(b.price) || 0);
+        } else if (d >= sixtyDaysAgo && d < thirtyDaysAgo) {
+            prevOrders++;
+            prevSales += (parseFloat(b.price) || 0);
+        }
+    });
+
+    const currentAov = currentOrders > 0 ? (currentSales / currentOrders) : 0;
+    const prevAov = prevOrders > 0 ? (prevSales / prevOrders) : 0;
+
+    const calcTrend = (curr, prev) => {
+        if (prev === 0 && curr > 0) return { val: 100, dir: 'up' };
+        if (prev === 0 && curr === 0) return { val: 0, dir: 'up' };
+        const diff = ((curr - prev) / prev) * 100;
+        return { val: Math.abs(Math.round(diff)), dir: diff >= 0 ? 'up' : 'down' };
+    };
+
+    const salesTrend = calcTrend(currentSales, prevSales);
+    const ordersTrend = calcTrend(currentOrders, prevOrders);
+    const aovTrend = calcTrend(currentAov, prevAov);
+
+    const updateDOM = (idPrefix, valFormatted, trend) => {
+        const valEl = document.getElementById(`as-${idPrefix}`);
+        const trendEl = document.getElementById(`as-${idPrefix}-trend`);
+        if (valEl) valEl.textContent = valFormatted;
+        if (trendEl) {
+            trendEl.innerHTML = `${trend.dir === 'up' ? '↗' : '↘'} ${trend.val}%`;
+            trendEl.style.color = trend.dir === 'up' ? '#10B981' : '#EF4444';
+        }
+    };
+
+    updateDOM('sales', `₹${currentSales.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, salesTrend);
+    updateDOM('orders', currentOrders.toLocaleString('en-IN'), ordersTrend);
+    updateDOM('aov', `₹${currentAov.toLocaleString('en-IN', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`, aovTrend);
+}
+
 window.deleteBookingRow = async function(orderId) {
     if (!confirm('Are you sure you want to delete this booking?')) return;
     try {
