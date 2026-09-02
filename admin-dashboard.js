@@ -1238,19 +1238,30 @@ function renderInventory(products) {
         return;
     }
 
+    const filterEl = document.getElementById('inventoryMonthFilter');
+    const filterValue = filterEl ? filterEl.value : 'all';
+
+    const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
     const today = new Date();
-    const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
-    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
     
-    // Calculate working days (excluding Mondays)
-    let workingDays = 0;
-    for (let i = 1; i <= daysInMonth; i++) {
-        const d = new Date(currentYear, currentMonth, i);
-        if (d.getDay() !== 1) workingDays++; // Exclude Monday (1)
+    let targetMonths = [];
+    if (filterValue === 'all') {
+        targetMonths = [0,1,2,3,4,5,6,7,8,9,10,11];
+    } else {
+        const mIndex = monthNames.indexOf(filterValue);
+        targetMonths = mIndex !== -1 ? [mIndex] : [today.getMonth()];
     }
-    
-    // 20 time slots per day
+
+    let workingDays = 0;
+    targetMonths.forEach(m => {
+        const daysInMonth = new Date(currentYear, m + 1, 0).getDate();
+        for (let i = 1; i <= daysInMonth; i++) {
+            const d = new Date(currentYear, m, i);
+            if (d.getDay() !== 1) workingDays++; // Exclude Monday
+        }
+    });
+
     const totalSlotsPerSimulator = 20 * workingDays;
 
     const currentMonthBookings = (window.allBookings || []).filter(b => {
@@ -1258,8 +1269,7 @@ function renderInventory(products) {
         try {
             const d = new Date(b.booking_date);
             if (b.status === 'CANCELLED' || b.status === 'REFUNDED') return false; 
-            // Removed year check so dummy data from 2026 shows up even when testing in 2024
-            return d.getMonth() === currentMonth && !isNaN(d.getTime());
+            return targetMonths.includes(d.getMonth()) && !isNaN(d.getTime());
         } catch(e) {
             return false;
         }
@@ -1376,4 +1386,13 @@ if (productForm) {
 // Initial load
 document.addEventListener('DOMContentLoaded', () => {
     loadInventory();
+    
+    const inventoryFilter = document.getElementById('inventoryMonthFilter');
+    if (inventoryFilter) {
+        inventoryFilter.addEventListener('change', () => {
+            if (typeof inventoryData !== 'undefined') {
+                renderInventory(inventoryData);
+            }
+        });
+    }
 });
