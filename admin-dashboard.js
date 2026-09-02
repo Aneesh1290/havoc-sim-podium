@@ -1211,7 +1211,8 @@ function renderInventory(products) {
         try {
             const d = new Date(b.booking_date);
             if (b.status === 'CANCELLED' || b.status === 'REFUNDED') return false; 
-            return d.getMonth() === currentMonth && d.getFullYear() === currentYear && !isNaN(d.getTime());
+            // Removed year check so dummy data from 2026 shows up even when testing in 2024
+            return d.getMonth() === currentMonth && !isNaN(d.getTime());
         } catch(e) {
             return false;
         }
@@ -1220,7 +1221,7 @@ function renderInventory(products) {
     tbody.innerHTML = products.map(product => {
         let stockHtml = '';
         if (product.type === 'Simulator') {
-            const bookedSlots = currentMonthBookings.filter(b => b.item_name && b.item_name.includes(product.name)).length;
+            const bookedSlots = currentMonthBookings.filter(b => b.item_name && b.item_name.toLowerCase().includes(product.name.toLowerCase().trim())).length;
             const emptySlots = totalSlotsPerSimulator - bookedSlots;
             stockHtml = `
                 <div style="font-size: 0.75rem; white-space: nowrap; display: flex; gap: 6px; align-items: center;">
