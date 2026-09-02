@@ -94,6 +94,7 @@ async function loadBookings() {
     if (typeof renderInventory === 'function' && typeof inventoryData !== 'undefined') {
         renderInventory(inventoryData);
     }
+    updateAnalyticsSummary(window.allBookings);
 }
 
 function renderBookings(bookingsToRender) {
@@ -106,15 +107,8 @@ function renderBookings(bookingsToRender) {
     const selectAllCheckbox = document.getElementById('selectAllBookings');
     if (selectAllCheckbox) selectAllCheckbox.checked = false;
     
-    // Update stat cards (stats always based on all bookings, or filtered? Wix usually shows stats for all or filtered depending on context. Let's base stats on filtered for better UX)
-    const paid = bookingsToRender.filter(b => b.status?.toLowerCase() === 'paid').length;
-    const pending = bookingsToRender.filter(b => b.status?.toLowerCase() === 'pending').length;
-    const statTotal = document.getElementById('statTotal');
-    const statPaid = document.getElementById('statPaid');
-    const statPending = document.getElementById('statPending');
-    if (statTotal) statTotal.textContent = bookingsToRender.length;
-    if (statPaid) statPaid.textContent = paid;
-    if (statPending) statPending.textContent = pending;
+    // Analytics summary is now updated per 30 days, not based on table filters
+
 
     tbody.innerHTML = '';
     if (!bookingsToRender.length) {

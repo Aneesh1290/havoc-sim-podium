@@ -1081,18 +1081,28 @@
                 </div>
             </div>
 
-            <div class="stats-row">
-                <div class="stat-card">
-                    <div class="stat-label">Total Bookings</div>
-                    <div class="stat-value" id="statTotal">—</div>
+            <div class="analytics-summary-bar" style="background: var(--card2); border-radius: 12px; border: 1px solid var(--border); padding: 1.2rem 1.5rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
+                <div style="display: flex; gap: 2.5rem; align-items: center; flex-wrap: wrap;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="color: var(--muted); font-size: 1rem;">Sales</span>
+                        <span style="font-size: 1.1rem; font-weight: 600; color: #fff;" id="as-sales">₹0.00</span>
+                        <span id="as-sales-trend" style="font-size: 0.85rem; font-weight: 600; color: #10B981;">↗ 0%</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="color: var(--muted); font-size: 1rem;">Orders</span>
+                        <span style="font-size: 1.1rem; font-weight: 600; color: #fff;" id="as-orders">0</span>
+                        <span id="as-orders-trend" style="font-size: 0.85rem; font-weight: 600; color: #10B981;">↗ 0%</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="color: var(--muted); font-size: 1rem;">Avg. order value</span>
+                        <span style="font-size: 1.1rem; font-weight: 600; color: #fff;" id="as-aov">₹0.00</span>
+                        <span id="as-aov-trend" style="font-size: 0.85rem; font-weight: 600; color: #EF4444;">↘ 0%</span>
+                    </div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-label">Confirmed</div>
-                    <div class="stat-value green" id="statPaid">—</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-label">Pending</div>
-                    <div class="stat-value gold" id="statPending">—</div>
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <span style="color: #60a5fa; font-size: 0.95rem; cursor: pointer;">Last 30 days <svg style="display:inline-block; vertical-align:middle; width:12px; margin-left:2px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></span>
+                    <div style="width: 1px; height: 24px; background: var(--border);"></div>
+                    <a href="#" style="color: #60a5fa; text-decoration: none; font-size: 0.95rem; font-weight: 500;">Go to Analytics</a>
                 </div>
             </div>
 
