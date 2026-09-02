@@ -1077,6 +1077,23 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
+        // 5. Booking Month
+        const monthChecks = Array.from(document.querySelectorAll('input[name="bookingMonth"]:checked')).map(cb => cb.value.toUpperCase());
+        if (monthChecks.length > 0) {
+            const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+            filtered = filtered.filter(b => {
+                if (!b.booking_date) return false;
+                try {
+                    const d = new Date(b.booking_date);
+                    if (isNaN(d.getTime())) return false;
+                    const m = monthNames[d.getMonth()];
+                    return monthChecks.includes(m);
+                } catch(e) {
+                    return false;
+                }
+            });
+        }
+
         renderBookings(filtered);
     }
 });
