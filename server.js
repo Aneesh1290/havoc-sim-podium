@@ -482,20 +482,20 @@ app.post('/api/admin/bookings', verifyToken, (req, res) => {
 // Create a COD / Pay at Desk booking (Public checkout)
 app.post('/api/bookings/cod', (req, res) => {
     const { amount, customer_details, booking_data } = req.body;
+    const items = Array.isArray(booking_data) ? booking_data : [booking_data];
     
     // Validate required fields
-    if (!booking_data.item_name || !booking_data.date || !booking_data.time) {
+    if (!items[0] || !items[0].item_name || !items[0].date || !items[0].time) {
         return res.status(400).json({ error: 'Missing required booking details' });
     }
 
     const orderAmount = parseFloat(amount).toFixed(2);
     
-    // Parse "Aug 30 (Sun)" into "30AUG26"
-    const dateParts = booking_data.date.split(' ');
+    // Parse "Aug 30 (Sun)" into "30AUG26" (based on the first item for generating order ID)
+    const dateParts = items[0].date.split(' ');
     let formattedDate = 'DATE';
     if (dateParts.length >= 2) {
         let year = new Date().getFullYear();
-        // Handle year wrap-around for up to 90 days advance booking (e.g. booked in Dec for Jan)
         const monthIndex = new Date(`${dateParts[0]} 1`).getMonth();
         if (monthIndex < new Date().getMonth() && monthIndex <= 2) {
             year += 1;
@@ -503,27 +503,45 @@ app.post('/api/bookings/cod', (req, res) => {
         formattedDate = (dateParts[1] + dateParts[0]).toUpperCase() + String(year).slice(-2);
     }
 
-    db.get("SELECT COUNT(*) as count FROM bookings WHERE booking_date = ?", [booking_data.date], (err, row) => {
+    db.get("SELECT COUNT(*) as count FROM bookings WHERE booking_date = ?", [items[0].date], (err, row) => {
         const count = (row ? row.count : 0) + 1;
         const orderNo = String(count).padStart(2, '0');
-        const orderId = `PAYDUE_${formattedDate}_${orderNo}`;
+        const baseOrderId = `PAYDUE_${formattedDate}_${orderNo}`;
 
-        db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-            [orderId, customer_details.name, customer_details.email, customer_details.phone, booking_data.item_name, orderAmount, booking_data.date, booking_data.time, 'CASH'], 
-            function(err) {
-                if (err) return res.status(500).json({ error: 'Database error' });
-                
-                // Send confirmation email
-                db.get("SELECT * FROM bookings WHERE order_id = ?", [orderId], (err, row) => {
-                    if (!err && row && row.email) {
-                        sendConfirmationEmail(row);
+        let insertedCount = 0;
+        let hasError = false;
+
+        items.forEach((item, index) => {
+            const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
+            
+            // Distribute price evenly for DB records (or keep 0, it's mostly for reference)
+            const itemPrice = (parseFloat(amount) / items.length).toFixed(2);
+            
+            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'CASH'], 
+                function(err) {
+                    if (err) {
+                        console.error("DB Insert Error (COD):", err);
+                        hasError = true;
                     }
-                });
+                    insertedCount++;
+                    
+                    if (insertedCount === items.length) {
+                        if (hasError) return res.status(500).json({ error: 'Database error while inserting items' });
+                        
+                        // Send confirmation email for the first row as proxy
+                        db.get("SELECT * FROM bookings WHERE order_id = ?", [items.length > 1 ? `${baseOrderId}_0` : baseOrderId], (err, row) => {
+                            if (!err && row && row.email) {
+                                sendConfirmationEmail(row);
+                            }
+                        });
 
-                res.json({ success: true, order_id: orderId });
-            }
-        );
+                        res.json({ success: true, order_id: baseOrderId });
+                    }
+                }
+            );
+        });
     });
 });
 
@@ -535,34 +553,50 @@ app.post('/api/bookings/cod', (req, res) => {
 app.post('/create-order', async (req, res) => {
     try {
         const { amount, customer_details, order_meta, booking_data } = req.body;
+        const items = Array.isArray(booking_data) ? booking_data : [booking_data];
         
         const orderAmount = parseFloat(amount).toFixed(2);
         const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const orderId = `HV_${shortCode}`;
+        const baseOrderId = `HV_${shortCode}`;
 
-        // Save pending booking to DB
-        db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-            [orderId, customer_details.name, customer_details.email, customer_details.phone, booking_data.item_name, orderAmount, booking_data.date, booking_data.time, 'PENDING'], 
-            async function(err) {
-                if (err) console.error("DB Insert Error:", err);
-
-                // Create Cashfree Order
-                const payload = {
-                    order_amount: orderAmount,
-                    order_currency: "INR",
-                    order_id: orderId,
-                    customer_details: {
-                        customer_id: `cust_${Date.now()}`,
-                        customer_phone: customer_details.phone,
-                        customer_name: customer_details.name,
-                        customer_email: customer_details.email
-                    },
-                    order_meta: {
-                        return_url: order_meta.return_url + `?order_id=${orderId}`
+        let insertedCount = 0;
+        
+        items.forEach((item, index) => {
+            const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
+            const itemPrice = (parseFloat(amount) / items.length).toFixed(2);
+            
+            // Save pending booking to DB
+            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING'], 
+                function(err) {
+                    if (err) console.error("DB Insert Error:", err);
+                    insertedCount++;
+                    
+                    if (insertedCount === items.length) {
+                        createCashfreeOrder();
                     }
-                };
+            });
+        });
 
+        async function createCashfreeOrder() {
+            // Create Cashfree Order
+            const payload = {
+                order_amount: orderAmount,
+                order_currency: "INR",
+                order_id: baseOrderId,
+                customer_details: {
+                    customer_id: `cust_${Date.now()}`,
+                    customer_phone: customer_details.phone,
+                    customer_name: customer_details.name,
+                    customer_email: customer_details.email
+                },
+                order_meta: {
+                    return_url: order_meta.return_url + `?order_id=${baseOrderId}`
+                }
+            };
+
+            try {
                 const response = await fetch(`${getCashfreeBaseUrl()}/orders`, {
                     method: 'POST',
                     headers: {
@@ -585,7 +619,11 @@ app.post('/create-order', async (req, res) => {
                     order_id: data.order_id, 
                     payment_session_id: data.payment_session_id 
                 });
-        });
+            } catch (err) {
+                console.error('Create Cashfree order API error:', err);
+                res.status(500).json({ error: 'Failed to communicate with Cashfree' });
+            }
+        }
 
     } catch (err) {
         console.error('Create order error:', err);
@@ -616,10 +654,10 @@ app.post('/verify-payment', async (req, res) => {
 
         if (data.order_status === 'PAID') {
             console.log(`[${new Date().toISOString()}] Payment verified: ${order_id}`);
-            // Update booking status in DB
-            db.run("UPDATE bookings SET status = 'PAID' WHERE order_id = ?", [order_id], () => {
+            // Update booking status in DB (using LIKE to match base_id and base_id_0 etc)
+            db.run("UPDATE bookings SET status = 'PAID' WHERE order_id LIKE ?", [`${order_id}%`], () => {
                 // Fetch booking details and send confirmation email
-                db.get("SELECT * FROM bookings WHERE order_id = ?", [order_id], (err, row) => {
+                db.get("SELECT * FROM bookings WHERE order_id LIKE ?", [`${order_id}%`], (err, row) => {
                     if (!err && row && row.email) {
                         sendConfirmationEmail(row);
                     }

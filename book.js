@@ -297,11 +297,83 @@ document.addEventListener("DOMContentLoaded", () => {
     // =============================================
     const cartDrawer   = document.getElementById("cartDrawer");
     const closeCartBtn = document.querySelector(".close-cart");
-    const cartItemName  = document.getElementById("cartItemName");
-    const cartItemPrice = document.getElementById("cartItemPrice");
     const cartTotal     = document.getElementById("cartTotal");
-    const cartItemImage = document.getElementById("cartItemImage");
     const cartCount     = document.getElementById("cartCount");
+    const cartItemsContainer = document.getElementById("cartItemsContainer");
+    
+    // Initialize cart state
+    let cart = [];
+    try {
+        cart = JSON.parse(localStorage.getItem("havoc_cart")) || [];
+        if (!Array.isArray(cart)) {
+            // Migration from old single-item cart to array
+            if (cart.itemName) cart = [cart];
+            else cart = [];
+        }
+    } catch(e) {
+        cart = [];
+    }
+
+    // Function to render cart
+    const renderCart = () => {
+        if (!cartItemsContainer) return;
+        
+        cartItemsContainer.innerHTML = "";
+        let total = 0;
+        
+        if (cart.length === 0) {
+            cartItemsContainer.innerHTML = "<p style='color:#888; text-align:center; padding: 2rem 0;'>Your cart is empty</p>";
+        }
+        
+        cart.forEach((item, index) => {
+            const priceVal = parseFloat((item.itemPrice || "0").replace(/[^0-9.]/g, ""));
+            total += isNaN(priceVal) ? 0 : priceVal;
+            
+            const div = document.createElement("div");
+            div.className = "cart-item";
+            div.innerHTML = `
+                <img src="${item.itemImage}" alt="Sim" id="cartItemImage_${index}">
+                <div class="cart-item-details">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
+                        <h4 style="margin:0; flex:1; line-height:1.3;">${item.itemName}</h4>
+                        <button class="remove-item-btn" data-index="${index}" aria-label="Remove item" style="background:transparent;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:1.8rem;line-height:0.8;padding:0;transition:0.2s;">&times;</button>
+                    </div>
+                    <p class="cart-item-slot" style="margin:0.2rem 0; color:#888; font-size:0.85rem;">${item.dateLabel}  •  ${item.slot}</p>
+                    <div class="cart-price">${item.itemPrice}</div>
+                </div>
+            `;
+            cartItemsContainer.appendChild(div);
+        });
+        
+        if (cartCount) cartCount.innerText = cart.length;
+        if (cartTotal) cartTotal.innerText = `₹${total.toFixed(2)}`;
+        
+        const checkoutBtn = document.querySelector(".checkout-btn");
+        if (checkoutBtn) {
+            if (cart.length > 0) {
+                checkoutBtn.disabled = false;
+                checkoutBtn.style.opacity = "1";
+                checkoutBtn.style.cursor = "pointer";
+            } else {
+                checkoutBtn.disabled = true;
+                checkoutBtn.style.opacity = "0.5";
+                checkoutBtn.style.cursor = "not-allowed";
+            }
+        }
+        
+        // Add listeners to remove buttons
+        document.querySelectorAll(".remove-item-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                const idx = parseInt(e.target.dataset.index, 10);
+                cart.splice(idx, 1);
+                localStorage.setItem("havoc_cart", JSON.stringify(cart));
+                renderCart();
+            });
+        });
+    };
+    
+    // Initial render
+    renderCart();
 
     // Intercept Add to Cart — open modal first
     document.querySelectorAll(".add-to-cart").forEach(btn => {
@@ -316,84 +388,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
     closeCartBtn?.addEventListener("click", () => cartDrawer?.classList.remove("open"));
 
-    // Remove Item from Cart
-    const removeCartBtn = document.getElementById("removeCartItem");
-    const cartItemDiv = document.querySelector(".cart-item");
-
-    removeCartBtn?.addEventListener("click", () => {
-        // Clear variables
-        pendingProduct = null;
-        selectedDate = null;
-        selectedSlot = null;
-        
-        // Hide the item visually
-        if (cartItemDiv) cartItemDiv.style.display = "none";
-        
-        // Update summary numbers
-        if (cartCount) cartCount.innerText = "0";
-        if (cartTotal) cartTotal.innerText = "₹0.00";
-        
-        // Disable checkout
-        const checkoutBtn = document.querySelector(".checkout-btn");
-        if (checkoutBtn) {
-            checkoutBtn.disabled = true;
-            checkoutBtn.style.opacity = "0.5";
-            checkoutBtn.style.cursor = "not-allowed";
-        }
-        
-        // Clear local storage
-        localStorage.removeItem("havoc_cart");
-    });
-
-    // Make sure cart-item is visible when adding
     // Confirm from modal -> add to cart
     confirmBtn?.addEventListener("click", () => {
         if (!pendingProduct || !selectedDate || !selectedSlot) return;
 
-        if (cartItemDiv) cartItemDiv.style.display = "flex"; // Restore visibility if it was removed
+        const cartItem = {
+            id: Date.now().toString(),
+            itemName: pendingProduct.name,
+            itemPrice: pendingProduct.price,
+            itemImage: pendingProduct.imgSrc,
+            date: selectedDate.iso,
+            dateLabel: selectedDate.label,
+            slot: selectedSlot
+        };
         
-        const checkoutBtn = document.querySelector(".checkout-btn");
-        if (checkoutBtn) {
-            checkoutBtn.disabled = false;
-            checkoutBtn.style.opacity = "1";
-            checkoutBtn.style.cursor = "pointer";
-        }
-
-        if (cartItemName)  cartItemName.innerText  = pendingProduct.name;
-        if (cartItemPrice) cartItemPrice.innerText = pendingProduct.price;
-        if (cartTotal)     cartTotal.innerText     = pendingProduct.price;
-        if (cartItemImage) cartItemImage.src       = pendingProduct.imgSrc;
-
-        // Show date + slot in cart
-        let slotEl = document.querySelector(".cart-item-slot");
-        if (!slotEl) {
-            slotEl = document.createElement("p");
-            slotEl.className = "cart-item-slot";
-            cartItemPrice?.parentElement?.insertBefore(slotEl, cartItemPrice);
-        }
-        slotEl.textContent = `${selectedDate.label}  •  ${selectedSlot}`;
-
-        if (cartCount) cartCount.innerText = "1";
-
+        cart.push(cartItem);
+        localStorage.setItem("havoc_cart", JSON.stringify(cart));
+        
+        renderCart();
         closeModal();
         cartDrawer?.classList.add("open");
     });
 
-    closeCartBtn?.addEventListener("click", () => cartDrawer?.classList.remove("open"));
-
-    // Checkout -> save to localStorage and redirect
+    // Checkout -> redirect
     const checkoutBtn = document.querySelector(".checkout-btn");
     checkoutBtn?.addEventListener("click", () => {
-        const cartData = {
-            itemName:  cartItemName?.innerText  || "",
-            itemPrice: cartItemPrice?.innerText || "",
-            itemImage: cartItemImage?.src       || "",
-            date:      selectedDate?.iso        || "",
-            dateLabel: selectedDate?.label      || "",
-            slot:      selectedSlot             || ""
-        };
-        localStorage.setItem("havoc_cart", JSON.stringify(cartData));
-        window.location.href = "/checkout";
+        if (cart.length > 0) {
+            window.location.href = "/checkout";
+        }
     });
 
     // =============================================

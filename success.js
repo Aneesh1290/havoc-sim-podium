@@ -29,21 +29,35 @@ const showSuccess = (booking, oId) => {
     bookingCard.style.display = 'block';
     emailNote.style.display = 'block';
 
-    const fmt = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val || '-'; };
-    fmt('s-item',   booking.item);
-    fmt('s-price',  booking.price);
-    fmt('s-name',   booking.name);
-    fmt('s-orderid', oId);
-    if (oId && oId.startsWith('PAYDUE')) {
-        fmt('s-price-label', 'Amount Due (at Desk)');
-    } else {
-        fmt('s-price-label', 'Amount Paid');
+    let itemsHtml = '';
+    if (booking.items && Array.isArray(booking.items)) {
+        booking.items.forEach(it => {
+            let formattedDate = it.dateLabel || it.date;
+            try {
+                if (it.date && it.date.includes('-')) {
+                    const d = new Date(it.date);
+                    formattedDate = d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+                }
+            } catch(e) {}
+            
+            itemsHtml += `
+                <div style="padding: 10px; background: rgba(255,255,255,0.05); margin-bottom: 10px; border-radius: 8px; text-align: left;">
+                    <div style="font-weight: 600; font-size: 1.05rem; color: #fff;">${it.itemName}</div>
+                    <div style="font-size: 0.85rem; color: #bbb; margin-top: 4px;">${formattedDate} • ${it.slot || it.time}</div>
+                </div>
+            `;
+        });
     }
-    if (booking.date) {
-        const d = new Date(booking.date);
-        fmt('s-date', d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }));
-    }
-    fmt('s-time', booking.time);
+
+    const priceLabel = oId && oId.startsWith('PAYDUE') ? 'Amount Due (at Desk)' : 'Amount Paid';
+    
+    bookingCard.innerHTML = `
+        <h3 style="margin-bottom: 1rem;">Booking Details</h3>
+        ${itemsHtml}
+        <div class="bc-row" style="margin-top: 1rem;"><span class="bc-label">Booked For</span><span class="bc-value" style="font-weight: 600;">${booking.name || '-'}</span></div>
+        <div class="bc-row"><span class="bc-label">${priceLabel}</span><span class="bc-value gold">${booking.price || '-'}</span></div>
+        <div class="bc-row"><span class="bc-label">Order ID</span><span class="bc-value bc-ref">${oId || '-'}</span></div>
+    `;
 };
 
 async function verifyPayment() {

@@ -19,54 +19,52 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // ---- 1. Load cart from localStorage ----
-    const raw  = localStorage.getItem("havoc_cart");
-    const cart = raw ? JSON.parse(raw) : null;
+    let raw = localStorage.getItem("havoc_cart");
+    let cart = raw ? JSON.parse(raw) : [];
+    
+    // Migration fallback
+    if (cart && !Array.isArray(cart)) {
+        if (cart.itemName) cart = [cart];
+        else cart = [];
+    }
 
-    if (!cart || !cart.itemName) {
+    if (!cart || cart.length === 0) {
         window.location.href = "/book";
         return;
     }
 
     // Populate Order Summary
-    const itemNameEl    = document.getElementById("co-item-name");
-    const itemPriceEl   = document.getElementById("co-item-price");
-    const itemImgEl     = document.getElementById("co-item-img");
-    const subtotalEl    = document.getElementById("co-subtotal");
-    const totalEl       = document.getElementById("co-total");
-    const payBtnLabelEl = document.getElementById("payBtnLabel");
-    const dateMetaEl    = document.getElementById("co-item-date");
-    const timeMetaEl    = document.getElementById("co-item-time");
+    const itemsContainer = document.getElementById("co-items-container");
+    const subtotalEl     = document.getElementById("co-subtotal");
+    const totalEl        = document.getElementById("co-total");
+    const payBtnLabelEl  = document.getElementById("payBtnLabel");
 
-    if (itemNameEl)    itemNameEl.innerText    = cart.itemName;
-    if (itemPriceEl)   itemPriceEl.innerText   = cart.itemPrice;
-    if (itemImgEl)     itemImgEl.src           = cart.itemImage;
-
-    // Pre-fill date/slot from cart
-    if (cart.dateLabel && dateMetaEl) dateMetaEl.innerText = "Date: " + cart.dateLabel;
-    if (cart.slot && timeMetaEl)      timeMetaEl.innerText = "Slot: " + cart.slot;
-
-    // Pre-fill form fields with cart selection (read-only)
-    const dateInput = document.getElementById("co-date");
-    const timeInput = document.getElementById("co-time");
-    if (dateInput && cart.date) {
-        dateInput.value    = cart.date;
-        dateInput.readOnly = true;
-        dateInput.style.opacity = "0.6";
-        dateInput.style.cursor  = "not-allowed";
-    }
-    if (timeInput && cart.slot) {
-        const opt = new Option(cart.slot, cart.slot, true, true);
-        timeInput.add(opt, 0);
-        timeInput.value    = cart.slot;
-        timeInput.disabled = true;
-        timeInput.style.opacity = "0.6";
-        timeInput.style.cursor  = "not-allowed";
+    let originalPrice = 0;
+    
+    if (itemsContainer) {
+        itemsContainer.innerHTML = "";
+        cart.forEach((item, index) => {
+            const priceVal = parseFloat((item.itemPrice || "0").replace(/[^\d.]/g, ""));
+            originalPrice += isNaN(priceVal) ? 0 : priceVal;
+            
+            const div = document.createElement("div");
+            div.className = "summary-item";
+            div.innerHTML = `
+                <img id="co-item-img-${index}" src="${item.itemImage}" alt="Simulator" class="summary-img">
+                <div class="summary-details">
+                    <strong id="co-item-name-${index}">${item.itemName}</strong>
+                    <span id="co-item-date-${index}" class="summary-meta">Date: ${item.dateLabel}</span>
+                    <span id="co-item-time-${index}" class="summary-meta">Slot: ${item.slot}</span>
+                </div>
+                <span id="co-item-price-${index}" class="summary-price">${item.itemPrice}</span>
+            `;
+            itemsContainer.appendChild(div);
+        });
     }
 
     // ---- 1.5 Discount Logic (Dynamic) ----
     const gstEl = document.getElementById("co-gst");
     let appliedDiscount = 0;
-    const originalPrice = parseFloat((cart.itemPrice || "0").replace(/[^\d.]/g, ""));
     let finalAmount = originalPrice;
     let selectedPaymentMethod = 'cod'; // default
 
@@ -161,10 +159,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const name  = document.getElementById("co-name")?.value.trim();
         const email = document.getElementById("co-email")?.value.trim();
         const phone = document.getElementById("co-phone")?.value.trim();
-        const date  = dateInput?.value;
-        const time  = timeInput?.value;
 
-        if (!name || !email || !phone || !date || !time) {
+        if (!name || !email || !phone) {
             alert("Please fill in all required fields before proceeding.");
             return;
         }
@@ -178,14 +174,17 @@ document.addEventListener("DOMContentLoaded", () => {
             // Save booking details to localStorage for the success page (pending status)
             const bookingDetails = {
                 name, email, phone,
-                item: cart.itemName,
+                items: cart, // save the entire array
                 price: `₹${amount.toFixed(2)}`,
-                date: cart.date,
-                dateLabel: cart.dateLabel,
-                time: cart.slot,
                 status: 'pending'
             };
             localStorage.setItem("havoc_recent_booking", JSON.stringify(bookingDetails));
+
+            const booking_data = cart.map(item => ({
+                item_name: item.itemName,
+                date: item.dateLabel,
+                time: item.slot
+            }));
 
             if (selectedPaymentMethod === 'cod') {
                 // COD Flow
@@ -199,11 +198,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     body:    JSON.stringify({ 
                         amount, 
                         customer_details: { name, email, phone },
-                        booking_data: {
-                            item_name: cart.itemName,
-                            date: cart.dateLabel,
-                            time: cart.slot
-                        }
+                        booking_data
                     })
                 });
 
@@ -230,11 +225,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         amount, 
                         customer_details: { name, email, phone },
                         order_meta: { return_url: window.location.origin + "/success.html" },
-                        booking_data: {
-                            item_name: cart.itemName,
-                            date: cart.dateLabel,
-                            time: cart.slot
-                        }
+                        booking_data
                     })
                 });
 

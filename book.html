@@ -182,17 +182,8 @@
             <h2>Cart (<span id="cartCount">1</span> item)</h2>
             <button class="close-cart">&times;</button>
         </div>
-        <div class="cart-body">
-            <div class="cart-item">
-                <img src="assets/race-sim-gt.png" alt="Sim" id="cartItemImage">
-                <div class="cart-item-details">
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
-                        <h4 id="cartItemName" style="margin:0; flex:1; line-height:1.3;">Sep - Race Sim GT - 30 Minutes</h4>
-                        <button id="removeCartItem" aria-label="Remove item" style="background:transparent;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:1.8rem;line-height:0.8;padding:0;transition:0.2s;">&times;</button>
-                    </div>
-                    <div class="cart-price" id="cartItemPrice">₹500.00</div>
-                </div>
-            </div>
+        <div class="cart-body" id="cartItemsContainer">
+            <!-- Dynamic cart items will be injected here -->
         </div>
         <div class="cart-footer">
             <div class="cart-total">
