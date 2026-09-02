@@ -91,6 +91,9 @@ async function loadBookings() {
     const res = await fetchAuth('/api/admin/bookings');
     window.allBookings = await res.json();
     renderBookings(window.allBookings);
+    if (typeof renderInventory === 'function' && typeof inventoryData !== 'undefined') {
+        renderInventory(inventoryData);
+    }
 }
 
 function renderBookings(bookingsToRender) {
@@ -1192,8 +1195,16 @@ function renderInventory(products) {
     const currentMonth = today.getMonth();
     const currentYear = today.getFullYear();
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    
+    // Calculate working days (excluding Mondays)
+    let workingDays = 0;
+    for (let i = 1; i <= daysInMonth; i++) {
+        const d = new Date(currentYear, currentMonth, i);
+        if (d.getDay() !== 1) workingDays++; // Exclude Monday (1)
+    }
+    
     // 20 time slots per day
-    const totalSlotsPerSimulator = 20 * daysInMonth;
+    const totalSlotsPerSimulator = 20 * workingDays;
 
     const currentMonthBookings = (window.allBookings || []).filter(b => {
         if (!b.booking_date) return false;
