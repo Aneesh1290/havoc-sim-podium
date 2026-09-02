@@ -97,6 +97,7 @@ async function loadBookings() {
 }
 
 function renderBookings(bookingsToRender) {
+    window.currentBookings = bookingsToRender;
     const tbody = document.getElementById('bookingsTableBody');
     
     // Clear selections when re-rendering
@@ -981,7 +982,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const exportBtn = document.getElementById('exportCsvBtn');
     if (exportBtn) {
         exportBtn.addEventListener('click', () => {
-            if (!window.allBookings || window.allBookings.length === 0) {
+            const dataToExport = window.currentBookings || window.allBookings;
+            if (!dataToExport || dataToExport.length === 0) {
                 alert("No bookings available to export.");
                 return;
             }
@@ -990,7 +992,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const headers = ["Order ID", "Name", "Email", "Phone", "Product", "Price", "Date", "Time", "Status", "Created At"];
             
             // Map bookings to CSV rows
-            const rows = window.allBookings.map(b => {
+            const rows = dataToExport.map(b => {
                 return [
                     `"${b.order_id || ''}"`,
                     `"${(b.name || '').replace(/"/g, '""')}"`,
