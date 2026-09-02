@@ -300,7 +300,10 @@ window.openOrderDetails = (orderId) => {
         return 'badge-pending';
     };
 
-    const priceFormatted = (order.price || 0).toFixed(2);
+    const totalAmount = order.price || 0;
+    const priceFormatted = totalAmount.toFixed(2);
+    const baseCostFormatted = (totalAmount / 1.18).toFixed(2);
+    const taxFormatted = (totalAmount - (totalAmount / 1.18)).toFixed(2);
     
     // Fallback date
     let placedDateObj = new Date();
@@ -357,9 +360,9 @@ window.openOrderDetails = (orderId) => {
                     </div>
                 </div>
                 <div style="display: flex; gap: 2rem; align-items: center;">
-                    <span style="color: var(--muted);">₹${priceFormatted}</span>
+                    <span style="color: var(--muted);">₹${baseCostFormatted}</span>
                     <span style="color: var(--muted);">X 1</span>
-                    <span style="font-weight: 600;">₹${priceFormatted}</span>
+                    <span style="font-weight: 600;">₹${baseCostFormatted}</span>
                 </div>
             </div>
         </div>
@@ -368,9 +371,9 @@ window.openOrderDetails = (orderId) => {
             <div class="od-card-title">
                 <div>Payment info <span class="od-badge ${getBadgeClass(paymentBadge)}" style="font-size: 0.65rem; margin-left: 0.5rem;">${paymentBadge}</span></div>
             </div>
-            <div class="od-summary-row"><span>Items</span><span>₹${priceFormatted}</span></div>
+            <div class="od-summary-row"><span>Items</span><span>₹${baseCostFormatted}</span></div>
             <div class="od-summary-row"><span>Shipping</span><span>₹0.00</span></div>
-            <div class="od-summary-row"><span>Tax</span><span>₹0.00</span></div>
+            <div class="od-summary-row"><span>Tax (18% GST)</span><span>₹${taxFormatted}</span></div>
             <div class="od-summary-row total"><span>Total</span><span>₹${priceFormatted}</span></div>
             <div class="od-summary-row" style="margin-top: 1rem; margin-bottom: 0;"><span>Amount due</span><span style="font-weight: 700; color: #fff;">₹${isPending ? priceFormatted : '0.00'}</span></div>
         </div>
