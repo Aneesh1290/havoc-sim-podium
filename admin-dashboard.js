@@ -346,7 +346,6 @@ window.openOrderDetails = (orderId) => {
             <div class="od-card-title">Items (1)</div>
             <div class="od-item-row">
                 <div style="display: flex; gap: 1rem;">
-                    <div style="width: 50px; height: 50px; background: rgba(255,255,255,0.1); border-radius: 8px; display:flex; align-items:center; justify-content:center; color:rgba(255,255,255,0.3); font-size: 0.7rem;">IMG</div>
                     <div>
                         <div style="font-weight: 600; display:flex; align-items:center; gap:0.5rem; flex-wrap: wrap;">
                             ${order.item_name || 'Simulator'}
