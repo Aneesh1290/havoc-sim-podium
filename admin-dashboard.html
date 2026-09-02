@@ -1100,9 +1100,13 @@
                     </div>
                 </div>
                 <div style="display: flex; align-items: center; gap: 1rem;">
-                    <span style="color: #60a5fa; font-size: 0.95rem; cursor: pointer;">Last 30 days <svg style="display:inline-block; vertical-align:middle; width:12px; margin-left:2px;" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg></span>
-                    <div style="width: 1px; height: 24px; background: var(--border);"></div>
-                    <a href="#" style="color: #60a5fa; text-decoration: none; font-size: 0.95rem; font-weight: 500;">Go to Analytics</a>
+                    <select id="analyticsTimeFilter" style="background: transparent; border: none; color: #60a5fa; font-size: 0.95rem; cursor: pointer; outline: none;">
+                        <option value="7">Last 7 days</option>
+                        <option value="30" selected>Last 30 days</option>
+                        <option value="90">Last 90 days</option>
+                        <option value="365">Last 365 days</option>
+                        <option value="all">All Time</option>
+                    </select>
                 </div>
             </div>
 

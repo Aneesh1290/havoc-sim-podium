@@ -201,12 +201,17 @@ function renderBookings(bookingsToRender) {
 }
 
 function updateAnalyticsSummary(bookings) {
+    const filterEl = document.getElementById('analyticsTimeFilter');
+    const filterValue = filterEl ? filterEl.value : '30';
+    
     const now = new Date();
-    const thirtyDaysAgo = new Date(now.getTime() - (30 * 24 * 60 * 60 * 1000));
-    const sixtyDaysAgo = new Date(now.getTime() - (60 * 24 * 60 * 60 * 1000));
-
     let currentSales = 0, currentOrders = 0;
     let prevSales = 0, prevOrders = 0;
+
+    const days = filterValue === 'all' ? 'all' : parseInt(filterValue, 10);
+    const msInDay = 24 * 60 * 60 * 1000;
+    const currentPeriodStart = days === 'all' ? new Date(0) : new Date(now.getTime() - (days * msInDay));
+    const prevPeriodStart = days === 'all' ? new Date(0) : new Date(now.getTime() - (days * 2 * msInDay));
 
     bookings.forEach(b => {
         if (b.status === 'CANCELLED' || b.status === 'REFUNDED') return;
@@ -219,10 +224,10 @@ function updateAnalyticsSummary(bookings) {
         
         if (!d || isNaN(d.getTime())) return;
         
-        if (d >= thirtyDaysAgo) {
+        if (d >= currentPeriodStart) {
             currentOrders++;
             currentSales += (parseFloat(b.price) || 0);
-        } else if (d >= sixtyDaysAgo && d < thirtyDaysAgo) {
+        } else if (days !== 'all' && d >= prevPeriodStart && d < currentPeriodStart) {
             prevOrders++;
             prevSales += (parseFloat(b.price) || 0);
         }
@@ -1444,6 +1449,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof inventoryData !== 'undefined') {
                 renderInventory(inventoryData);
             }
+        });
+    }
+
+    const analyticsFilter = document.getElementById('analyticsTimeFilter');
+    if (analyticsFilter) {
+        analyticsFilter.addEventListener('change', () => {
+            updateAnalyticsSummary(window.allBookings);
         });
     }
 });
