@@ -1188,24 +1188,58 @@ function renderInventory(products) {
         return;
     }
 
-    tbody.innerHTML = products.map(product => `
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    // 20 time slots per day
+    const totalSlotsPerSimulator = 20 * daysInMonth;
+
+    const currentMonthBookings = (window.allBookings || []).filter(b => {
+        if (!b.booking_date) return false;
+        try {
+            const d = new Date(b.booking_date);
+            if (b.status === 'CANCELLED' || b.status === 'REFUNDED') return false; 
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear && !isNaN(d.getTime());
+        } catch(e) {
+            return false;
+        }
+    });
+
+    tbody.innerHTML = products.map(product => {
+        let stockHtml = '';
+        if (product.type === 'Simulator') {
+            const bookedSlots = currentMonthBookings.filter(b => b.item_name && b.item_name.includes(product.name)).length;
+            const emptySlots = totalSlotsPerSimulator - bookedSlots;
+            stockHtml = `
+                <div style="font-size: 0.75rem; white-space: nowrap; display: flex; gap: 6px; align-items: center;">
+                    <span style="color:var(--green); background: rgba(50,200,50,0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--green);">Empty: ${emptySlots}</span>
+                    <span style="color:var(--red); background: rgba(200,50,50,0.1); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--red);">Full: ${bookedSlots}</span>
+                </div>
+            `;
+        } else {
+            stockHtml = `
+                <span class="${product.stock_quantity <= 5 ? 'badge-red' : (product.stock_quantity <= 15 ? 'badge-pending' : 'badge-green')}" style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; border: 1px solid currentColor; background: transparent;">
+                    ${product.stock_quantity}
+                </span>
+            `;
+        }
+
+        return `
         <tr>
             <td>
                 <div style="font-weight:700; color:#fff;">${product.name}</div>
             </td>
             <td><span class="badge-gray" style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">${product.type || 'N/A'}</span></td>
             <td style="color:var(--green); font-weight:600;">₹${(product.price || 0).toFixed(2)}</td>
-            <td>
-                <span class="${product.stock_quantity <= 5 ? 'badge-red' : (product.stock_quantity <= 15 ? 'badge-pending' : 'badge-green')}" style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem; border: 1px solid currentColor; background: transparent;">
-                    ${product.stock_quantity}
-                </span>
-            </td>
+            <td>${stockHtml}</td>
             <td>
                 <button class="btn" style="background: rgba(255,255,255,0.1); padding: 0.4rem 0.8rem; font-size: 0.75rem; color:#fff; border:none; margin-right: 0.5rem;" onclick='openProductModal(${JSON.stringify(product).replace(/'/g, "&apos;")})'>Edit</button>
                 <button class="btn-delete" style="padding: 0.4rem 0.8rem; font-size: 0.75rem;" onclick="deleteProduct(${product.id})">Delete</button>
             </td>
         </tr>
-    `).join('');
+        `;
+    }).join('');
 }
 
 window.openProductModal = (product = null) => {
