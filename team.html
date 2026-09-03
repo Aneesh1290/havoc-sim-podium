@@ -46,11 +46,11 @@
         .team-member {
             display: flex;
             flex-direction: column;
-            gap: 3rem;
+            gap: 1.5rem;
             background: var(--card);
             border: 1px solid var(--border);
             border-radius: 20px;
-            padding: 3rem;
+            padding: 1.5rem;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
         }
 
@@ -58,6 +58,8 @@
             .team-member {
                 flex-direction: row;
                 align-items: center;
+                gap: 3rem;
+                padding: 3rem;
             }
             .team-member:nth-child(even) {
                 flex-direction: row-reverse;
