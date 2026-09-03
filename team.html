@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Our Team | Havoc Sim Podium</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="havoc_logo.png">
+    <style>
+        .team-hero {
+            padding: 140px 2rem 80px;
+            text-align: center;
+            background: linear-gradient(to bottom, rgba(10,10,12,0.9), var(--bg)), url('main_background.png') center/cover;
+            position: relative;
+        }
+        .team-title {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 800;
+            color: #fff;
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .team-title .accent {
+            color: var(--primary);
+        }
+        .team-subtitle {
+            color: var(--muted);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .team-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 4rem 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 4rem;
+        }
+
+        .team-member {
+            display: flex;
+            flex-direction: column;
+            gap: 3rem;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 3rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        @media (min-width: 900px) {
+            .team-member {
+                flex-direction: row;
+                align-items: center;
+            }
+            .team-member:nth-child(even) {
+                flex-direction: row-reverse;
+            }
+        }
+
+        .team-member:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-color: rgba(229, 184, 105, 0.3);
+        }
+
+        .member-image {
+            flex: 0 0 350px;
+            width: 100%;
+            max-width: 350px;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid var(--primary);
+            box-shadow: 0 0 20px rgba(229, 184, 105, 0.15);
+            margin: 0 auto;
+        }
+
+        .member-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+            object-fit: cover;
+            aspect-ratio: 3/4;
+        }
+
+        .member-info {
+            flex: 1;
+        }
+
+        .member-name {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 0.5rem;
+        }
+
+        .member-role {
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1.5rem;
+            display: inline-block;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid rgba(229, 184, 105, 0.3);
+        }
+
+        .member-bio {
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 1.05rem;
+            line-height: 1.8;
+        }
+
+        .member-bio p {
+            margin-bottom: 1rem;
+        }
+
+        .member-bio p:last-child {
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <img src="havoc_logo.png" alt="Havoc Logo" class="logo-icon">
+                <div class="logo-text">
+                    <div class="logo-main">HAVOC</div>
+                    <div class="logo-sub">SIM PODIUM</div>
+                </div>
+            </a>
+            
+            <nav class="nav-links">
+                <a href="/">HOME</a>
+                <a href="/#simulators">SIMULATORS</a>
+                <a href="/#about">ABOUT</a>
+                <a href="/team" class="active">OUR TEAM</a>
+                <a href="/#contact">CONTACT</a>
+                <a href="/book" class="cta-button nav-cta">BOOK NOW &rarr;</a>
+            </nav>
+
+            <a href="/book" class="btn btn-primary" style="display: none;">BOOK NOW &rarr;</a>
+
+            <button class="hamburger-menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <section class="team-hero">
+            <h1 class="team-title">MEET THE <span class="accent">TEAM</span></h1>
+            <p class="team-subtitle">The visionaries behind Havoc Group, dedicated to bringing premium simulation and aviation experiences to India.</p>
+        </section>
+
+        <section class="team-container">
+            <!-- Bobby -->
+            <div class="team-member">
+                <div class="member-image">
+                    <img src="assets/team/bobby.jpeg" alt="Bobby Sabharwal">
+                </div>
+                <div class="member-info">
+                    <h2 class="member-name">Bobby Sabharwal</h2>
+                    <div class="member-role">Founder, Managing Director & CEO — Havoc Group</div>
+                    <div class="member-bio">
+                        <p>Bobby Sabharwal is the Founder, Managing Director and CEO of Havoc Group. His journey in aeromodelling began at the age of 15, driven by a deep passion for radio-controlled model aircraft, including RC planes and helicopters.</p>
+                        <p>With decades of hands-on experience in aeromodelling, he transformed his passion into several innovative ventures, including Havoc Hobby, Havoc RC FunZone, Havoc Sim Podium, Havoc Fun School and Havoc Aviation.</p>
+                        <p>His journey has evolved from aeromodelling and RC aviation to professional flight simulators and aviation education. Through Havoc Aviation, the Group is now expanding into pilot training support through ground school classes and advanced flight simulator training.</p>
+                        <p>From Aeromodelling to Aviation, Bobby Sabharwal’s journey has been driven by passion, innovation and a vision to make hobby technology, simulation and aviation education more accessible in India while inspiring the next generation of aviation enthusiasts and aspiring pilots.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rakhi -->
+            <div class="team-member">
+                <div class="member-image">
+                    <img src="assets/team/rekha.jpeg" alt="Rakhi">
+                </div>
+                <div class="member-info">
+                    <h2 class="member-name">Rakhi</h2>
+                    <div class="member-role">Joint Director — Havoc Group</div>
+                    <div class="member-bio">
+                        <p>Rakhi serves as the Joint Director of Havoc Group, playing an important role in the Group’s leadership, administration and continued expansion. Working alongside Founder, Managing Director and CEO Bobby Sabharwal, she contributes to strategic planning, operational coordination and the development of new business ventures.</p>
+                        <p>Since the establishment of Havoc Hobby Center in 2016, the organisation has grown from a specialised hobby destination into a diversified group of innovative ventures. These include Havoc Hobby, Havoc RC FunZone, Havoc Sim Podium, Havoc Fun School and Havoc Aviation.</p>
+                        <p>Rakhi’s commitment, organisational leadership and support have contributed to the Group’s journey from RC hobbies and aeromodelling to experiential entertainment, professional flight and racing simulation, aviation education, ground-school learning and simulator-based pilot training.</p>
+                        <p>As Joint Director, she remains committed to strengthening the Group’s operations, supporting its team and helping transform ambitious ideas into meaningful experiences. Her vision is to contribute towards building Havoc Group as a trusted name in hobbies, simulation, education and aviation while inspiring young minds and aspiring pilots across India.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <div class="logo">
+                    <img src="havoc_logo.png" alt="Havoc Logo" class="logo-icon">
+                    <div class="logo-text">
+                        <div class="logo-main" style="color: #fff;">HAVOC</div>
+                        <div class="logo-sub" style="color: rgba(255,255,255,0.7);">SIM PODIUM</div>
+                    </div>
+                </div>
+                <p>Premium Racing & Flight Simulation Experience in Bengaluru.</p>
+                <div class="social-links">
+                    <a href="https://www.instagram.com/havocsim" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <defs>
+                                <linearGradient id="igGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+                                    <stop offset="0%" stop-color="#f09433"/>
+                                    <stop offset="25%" stop-color="#e6683c"/>
+                                    <stop offset="50%" stop-color="#dc2743"/>
+                                    <stop offset="75%" stop-color="#cc2366"/>
+                                    <stop offset="100%" stop-color="#bc1888"/>
+                                </linearGradient>
+                            </defs>
+                            <path fill="url(#igGrad)" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm3.98-10.169a1.44 1.44 0 100 2.88 1.44 1.44 0 000-2.88z"/>
+                        </svg>
+                    </a>
+                    <a href="https://maps.app.goo.gl/adbVXA7vAeKKxRBb9" target="_blank" rel="noopener noreferrer" aria-label="Google Maps">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/a/aa/Google_Maps_icon_%282020%29.svg" alt="Google Maps" style="width: 20px; height: 20px; object-fit: contain;">
+                    </a>
+                    <a href="https://search.google.com/local/writereview?placeid=ChIJb8-vOgMVrjsRW__4-FpHspA" target="_blank" rel="noopener noreferrer" aria-label="Google Reviews">
+                        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                        </svg>
+                    </a>
+                </div>
+            </div>
+
+            <div class="footer-links">
+                <div class="col">
+                    <h4>QUICK LINKS</h4>
+                    <a href="/#simulators">Simulators</a>
+                    <a href="/#about">About Us</a>
+                    <a href="/#contact">Contact</a>
+                    <a href="/team">Our Team</a>
+                </div>
+                <div class="col">
+                    <h4>CONTACT US</h4>
+                    <p>📞 +91 95355 45654</p>
+                    <p>✉️ havocsim@gmail.com</p>
+                    <p>📍 KH, Bus Stand, Double Rd,<br>Shantinagar, Sudhama Nagar,<br>Bengaluru, Karnataka 560027</p>
+                </div>
+            </div>
+
+            <div class="footer-hours">
+                <div class="legal" style="margin-top: 0;">
+                    <a href="/privacy-policy">Privacy Policy</a>
+                    <a href="/terms-conditions">Terms & Conditions</a>
+                    <a href="/refund-policy">Refund Policy</a>
+                    <a href="/accessibility-statement">Accessibility Statement</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="main.js"></script>
+</body>
+</html>
