@@ -736,7 +736,7 @@ window.openWalkinModal = (sim, time, date) => {
     else if (sim.includes('Race Sim Jr.')) basePrice = 400;
     else if (sim.includes('Race Sim Beginner')) basePrice = 300;
     
-    document.getElementById('walkinPrice').value = basePrice;
+    document.getElementById('walkinPrice').value = Math.round(basePrice * 1.18);
 };
 
 document.getElementById('walkinForm').addEventListener('submit', async (e) => {
