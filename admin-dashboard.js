@@ -780,15 +780,25 @@ async function loadCoupons() {
     
     tbody.innerHTML = '';
     if (!coupons.length) {
-        tbody.innerHTML = '<tr><td colspan="4" style="padding:3rem; text-align:center; color:rgba(255,255,255,0.35);">No coupons added yet</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:3rem; text-align:center; color:rgba(255,255,255,0.35);">No coupons added yet</td></tr>';
         return;
     }
     coupons.forEach(c => {
         const tr = document.createElement('tr');
+        const usesText = c.max_uses != null ? `${c.used_count || 0} / ${c.max_uses}` : `${c.used_count || 0} / ∞`;
+        const expiryText = c.expires_at ? new Date(c.expires_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—';
+        const now = new Date();
+        const isExpired = c.expires_at && new Date(c.expires_at) < now;
+        const isExhausted = c.max_uses != null && (c.used_count || 0) >= c.max_uses;
+        const statusBadge = (isExpired || isExhausted)
+            ? `<span class="badge-cancelled" style="padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem;">Inactive</span>`
+            : `<span class="badge-attended" style="padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem;">Active</span>`;
         tr.innerHTML = `
             <td style="font-weight:700; letter-spacing:2px; font-family:monospace; color:#e5b869">${c.code}</td>
             <td style="text-transform:capitalize; color:rgba(255,255,255,0.7)">${c.type === 'percent' ? 'Percentage' : 'Flat Amount'}</td>
             <td style="font-weight:600">${c.type === 'percent' ? c.value + '%' : '₹' + c.value}</td>
+            <td style="color:rgba(255,255,255,0.7)">${usesText}</td>
+            <td style="color:rgba(255,255,255,0.7)">${expiryText}</td>
             <td><button class="btn btn-delete" onclick="deleteCoupon('${c.code}')">Delete</button></td>
         `;
         tbody.appendChild(tr);
@@ -801,10 +811,12 @@ document.getElementById('addCouponForm').addEventListener('submit', async (e) =>
     const code = document.getElementById('couponCode').value.trim().toUpperCase();
     const type = document.getElementById('couponType').value;
     const value = document.getElementById('couponValue').value;
+    const expires_at = document.getElementById('couponExpiry').value || null;
+    const max_uses = document.getElementById('couponMaxUses').value || null;
 
     const res = await fetchAuth('/api/admin/coupons', {
         method: 'POST',
-        body: JSON.stringify({ code, type, value: parseFloat(value) })
+        body: JSON.stringify({ code, type, value: parseFloat(value), expires_at, max_uses })
     });
 
     const data = await res.json();

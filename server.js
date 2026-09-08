@@ -350,18 +350,41 @@ app.delete('/api/admin/products/:id', verifyToken, (req, res) => {
 
 // Get all active coupons (Public for checkout validation)
 app.get('/api/coupons', (req, res) => {
-    db.all("SELECT code, type, value FROM coupons WHERE active = 1", [], (err, rows) => {
+    db.all("SELECT code, type, value, expires_at, max_uses, used_count FROM coupons WHERE active = 1", [], (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error' });
-        res.json(rows);
+        const now = new Date();
+        // Filter out expired or exhausted coupons
+        const valid = rows.filter(c => {
+            if (c.expires_at && new Date(c.expires_at) < now) return false;
+            if (c.max_uses != null && c.used_count >= c.max_uses) return false;
+            return true;
+        });
+        res.json(valid);
     });
 });
 
 // Add a coupon (Protected, Admin only)
 app.post('/api/admin/coupons', verifyToken, verifySuperAdmin, (req, res) => {
-    const { code, type, value } = req.body;
-    db.run("INSERT INTO coupons (code, type, value) VALUES (?, ?, ?)", [code, type, value], function(err) {
-        if (err) return res.status(400).json({ error: 'Coupon code might already exist.' });
-        res.json({ success: true, id: this.lastID });
+    const { code, type, value, expires_at, max_uses } = req.body;
+    const expiresVal = expires_at || null;
+    const maxUsesVal = max_uses != null && max_uses !== '' ? parseInt(max_uses) : null;
+    db.run(
+        "INSERT INTO coupons (code, type, value, expires_at, max_uses, used_count) VALUES (?, ?, ?, ?, ?, 0)",
+        [code, type, value, expiresVal, maxUsesVal],
+        function(err) {
+            if (err) return res.status(400).json({ error: 'Coupon code might already exist.' });
+            res.json({ success: true, id: this.lastID });
+        }
+    );
+});
+
+// Increment coupon used_count (Public — called after successful booking)
+app.post('/api/coupons/use', (req, res) => {
+    const { code } = req.body;
+    if (!code) return res.status(400).json({ error: 'No code provided' });
+    db.run("UPDATE coupons SET used_count = used_count + 1 WHERE code = ? AND active = 1", [code], (err) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ success: true });
     });
 });
 

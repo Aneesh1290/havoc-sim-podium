@@ -213,6 +213,16 @@ document.addEventListener("DOMContentLoaded", () => {
                     localStorage.setItem("havoc_recent_booking", JSON.stringify(bookingDetails));
                 }
 
+                // Increment coupon usage count if a code was applied
+                const appliedCode = codeInput?.value?.trim()?.toUpperCase();
+                if (appliedCode && appliedDiscount > 0) {
+                    await fetch(BACKEND_URL + '/api/coupons/use', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code: appliedCode })
+                    }).catch(() => {});
+                }
+
                 // Redirect to success immediately
                 window.location.href = `/success.html?order_id=${orderData.order_id || ''}`;
 

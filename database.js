@@ -79,6 +79,11 @@ const initDb = () => {
             }
         });
 
+        // Migrations for coupons table (expiry + usage limits)
+        db.run(`ALTER TABLE coupons ADD COLUMN expires_at TEXT`, () => {});
+        db.run(`ALTER TABLE coupons ADD COLUMN max_uses INTEGER`, () => {});
+        db.run(`ALTER TABLE coupons ADD COLUMN used_count INTEGER DEFAULT 0`, () => {});
+
         // Seed default admin if none exist (admin / password123)
         db.get("SELECT COUNT(*) as count FROM admin_auth", async (err, row) => {
             if (!err && row.count === 0) {
