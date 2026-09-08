@@ -378,6 +378,14 @@ app.post('/api/admin/coupons', verifyToken, verifySuperAdmin, (req, res) => {
     );
 });
 
+// Get all coupons for admin (Protected) — no filtering, shows expired/exhausted too
+app.get('/api/admin/coupons', verifyToken, verifySuperAdmin, (req, res) => {
+    db.all("SELECT * FROM coupons ORDER BY id DESC", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows);
+    });
+});
+
 // Increment coupon used_count (Public — called after successful booking)
 app.post('/api/coupons/use', (req, res) => {
     const { code } = req.body;

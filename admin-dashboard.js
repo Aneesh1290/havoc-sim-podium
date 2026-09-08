@@ -775,7 +775,7 @@ document.getElementById('walkinForm').addEventListener('submit', async (e) => {
 
 async function loadCoupons() {
     const tbody = document.getElementById('couponsTableBody');
-    const res = await fetch(`${BACKEND_URL}/api/coupons`);
+    const res = await fetchAuth('/api/admin/coupons');
     const coupons = await res.json();
     
     tbody.innerHTML = '';
