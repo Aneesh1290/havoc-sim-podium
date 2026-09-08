@@ -378,6 +378,23 @@ app.post('/api/admin/coupons', verifyToken, verifySuperAdmin, (req, res) => {
     );
 });
 
+// Update a coupon (Protected, Admin only)
+app.put('/api/admin/coupons/:code', verifyToken, verifySuperAdmin, (req, res) => {
+    const codeToUpdate = req.params.code;
+    const { type, value, expires_at, max_uses } = req.body;
+    const expiresVal = expires_at || null;
+    const maxUsesVal = max_uses != null && max_uses !== '' ? parseInt(max_uses) : null;
+    
+    db.run(
+        "UPDATE coupons SET type = ?, value = ?, expires_at = ?, max_uses = ? WHERE code = ?",
+        [type, value, expiresVal, maxUsesVal, codeToUpdate],
+        function(err) {
+            if (err) return res.status(500).json({ error: 'Failed to update coupon.' });
+            res.json({ success: true });
+        }
+    );
+});
+
 // Get all coupons for admin (Protected) — no filtering, shows expired/exhausted too
 app.get('/api/admin/coupons', verifyToken, verifySuperAdmin, (req, res) => {
     db.all("SELECT * FROM coupons ORDER BY id DESC", [], (err, rows) => {

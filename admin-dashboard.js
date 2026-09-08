@@ -773,17 +773,19 @@ document.getElementById('walkinForm').addEventListener('submit', async (e) => {
     }
 });
 
+let adminCouponsList = [];
+
 async function loadCoupons() {
     const tbody = document.getElementById('couponsTableBody');
     const res = await fetchAuth('/api/admin/coupons');
-    const coupons = await res.json();
+    adminCouponsList = await res.json();
     
     tbody.innerHTML = '';
-    if (!coupons.length) {
+    if (!adminCouponsList.length) {
         tbody.innerHTML = '<tr><td colspan="6" style="padding:3rem; text-align:center; color:rgba(255,255,255,0.35);">No coupons added yet</td></tr>';
         return;
     }
-    coupons.forEach(c => {
+    adminCouponsList.forEach(c => {
         const tr = document.createElement('tr');
         const usesText = c.max_uses != null ? `${c.used_count || 0} / ${c.max_uses}` : `${c.used_count || 0} / ∞`;
         const expiryText = c.expires_at ? new Date(c.expires_at).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }) : '—';
@@ -799,32 +801,76 @@ async function loadCoupons() {
             <td style="font-weight:600">${c.type === 'percent' ? c.value + '%' : '₹' + c.value}</td>
             <td style="color:rgba(255,255,255,0.7)">${usesText}</td>
             <td style="color:rgba(255,255,255,0.7)">${expiryText}</td>
-            <td><button class="btn btn-delete" onclick="deleteCoupon('${c.code}')">Delete</button></td>
+            <td>
+                <button class="btn btn-gold" onclick="editCoupon('${c.code}')" style="margin-right:0.5rem; padding:0.4rem 0.8rem; font-size:0.8rem;">Edit</button>
+                <button class="btn btn-delete" onclick="deleteCoupon('${c.code}')" style="padding:0.4rem 0.8rem; font-size:0.8rem;">Delete</button>
+            </td>
         `;
         tbody.appendChild(tr);
     });
 }
 
-// ---- Add/Delete Coupons ----
+// ---- Add/Edit/Delete Coupons ----
+window.editCoupon = (code) => {
+    const coupon = adminCouponsList.find(c => c.code === code);
+    if (!coupon) return;
+    
+    document.getElementById('couponFormTitle').innerText = 'Edit Coupon: ' + code;
+    document.getElementById('editingCouponCode').value = code;
+    
+    document.getElementById('couponCode').value = coupon.code;
+    document.getElementById('couponCode').disabled = true; // Cannot edit code
+    document.getElementById('couponType').value = coupon.type;
+    document.getElementById('couponValue').value = coupon.value;
+    document.getElementById('couponExpiry').value = coupon.expires_at ? coupon.expires_at.split('T')[0] : '';
+    document.getElementById('couponMaxUses').value = coupon.max_uses || '';
+    
+    document.getElementById('couponSubmitBtn').innerText = 'Update';
+    document.getElementById('cancelEditCouponBtn').style.display = 'block';
+    
+    // Scroll to top
+    document.querySelector('.add-coupon-card').scrollIntoView({ behavior: 'smooth' });
+};
+
+document.getElementById('cancelEditCouponBtn').addEventListener('click', () => {
+    document.getElementById('addCouponForm').reset();
+    document.getElementById('editingCouponCode').value = '';
+    document.getElementById('couponCode').disabled = false;
+    document.getElementById('couponFormTitle').innerText = '+ Add New Coupon';
+    document.getElementById('couponSubmitBtn').innerText = 'Add';
+    document.getElementById('cancelEditCouponBtn').style.display = 'none';
+});
+
 document.getElementById('addCouponForm').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const editingCode = document.getElementById('editingCouponCode').value;
     const code = document.getElementById('couponCode').value.trim().toUpperCase();
     const type = document.getElementById('couponType').value;
     const value = document.getElementById('couponValue').value;
     const expires_at = document.getElementById('couponExpiry').value || null;
     const max_uses = document.getElementById('couponMaxUses').value || null;
 
-    const res = await fetchAuth('/api/admin/coupons', {
-        method: 'POST',
-        body: JSON.stringify({ code, type, value: parseFloat(value), expires_at, max_uses })
-    });
+    let res;
+    if (editingCode) {
+        // Update existing
+        res = await fetchAuth(`/api/admin/coupons/${encodeURIComponent(editingCode)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ type, value: parseFloat(value), expires_at, max_uses })
+        });
+    } else {
+        // Add new
+        res = await fetchAuth('/api/admin/coupons', {
+            method: 'POST',
+            body: JSON.stringify({ code, type, value: parseFloat(value), expires_at, max_uses })
+        });
+    }
 
     const data = await res.json();
     if (data.success) {
-        document.getElementById('addCouponForm').reset();
+        document.getElementById('cancelEditCouponBtn').click(); // Reset form
         loadCoupons();
     } else {
-        alert(data.error || 'Failed to add coupon');
+        alert(data.error || 'Failed to save coupon');
     }
 });
 

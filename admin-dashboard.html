@@ -1176,8 +1176,9 @@
             </div>
 
             <div class="add-coupon-card">
-                <h3>+ Add New Coupon</h3>
+                <h3 id="couponFormTitle">+ Add New Coupon</h3>
                 <form id="addCouponForm" autocomplete="off">
+                    <input type="hidden" id="editingCouponCode" value="">
                     <input type="text" style="display:none" aria-hidden="true">
                     <div class="form-row">
                         <div class="field">
@@ -1203,7 +1204,10 @@
                             <label>Max Uses <span style="color:var(--muted); font-weight:400">(optional)</span></label>
                             <input type="number" id="couponMaxUses" autocomplete="off" placeholder="e.g. 100" min="1">
                         </div>
-                        <button type="submit" class="btn btn-gold" style="align-self:flex-end;">Add</button>
+                        <div style="display:flex; gap:0.5rem; align-self:flex-end;">
+                            <button type="button" id="cancelEditCouponBtn" class="btn" style="display:none; background:var(--input-bg);">Cancel</button>
+                            <button type="submit" id="couponSubmitBtn" class="btn btn-gold">Add</button>
+                        </div>
                     </div>
                 </form>
             </div>
