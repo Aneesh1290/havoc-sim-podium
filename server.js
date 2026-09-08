@@ -382,7 +382,7 @@ app.get('/api/availability/:date', (req, res) => {
     const { date } = req.params;
     const { item } = req.query;
 
-    let query = "SELECT booking_time FROM bookings WHERE booking_date = ? AND status IN ('PAID', 'ATTENDED', 'CASH')";
+    let query = "SELECT booking_time FROM bookings WHERE booking_date = ? AND status IN ('PAID', 'ATTENDED', 'CASH', 'PENDING')";
     let params = [date];
 
     if (item) {
@@ -408,8 +408,8 @@ app.get('/api/admin/bookings', verifyToken, (req, res) => {
 // Get bookings by date for Availability Schedule (Protected)
 app.get('/api/admin/bookings/date/:date', verifyToken, (req, res) => {
     const { date } = req.params;
-    // Exclude PENDING (unconfirmed) and CANCELLED (freed) bookings from the schedule view
-    db.all("SELECT * FROM bookings WHERE booking_date = ? AND status NOT IN ('PENDING', 'CANCELLED')", [date], (err, rows) => {
+    // Exclude CANCELLED (freed) bookings from the schedule view; PENDING = Pay-at-Desk holds
+    db.all("SELECT * FROM bookings WHERE booking_date = ? AND status != 'CANCELLED'", [date], (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         res.json(rows);
     });
@@ -519,7 +519,7 @@ app.post('/api/bookings/cod', (req, res) => {
             
             db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'CASH'], 
+                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING'], 
                 function(err) {
                     if (err) {
                         console.error("DB Insert Error (COD):", err);
