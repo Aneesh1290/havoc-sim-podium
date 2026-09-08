@@ -408,8 +408,8 @@ app.get('/api/admin/bookings', verifyToken, (req, res) => {
 // Get bookings by date for Availability Schedule (Protected)
 app.get('/api/admin/bookings/date/:date', verifyToken, (req, res) => {
     const { date } = req.params;
-    // Exclude PENDING bookings since they are unconfirmed and might expire
-    db.all("SELECT * FROM bookings WHERE booking_date = ? AND status != 'PENDING'", [date], (err, rows) => {
+    // Exclude PENDING (unconfirmed) and CANCELLED (freed) bookings from the schedule view
+    db.all("SELECT * FROM bookings WHERE booking_date = ? AND status NOT IN ('PENDING', 'CANCELLED')", [date], (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         res.json(rows);
     });
