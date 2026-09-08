@@ -794,7 +794,7 @@ async function loadCoupons() {
             ? `<span class="badge-cancelled" style="padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem;">Inactive</span>`
             : `<span class="badge-attended" style="padding:0.2rem 0.5rem; border-radius:4px; font-size:0.75rem;">Active</span>`;
         tr.innerHTML = `
-            <td style="font-weight:700; letter-spacing:2px; font-family:monospace; color:#e5b869">${c.code}</td>
+            <td style="font-weight:700; letter-spacing:2px; font-family:monospace; color:#e5b869">${c.code} <div style="margin-top:4px">${statusBadge}</div></td>
             <td style="text-transform:capitalize; color:rgba(255,255,255,0.7)">${c.type === 'percent' ? 'Percentage' : 'Flat Amount'}</td>
             <td style="font-weight:600">${c.type === 'percent' ? c.value + '%' : '₹' + c.value}</td>
             <td style="color:rgba(255,255,255,0.7)">${usesText}</td>
