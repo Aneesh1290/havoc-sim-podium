@@ -1516,4 +1516,47 @@ document.addEventListener('DOMContentLoaded', () => {
             updateAnalyticsSummary(window.allBookings);
         });
     }
+
+    // Database Backup Logic
+    const backupBtn = document.getElementById('backupDbBtn');
+    if (backupBtn) {
+        backupBtn.addEventListener('click', async () => {
+            const token = localStorage.getItem('havoc_admin_token');
+            if (!token) return alert('Session expired. Please login again.');
+            
+            try {
+                backupBtn.innerHTML = '<span>⏳</span> Preparing...';
+                backupBtn.style.pointerEvents = 'none';
+                
+                const response = await fetch(`${BACKEND_URL}/api/admin/backup`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) {
+                    throw new Error('Failed to download backup');
+                }
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                // Get filename from Content-Disposition header if possible, else default
+                const cd = response.headers.get('content-disposition');
+                let filename = `havoc_backup_${new Date().toISOString().split('T')[0]}.db`;
+                if (cd && cd.includes('filename=')) {
+                    filename = cd.split('filename=')[1].replace(/"/g, '');
+                }
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } catch (err) {
+                alert(err.message);
+            } finally {
+                backupBtn.innerHTML = '<span>💾</span> Download Backup';
+                backupBtn.style.pointerEvents = 'auto';
+            }
+        });
+    }
 });

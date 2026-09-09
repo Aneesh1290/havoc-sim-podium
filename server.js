@@ -422,6 +422,20 @@ app.delete('/api/admin/coupons/:code', verifyToken, verifySuperAdmin, (req, res)
 });
 
 // ==========================================
+// BACKUP ROUTE
+// ==========================================
+
+app.get('/api/admin/backup', verifyToken, verifySuperAdmin, (req, res) => {
+    const dbPath = process.env.DB_PATH || require('path').resolve(__dirname, 'havoc.db');
+    res.download(dbPath, `havoc_backup_${new Date().toISOString().split('T')[0]}.db`, (err) => {
+        if (err) {
+            console.error("Backup download error:", err);
+            if (!res.headersSent) res.status(500).json({ error: 'Error downloading database' });
+        }
+    });
+});
+
+// ==========================================
 // BOOKINGS MANAGEMENT ROUTES
 // ==========================================
 
