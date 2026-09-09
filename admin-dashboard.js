@@ -1521,7 +1521,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const backupBtn = document.getElementById('backupDbBtn');
     if (backupBtn) {
         backupBtn.addEventListener('click', async () => {
-            const token = localStorage.getItem('havoc_admin_token');
+            const token = localStorage.getItem('admin_token');
             if (!token) return alert('Session expired. Please login again.');
             
             try {
