@@ -11,8 +11,27 @@ const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const db = require('./database');
 const { sendConfirmationEmail } = require('./mailer');
-
+const multer = require('multer');
+const fs = require('fs');
 const path = require('path');
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, 'assets', 'uploads');
+if (!fs.existsSync(uploadDir)){
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+// Configure multer
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, uploadDir)
+    },
+    filename: function (req, file, cb) {
+        cb(null, Date.now() + '-' + file.originalname)
+    }
+});
+const upload = multer({ storage: storage });
+
+
 const helmet = require('helmet');
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -308,42 +327,6 @@ app.get('/api/admin/products', verifyToken, (req, res) => {
     });
 });
 
-// Add a product (Protected)
-app.post('/api/admin/products', verifyToken, (req, res) => {
-    const { name, type, price, stock_quantity } = req.body;
-    db.run(
-        "INSERT INTO products (name, type, price, stock_quantity) VALUES (?, ?, ?, ?)",
-        [name, type, price, stock_quantity || 0],
-        function(err) {
-            if (err) return res.status(500).json({ error: 'Error creating product' });
-            res.json({ success: true, id: this.lastID });
-        }
-    );
-});
-
-// Update a product (Protected)
-app.put('/api/admin/products/:id', verifyToken, (req, res) => {
-    const { id } = req.params;
-    const { name, type, price, stock_quantity } = req.body;
-    db.run(
-        "UPDATE products SET name = ?, type = ?, price = ?, stock_quantity = ? WHERE id = ?",
-        [name, type, price, stock_quantity, id],
-        function(err) {
-            if (err) return res.status(500).json({ error: 'Error updating product' });
-            res.json({ success: true });
-        }
-    );
-});
-
-// Delete a product (Protected)
-app.delete('/api/admin/products/:id', verifyToken, (req, res) => {
-    const { id } = req.params;
-    db.run("DELETE FROM products WHERE id = ?", [id], function(err) {
-        if (err) return res.status(500).json({ error: 'Error deleting product' });
-        res.json({ success: true });
-    });
-});
-
 // ==========================================
 // COUPON MANAGEMENT ROUTES
 // ==========================================
@@ -360,6 +343,63 @@ app.get('/api/coupons', (req, res) => {
             return true;
         });
         res.json(valid);
+    });
+});
+
+// Bulk create coupons (Protected, Admin only)
+app.post('/api/admin/coupons/bulk', verifyToken, verifySuperAdmin, (req, res) => {
+    const { prefix, count, type, value, expires_at, max_uses, format } = req.body;
+    
+    if (!prefix || !count || count < 1 || count > 500) {
+        return res.status(400).json({ error: 'Invalid prefix or count (max 500).' });
+    }
+
+    const expiresVal = expires_at || null;
+    const maxUsesVal = max_uses != null && max_uses !== '' ? parseInt(max_uses) : null;
+    const codes = [];
+
+    const generateRandomString = (length) => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let result = '';
+        for (let i = 0; i < length; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    };
+
+    for (let i = 1; i <= count; i++) {
+        let code = '';
+        if (format === 'random') {
+            code = `${prefix}${generateRandomString(6)}`;
+        } else {
+            // sequential default
+            code = `${prefix}${String(i).padStart(4, '0')}`;
+        }
+        codes.push(code.toUpperCase());
+    }
+
+    // Insert all codes
+    db.serialize(() => {
+        db.run('BEGIN TRANSACTION');
+        const stmt = db.prepare("INSERT OR IGNORE INTO coupons (code, type, value, expires_at, max_uses, used_count) VALUES (?, ?, ?, ?, ?, 0)");
+        
+        let insertedCount = 0;
+        codes.forEach((code) => {
+            stmt.run([code, type, value, expiresVal, maxUsesVal], function(err) {
+                if (!err && this.changes > 0) {
+                    insertedCount++;
+                }
+            });
+        });
+        
+        stmt.finalize();
+        db.run('COMMIT', (err) => {
+            if (err) {
+                db.run('ROLLBACK');
+                return res.status(500).json({ error: 'Failed to bulk create coupons.' });
+            }
+            res.json({ success: true, count: insertedCount, message: `Successfully created ${insertedCount} coupons.` });
+        });
     });
 });
 
@@ -421,6 +461,20 @@ app.delete('/api/admin/coupons/:code', verifyToken, verifySuperAdmin, (req, res)
     });
 });
 
+// Delete multiple coupons (Protected, Admin only)
+app.post('/api/admin/coupons/bulk-delete', verifyToken, verifySuperAdmin, (req, res) => {
+    const { codes } = req.body;
+    if (!Array.isArray(codes) || codes.length === 0) {
+        return res.status(400).json({ error: 'No codes provided' });
+    }
+    
+    const placeholders = codes.map(() => '?').join(',');
+    db.run(`DELETE FROM coupons WHERE code IN (${placeholders})`, codes, function(err) {
+        if (err) return res.status(500).json({ error: 'Error deleting coupons' });
+        res.json({ success: true, deleted: this.changes });
+    });
+});
+
 // ==========================================
 // BACKUP ROUTE
 // ==========================================
@@ -432,6 +486,131 @@ app.get('/api/admin/backup', verifyToken, verifySuperAdmin, (req, res) => {
             console.error("Backup download error:", err);
             if (!res.headersSent) res.status(500).json({ error: 'Error downloading database' });
         }
+    });
+});
+
+// ==========================================
+// CMS ROUTES (Content, Products, Slots)
+// ==========================================
+
+// Content API
+app.get('/api/content', (req, res) => {
+    db.all("SELECT * FROM site_content", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        const content = {};
+        rows.forEach(r => content[r.section_key] = r.content_value);
+        res.json(content);
+    });
+});
+
+app.put('/api/admin/content', verifyToken, verifySuperAdmin, (req, res) => {
+    const { key, value } = req.body;
+    db.run("INSERT INTO site_content (section_key, content_value) VALUES (?, ?) ON CONFLICT(section_key) DO UPDATE SET content_value=excluded.content_value", [key, value], (err) => {
+        if (err) return res.status(500).json({ error: 'Failed to update content.' });
+        res.json({ success: true });
+    });
+});
+
+// Products API
+app.get('/api/products', (req, res) => {
+    db.all("SELECT * FROM products ORDER BY id ASC", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows);
+    });
+});
+
+app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
+    const { name, type, price, compare_price, stock_quantity, description, options } = req.body;
+    const image_url = req.file ? `assets/uploads/${req.file.filename}` : null;
+    db.run("INSERT INTO products (name, type, price, compare_price, stock_quantity, description, image_url, options) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [name, type, price, compare_price || null, stock_quantity || 10, description, image_url, options || '[]'],
+        function(err) {
+            if (err) return res.status(500).json({ error: 'Failed to add product' });
+            res.json({ success: true, id: this.lastID });
+        }
+    );
+});
+
+app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
+    const { name, type, price, compare_price, stock_quantity, description, options } = req.body;
+    let query = "UPDATE products SET name=?, type=?, price=?, compare_price=?, stock_quantity=?, description=?, options=? WHERE id=?";
+    let params = [name, type, price, compare_price || null, stock_quantity || 10, description, options || '[]', req.params.id];
+    
+    if (req.file) {
+        query = "UPDATE products SET name=?, type=?, price=?, compare_price=?, stock_quantity=?, description=?, options=?, image_url=? WHERE id=?";
+        params = [name, type, price, compare_price || null, stock_quantity || 10, description, options || '[]', `assets/uploads/${req.file.filename}`, req.params.id];
+    }
+    
+    db.run(query, params, (err) => {
+        if (err) return res.status(500).json({ error: 'Failed to update product' });
+        res.json({ success: true });
+    });
+});
+
+app.delete('/api/admin/products/:id', verifyToken, verifySuperAdmin, (req, res) => {
+    db.run("DELETE FROM products WHERE id=?", [req.params.id], (err) => {
+        if (err) return res.status(500).json({ error: 'Error deleting product' });
+        res.json({ success: true });
+    });
+});
+
+app.post('/api/admin/products/:id/duplicate', verifyToken, verifySuperAdmin, (req, res) => {
+    db.get("SELECT * FROM products WHERE id=?", [req.params.id], (err, product) => {
+        if (err || !product) return res.status(404).json({ error: 'Product not found' });
+        
+        const newName = product.name + ' (Copy)';
+        const query = `INSERT INTO products (name, type, price, compare_price, stock_quantity, description, options, image_url)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
+        const params = [newName, product.type, product.price, product.compare_price, product.stock_quantity, product.description, product.options, product.image_url];
+        
+        db.run(query, params, function(err) {
+            if (err) return res.status(500).json({ error: 'Error duplicating product' });
+            res.json({ success: true, newId: this.lastID });
+        });
+    });
+});
+
+// Slots API
+app.get('/api/slots', (req, res) => {
+    db.all("SELECT * FROM slots WHERE active=1 ORDER BY sort_order ASC", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows);
+    });
+});
+
+app.get('/api/admin/slots', verifyToken, verifySuperAdmin, (req, res) => {
+    db.all("SELECT * FROM slots ORDER BY sort_order ASC", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows);
+    });
+});
+
+app.post('/api/admin/slots', verifyToken, verifySuperAdmin, (req, res) => {
+    const { time_range, active, sort_order } = req.body;
+    db.run("INSERT INTO slots (time_range, active, sort_order) VALUES (?, ?, ?)",
+        [time_range, active, sort_order || 0],
+        function(err) {
+            if (err) return res.status(500).json({ error: 'Failed to add slot' });
+            res.json({ success: true, id: this.lastID });
+        }
+    );
+});
+
+app.put('/api/admin/slots/:id', verifyToken, verifySuperAdmin, (req, res) => {
+    const { time_range, active, sort_order } = req.body;
+    db.run("UPDATE slots SET time_range=?, active=?, sort_order=? WHERE id=?",
+        [time_range, active, sort_order || 0, req.params.id],
+        (err) => {
+            if (err) return res.status(500).json({ error: 'Failed to update slot' });
+            res.json({ success: true });
+        }
+    );
+});
+
+app.delete('/api/admin/slots/:id', verifyToken, verifySuperAdmin, (req, res) => {
+    db.run("DELETE FROM slots WHERE id=?", [req.params.id], (err) => {
+        if (err) return res.status(500).json({ error: 'Error deleting slot' });
+        res.json({ success: true });
     });
 });
 
@@ -456,6 +635,168 @@ app.get('/api/availability/:date', (req, res) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         const bookedSlots = rows.map(r => r.booking_time);
         res.json({ bookedSlots });
+    });
+});
+// Get Analytics (Protected)
+app.get('/api/admin/analytics', verifyToken, (req, res) => {
+    let days = req.query.days || 30;
+    
+    let dateFilter = '';
+    let params = [];
+    if (days !== 'all') {
+        days = parseInt(days);
+        dateFilter = "AND created_at >= date('now', ?)";
+        params.push(`-${days} days`);
+    }
+
+    db.get(`SELECT SUM(price) as sales, COUNT(id) as orders FROM bookings WHERE status='SUCCESS' ${dateFilter}`, params, (err, bookingStats) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        
+        db.get("SELECT COUNT(id) as active_slots FROM slots WHERE active=1", [], (err, slotStat) => {
+            if (err) return res.status(500).json({ error: 'Database error' });
+            
+            db.get("SELECT SUM(stock_quantity) as total_stock FROM products", [], (err, prodStat) => {
+                if (err) return res.status(500).json({ error: 'Database error' });
+                
+                const sales = bookingStats.sales || 0;
+                const orders = bookingStats.orders || 0;
+                
+                const activeSlots = slotStat.active_slots || 0;
+                const totalStock = prodStat.total_stock || 0;
+                
+                const calcDays = (days === 'all') ? 365 : parseInt(days);
+                const totalCapacity = calcDays * activeSlots * totalStock;
+                const slotsEmpty = Math.max(0, totalCapacity - orders);
+                
+                res.json({
+                    sales,
+                    orders,
+                    aov: orders > 0 ? (sales / orders) : 0,
+                    slotsBooked: orders,
+                    slotsEmpty,
+                    totalCapacity
+                });
+            });
+        });
+    });
+});
+
+// Get Inventory Matrix Data (Protected)
+app.get('/api/admin/inventory', verifyToken, (req, res) => {
+    // Return products, slots, future bookings, and overrides to let frontend build the matrix
+    db.all("SELECT id, name, stock_quantity FROM products ORDER BY name ASC", [], (err, products) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        
+        db.all("SELECT time_range FROM slots WHERE active=1 ORDER BY sort_order ASC", [], (err, slots) => {
+            if (err) return res.status(500).json({ error: 'Database error' });
+            
+            db.all("SELECT item_name, booking_date, booking_time, status FROM bookings WHERE status='SUCCESS' AND booking_date >= date('now', '-1 day')", [], (err, bookings) => {
+                if (err) return res.status(500).json({ error: 'Database error' });
+                
+                db.all("SELECT product_id, date_str, time_range, override_quantity FROM inventory_overrides WHERE date_str >= date('now', '-1 day')", [], (err, overrides) => {
+                    if (err) return res.status(500).json({ error: 'Database error' });
+                    
+                    res.json({
+                        products,
+                        slots,
+                        bookings,
+                        overrides
+                    });
+                });
+            });
+        });
+    });
+});
+
+// Update Inventory Override (Protected)
+app.post('/api/admin/inventory/override', verifyToken, express.json(), (req, res) => {
+    const { product_id, date_str, time_range, override_quantity } = req.body;
+    if (!product_id || !date_str || !time_range) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+    
+    const stmt = db.prepare(`
+        INSERT INTO inventory_overrides (product_id, date_str, time_range, override_quantity)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(product_id, date_str, time_range) DO UPDATE SET override_quantity = excluded.override_quantity
+    `);
+    
+    stmt.run([product_id, date_str, time_range, override_quantity], function(err) {
+        if (err) {
+            console.error(err);
+            return res.status(500).json({ error: 'Database error' });
+        }
+        res.json({ success: true });
+    });
+});
+
+// Inventory Report: per-product Empty/Full slot counts (Protected)
+app.get('/api/admin/inventory-report', verifyToken, (req, res) => {
+    const { month } = req.query; // e.g. "2026-09" or "all"
+
+    db.all("SELECT id, name, type, price, stock_quantity FROM products ORDER BY name ASC", [], (err, products) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+
+        db.all("SELECT COUNT(*) as slotCount FROM slots WHERE active=1", [], (err, slotRows) => {
+            if (err) return res.status(500).json({ error: 'Database error' });
+            const slotsPerDay = slotRows[0].slotCount || 1;
+
+            // Build date range based on selected month filter
+            let dateFilter = '';
+            let dateParams = [];
+            if (month && month !== 'all') {
+                // month is like "2026-09", but DB has "September 10" or "Sep 10"
+                const monthNamesLong = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+                const monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                const moIndex = Number(month.split('-')[1]) - 1;
+                dateFilter = `AND (booking_date LIKE ? OR booking_date LIKE ?)`;
+                dateParams = [`${monthNamesShort[moIndex]} %`, `${monthNamesLong[moIndex]} %`];
+            }
+
+            db.all(
+                `SELECT item_name, COUNT(*) as booked_count FROM bookings WHERE status='SUCCESS' ${dateFilter} GROUP BY item_name`,
+                dateParams,
+                (err, bookingCounts) => {
+                    if (err) return res.status(500).json({ error: 'Database error' });
+
+                    // Compute total open days (excluding Mondays)
+                    let totalOpenDays = 0;
+                    if (month && month !== 'all') {
+                        const [yr, mo] = month.split('-').map(Number);
+                        const daysInMonth = new Date(yr, mo, 0).getDate();
+                        for (let d = 1; d <= daysInMonth; d++) {
+                            const dateObj = new Date(yr, mo - 1, d);
+                            // getDay() returns 1 for Monday
+                            if (dateObj.getDay() !== 1) {
+                                totalOpenDays++;
+                            }
+                        }
+                    } else {
+                        // Approximate for "all time" (365 days minus ~52 Mondays)
+                        totalOpenDays = Math.floor(365 * 6 / 7);
+                    }
+
+                    const bookingMap = {};
+                    bookingCounts.forEach(b => { bookingMap[b.item_name] = b.booked_count; });
+
+                    const report = products.map(p => {
+                        const totalSlots = totalOpenDays * slotsPerDay;
+                        const fullSlots = bookingMap[p.name] || 0;
+                        const emptySlots = Math.max(0, totalSlots - fullSlots);
+                        return {
+                            id: p.id,
+                            name: p.name,
+                            type: p.type,
+                            price: p.price,
+                            emptySlots,
+                            fullSlots
+                        };
+                    });
+
+                    res.json({ report });
+                }
+            );
+        });
     });
 });
 
@@ -542,13 +883,39 @@ app.post('/api/admin/bookings', verifyToken, (req, res) => {
 });
 
 // Create a COD / Pay at Desk booking (Public checkout)
-app.post('/api/bookings/cod', (req, res) => {
+app.post('/api/bookings/cod', async (req, res) => {
     const { amount, customer_details, booking_data } = req.body;
     const items = Array.isArray(booking_data) ? booking_data : [booking_data];
     
     // Validate required fields
     if (!items[0] || !items[0].item_name || !items[0].date || !items[0].time) {
         return res.status(400).json({ error: 'Missing required booking details' });
+    }
+
+    // Pre-flight concurrency check
+    const checkAvailability = () => {
+        return new Promise((resolve, reject) => {
+            let checkCount = 0;
+            let hasConflict = false;
+            items.forEach(item => {
+                db.get("SELECT COUNT(*) as count FROM bookings WHERE item_name = ? AND booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH')", 
+                [item.item_name, item.date, item.time], (err, row) => {
+                    if (err) return reject(err);
+                    if (row.count > 0) hasConflict = true;
+                    checkCount++;
+                    if (checkCount === items.length) resolve(hasConflict);
+                });
+            });
+        });
+    };
+    
+    try {
+        const hasConflict = await checkAvailability();
+        if (hasConflict) {
+            return res.status(409).json({ error: 'Sorry, one or more of your selected slots was just booked by someone else! Please select different slots.' });
+        }
+    } catch (err) {
+        return res.status(500).json({ error: 'Database error during availability check' });
     }
 
     const orderAmount = parseFloat(amount).toFixed(2);
@@ -616,6 +983,30 @@ app.post('/create-order', async (req, res) => {
     try {
         const { amount, customer_details, order_meta, booking_data } = req.body;
         const items = Array.isArray(booking_data) ? booking_data : [booking_data];
+
+        // Pre-flight concurrency check
+        const checkAvailability = () => {
+            return new Promise((resolve, reject) => {
+                if (!items || items.length === 0) return resolve(false);
+                let checkCount = 0;
+                let hasConflict = false;
+                items.forEach(item => {
+                    db.get("SELECT COUNT(*) as count FROM bookings WHERE item_name = ? AND booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH')", 
+                    [item.item_name, item.date, item.time], (err, row) => {
+                        if (err) return reject(err);
+                        if (row.count > 0) hasConflict = true;
+                        checkCount++;
+                        if (checkCount === items.length) resolve(hasConflict);
+                    });
+                });
+            });
+        };
+
+        const hasConflict = await checkAvailability();
+        if (hasConflict) {
+            return res.status(409).json({ error: 'Sorry, one or more of your selected slots was just booked by someone else! Please select different slots.' });
+        }
+
         
         const orderAmount = parseFloat(amount).toFixed(2);
         const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -742,20 +1133,20 @@ app.get('/', (req, res) => {
 });
 
 // ---- Background Cleanup Job ----
-// Auto-delete pending bookings older than 15 minutes (DISABLED)
-// setInterval(() => {
-//     const query = `
-//         DELETE FROM bookings 
-//         WHERE status = 'PENDING' 
-//         AND datetime(created_at) <= datetime('now', '-15 minutes')
-//     `;
-//     db.run(query, function(err) {
-//         if (err) console.error("Cleanup Job Error:", err);
-//         else if (this.changes > 0) {
-//             console.log(`[${new Date().toISOString()}] Cleanup: Auto-deleted ${this.changes} expired pending booking(s)`);
-//         }
-//     });
-// }, 5 * 60 * 1000); // Run every 5 minutes
+// Auto-delete pending bookings older than 15 minutes
+setInterval(() => {
+    const query = `
+        DELETE FROM bookings 
+        WHERE status = 'PENDING' 
+        AND datetime(created_at) <= datetime('now', '-15 minutes')
+    `;
+    db.run(query, function(err) {
+        if (err) console.error("Cleanup Job Error:", err);
+        else if (this.changes > 0) {
+            console.log(`[${new Date().toISOString()}] Cleanup: Auto-deleted ${this.changes} expired pending booking(s)`);
+        }
+    });
+}, 5 * 60 * 1000); // Run every 5 minutes
 
 app.listen(PORT, () => {
     console.log(`\n Havoc Sim Podium backend running at http://localhost:${PORT}`);

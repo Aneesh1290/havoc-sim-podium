@@ -118,14 +118,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const slotSummaryEl  = document.getElementById("slotSummary");
     const confirmBtn     = document.getElementById("confirmAddToCart");
 
-    const TIME_SLOTS = [
-        "11AM-11:30AM","11:30AM-12PM","12PM-12:30PM","12:30PM-1PM",
-        "2PM-2:30PM","2:30PM-3PM",
-        "3PM-3:30PM","3:30PM-4PM","4PM-4:30PM","4:30PM-5PM",
-        "5PM-5:30PM","5:30PM-6PM","6PM-6:30PM","6:30PM-7PM",
-        "7PM-7:30PM","7:30PM-8PM","8PM-8:30PM","8:30PM-9PM",
-        "9PM-9:30PM","9:30PM-10PM"
-    ];
+    let TIME_SLOTS = [];
 
     // State for the modal
     let pendingProduct = null;  // { name, price, imgSrc }
@@ -140,22 +133,52 @@ document.addEventListener("DOMContentLoaded", () => {
         const month = activeMonthIdx;
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         
+        let customOpts = [];
+        try {
+            if (pendingProduct && pendingProduct.options) {
+                customOpts = typeof pendingProduct.options === 'string' ? JSON.parse(pendingProduct.options) : pendingProduct.options;
+                if (!Array.isArray(customOpts)) customOpts = [];
+            }
+        } catch(e) {}
+        
+        // "Select Date" choices = the enabled/open days (whitelist). All others = closed.
+        const dateOption = customOpts.find(o => o.name && o.name.toLowerCase().includes("date"));
+        const enabledDays = (dateOption && dateOption.choices && dateOption.choices.length > 0)
+            ? new Set(dateOption.choices)
+            : null; // null = no restriction (use default calendar logic)
+
         const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
         for (let d = 1; d <= daysInMonth; d++) {
             const dateObj  = new Date(year, month, d);
-            const isPast   = dateObj < today;
-            const isMonday = dateObj.getDay() === 1;
+            let isPast   = dateObj < today;
+            let isMonday = dateObj.getDay() === 1;
             const dayName  = dayNames[dateObj.getDay()];
-            
             const label    = `${monthNames[month].substring(0,3)} ${d} (${dayName})`;
-            const pill     = document.createElement("button");
             
-            const isDisabled = isPast || isMonday;
+            // Build the "September 05 (Fri)" style string for whitelist lookup (new format)
+            // Also support old format "September 05" for backward compat
+            const fullMonthLabel = `${monthNames[month]} ${String(d).padStart(2,'0')} (${dayName})`;
+            const fullMonthLabelOld = `${monthNames[month]} ${String(d).padStart(2,'0')}`;
+            
+            let isForceClosed = false;
+            
+            if (enabledDays !== null) {
+                // If admin saved a "Select Date" option, use that as whitelist
+                const isEnabled = enabledDays.has(fullMonthLabel) || enabledDays.has(fullMonthLabelOld);
+                if (!isEnabled) {
+                    isForceClosed = true;
+                } else {
+                    isMonday = false; // If explicitly enabled, override Monday rule
+                }
+            }
+            // If no custom dates saved, fall back to: close Mondays only
+            
+            const pill = document.createElement("button");
+            const isDisabled = isPast || isMonday || isForceClosed;
             pill.className = "pill" + (isDisabled ? " pill-disabled" : "");
             
-            // Show 'Closed' for Mondays if it's not already passed
-            if (isMonday && !isPast) {
+            if ((isMonday || isForceClosed) && !isPast) {
                 pill.textContent = `${label} - Closed`;
             } else {
                 pill.textContent = label;
@@ -181,6 +204,19 @@ document.addEventListener("DOMContentLoaded", () => {
         const isToday     = selectedDateStr === localDateStr;
         const currentHour = now.getHours();
         const currentMin  = now.getMinutes();
+        
+        let customOpts = [];
+        try {
+            if (pendingProduct && pendingProduct.options) {
+                customOpts = typeof pendingProduct.options === 'string' ? JSON.parse(pendingProduct.options) : pendingProduct.options;
+            }
+        } catch(e) {}
+        
+        let availableSlots = [...TIME_SLOTS];
+        const timeOption = customOpts.find(o => o.name && o.name.toLowerCase().includes("time"));
+        if (timeOption && timeOption.choices && timeOption.choices.length > 0) {
+            availableSlots = timeOption.choices;
+        }
 
         // Helper: parse "11AM" -> 11, "11:30AM" -> 11.5, "3:30PM" -> 15.5 etc.
         const parseSlotStart = (slotStr) => {
@@ -210,7 +246,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         timePillsEl.innerHTML = "";
 
-        TIME_SLOTS.forEach(slot => {
+        availableSlots.forEach(slot => {
             let isPast = false;
             if (isToday) {
                 const slotHour = parseSlotStart(slot);
@@ -375,16 +411,53 @@ document.addEventListener("DOMContentLoaded", () => {
     // Initial render
     renderCart();
 
-    // Intercept Add to Cart — open modal first
-    document.querySelectorAll(".add-to-cart").forEach(btn => {
-        btn.addEventListener("click", (e) => {
-            const card   = e.target.closest(".product-card");
-            const name   = card.querySelector("h4").innerText;
-            const price  = card.querySelector(".product-price").innerText;
-            const imgSrc = card.querySelector("img").src;
-            openModal({ name, price, imgSrc });
-        });
-    });
+    // Fetch dynamic products and slots
+    async function loadProductsAndSlots() {
+        try {
+            const [slotsRes, productsRes] = await Promise.all([
+                fetch('/api/slots'),
+                fetch('/api/products')
+            ]);
+            
+            const slots = await slotsRes.json();
+            TIME_SLOTS = slots.map(s => s.time_range);
+
+            const products = await productsRes.json();
+            const productGrid = document.getElementById('publicProductGrid');
+            if (productGrid) {
+                productGrid.innerHTML = products.map(p => {
+                    const imgHtml = p.image_url ? `<img src="${p.image_url}" alt="${p.name}">` : `<div style="width:100%; height:180px; background:#222;"></div>`;
+                    return `
+                    <div class="product-card" data-category="${p.type.toLowerCase()}">
+                        ${imgHtml}
+                        <div class="product-info">
+                            <h4>${p.name} ${p.description ? `- ${p.description}` : ''}</h4>
+                            <div class="product-price">
+                                ${p.compare_price && p.compare_price > p.price ? `<span style="text-decoration: line-through; color: #888; font-size: 0.85em; margin-right: 6px;">₹${parseFloat(p.compare_price).toFixed(2)}</span>` : ''}
+                                ₹${p.price.toFixed(2)} <span style="font-size: 0.7em; color: #888;">+ GST</span>
+                            </div>
+                            ${p.stock_quantity > 0 ? `<button class="btn btn-product add-to-cart" data-id="${p.id}">Add to Cart</button>` : `<button class="btn btn-product" disabled>Sold Out</button>`}
+                        </div>
+                    </div>
+                    `;
+                }).join('');
+
+                // Intercept Add to Cart -> open modal first
+                document.querySelectorAll(".add-to-cart").forEach(btn => {
+                    btn.addEventListener("click", (e) => {
+                        const id = e.target.getAttribute("data-id");
+                        const p = products.find(prod => prod.id == id);
+                        if (!p) return;
+                        openModal({ name: p.name, price: `₹${parseFloat(p.price).toFixed(2)}`, imgSrc: p.image_url, options: p.options });
+                    });
+                });
+            }
+        } catch (err) {
+            console.error("Failed to load products/slots", err);
+        }
+    }
+    
+    loadProductsAndSlots();
 
     closeCartBtn?.addEventListener("click", () => cartDrawer?.classList.remove("open"));
 

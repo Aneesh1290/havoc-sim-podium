@@ -49,12 +49,17 @@ const showSuccess = (booking, oId) => {
         });
     }
 
-    const priceLabel = oId && oId.startsWith('PAYDUE') ? 'Amount Due (at Desk)' : 'Amount Paid';
+    const priceLabel = oId && oId.startsWith('PAYDUE') ? 'Amount Due (Pay At Desk)' : 'Amount Paid';
+    const priceVal = parseFloat(booking.price ? booking.price.toString().replace('₹', '').replace(/,/g, '') : 0);
+    const subtotal = (priceVal / 1.18).toFixed(2);
+    const gst = (priceVal - parseFloat(subtotal)).toFixed(2);
     
     bookingCard.innerHTML = `
         <h3 style="margin-bottom: 1rem;">Booking Details</h3>
         ${itemsHtml}
         <div class="bc-row" style="margin-top: 1rem;"><span class="bc-label">Booked For</span><span class="bc-value" style="font-weight: 600;">${booking.name || '-'}</span></div>
+        <div class="bc-row"><span class="bc-label">Subtotal</span><span class="bc-value">₹${subtotal}</span></div>
+        <div class="bc-row"><span class="bc-label">GST (18%)</span><span class="bc-value">₹${gst}</span></div>
         <div class="bc-row"><span class="bc-label">${priceLabel}</span><span class="bc-value gold">${booking.price || '-'}</span></div>
         <div class="bc-row"><span class="bc-label">Order ID</span><span class="bc-value bc-ref">${oId || '-'}</span></div>
     `;

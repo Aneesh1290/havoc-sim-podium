@@ -933,6 +933,25 @@
         .clear-filters:hover {
             color: #fff;
         }
+        .product-modal {
+            display: none; 
+            position: fixed; 
+            top: 0; 
+            left: 260px; 
+            width: calc(100% - 260px); 
+            height: 100%; 
+            background: #0a0a0c; 
+            z-index: 2000; 
+            overflow-y: auto; 
+            padding-bottom: 3rem;
+        }
+
+        @media (max-width: 900px) {
+            .product-modal {
+                left: 0;
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1026,7 +1045,10 @@
         <p class="nav-section">Navigation</p>
         <div class="nav-items">
             <button class="nav-btn active" data-target="tab-bookings">
-                <span class="icon">📋</span> Bookings
+                <span class="icon">📅</span> Bookings
+            </button>
+            <button class="nav-btn" data-target="tab-inventory-matrix">
+                <span class="icon">📦</span> Inventory
             </button>
             <button class="nav-btn" data-target="tab-availability">
                 <span class="icon">📅</span> Availability
@@ -1065,21 +1087,16 @@
 
         <!-- BOOKINGS TAB -->
         <div id="tab-bookings" class="tab-content active">
-            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <h1 class="page-title">Recent <span>Bookings</span></h1>
-                <div style="display: flex; gap: 10px;">
-                    <button id="exportCsvBtn" class="btn" style="background: var(--gold); border: 1px solid var(--gold); color: #000; font-weight: 600; display: flex; align-items: center; gap: 8px; padding: 0.5rem 1rem;">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h1 class="page-title" style="display: flex; align-items: center; gap: 0.5rem;">Bookings <span id="bookingCountHeader" style="color: var(--muted); font-weight: 400;">0</span></h1>
+                <div style="display: flex; gap: 1rem;">
+
+                    <button id="exportCsvBtn" class="btn" style="background: #116dff; color: #fff; border: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 20px; display: flex; align-items: center; gap: 8px;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
                             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                             <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                         </svg>
                         Export Report
-                    </button>
-                    <button id="openFilterBtn" class="btn" style="background: var(--card2); border: 1px solid var(--border); color: #fff; display: flex; align-items: center; gap: 8px; padding: 0.5rem 1rem;">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                            <path d="M1.5 1.5A.5.5 0 0 1 2 1h12a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.128.334L10 8.692V13.5a.5.5 0 0 1-.342.474l-3 1A.5.5 0 0 1 6 14.5V8.692L1.628 3.834A.5.5 0 0 1 1.5 3.5v-2z"/>
-                        </svg>
-                        Filter
                     </button>
                 </div>
             </div>
@@ -1099,8 +1116,8 @@
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <span style="color: var(--muted); font-size: 1rem;">Avg. order value</span>
                         <span style="font-size: 1.1rem; font-weight: 600; color: #fff;" id="as-aov">₹0.00</span>
-                        <span id="as-aov-trend" style="font-size: 0.85rem; font-weight: 600; color: #EF4444;">↘ 0%</span>
                     </div>
+
                 </div>
                 <div style="display: flex; align-items: center; gap: 1rem;">
                     <select id="analyticsTimeFilter" style="background: transparent; border: none; color: #60a5fa; font-size: 0.95rem; cursor: pointer; outline: none;">
@@ -1113,24 +1130,36 @@
                 </div>
             </div>
 
-            <div class="table-card">
-                <div class="table-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                    <span class="table-card-title">All Bookings</span>
-                    <div id="bulkActions" style="display:none; gap: 15px; align-items: center;">
-                        <span id="bulkCount" style="font-size: 0.85rem; color: var(--muted); font-weight: 600;">0 selected</span>
-                        <button class="btn-delete" onclick="deleteSelectedBookings()" style="padding: 0.4rem 1rem; border-radius: 6px; font-size: 0.8rem;">Delete Selected</button>
+            <div class="table-card" style="background: #1a1a1a; padding: 0;">
+                <div class="table-card-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 1.5rem;">
+                        <!-- Options removed per user request -->
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div id="bulkActions" style="display:none; gap: 15px; align-items: center;">
+                            <span id="bulkCount" style="font-size: 0.85rem; color: var(--muted); font-weight: 600;">0 selected</span>
+                            <button class="btn-delete" onclick="deleteSelectedBookings()" style="padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 0.8rem;">Delete Selected</button>
+                        </div>
+                        <button id="openFilterBtn" class="btn" style="background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 0.3rem 0.8rem; font-size: 0.8rem; border-radius: 20px; display: flex; align-items: center; gap: 0.4rem;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
+                            Filter
+                        </button>
+                        <div style="position: relative;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="bookingSearchInput" placeholder="Search..." style="background: transparent; border: 1px solid var(--border); color: #fff; padding: 0.3rem 1rem 0.3rem 2rem; border-radius: 20px; font-size: 0.8rem; width: 200px; font-family: 'Outfit';">
+                        </div>
                     </div>
                 </div>
-                <table>
+                <table style="width: 100%; border-collapse: collapse;">
                     <thead>
-                        <tr>
-                            <th width="4%"><input type="checkbox" id="selectAllBookings" onclick="toggleAllBookings(this)"></th>
-                            <th width="12%">Order ID</th>
-                            <th width="20%">Customer</th>
-                            <th width="15%">Date & Time</th>
-                            <th width="10%">Amount</th>
-                            <th>Status</th>
-                            <th>Action</th>
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <th style="padding: 1rem 1.5rem; width: 40px; text-align: left;"><input type="checkbox" id="selectAllBookings" onclick="toggleAllBookings(this)" style="cursor: pointer;"></th>
+                            <th style="padding: 1rem 1.5rem; text-align: left; font-weight: 500; color: var(--muted); font-size: 0.85rem;">Order ID</th>
+                            <th style="padding: 1rem 1.5rem; text-align: left; font-weight: 500; color: var(--muted); font-size: 0.85rem;">Customer</th>
+                            <th style="padding: 1rem 1.5rem; text-align: left; font-weight: 500; color: var(--muted); font-size: 0.85rem;">Date & Time</th>
+                            <th style="padding: 1rem 1.5rem; text-align: left; font-weight: 500; color: var(--muted); font-size: 0.85rem;">Amount</th>
+                            <th style="padding: 1rem 1.5rem; text-align: left; font-weight: 500; color: var(--muted); font-size: 0.85rem;">Status</th>
+                            <th style="padding: 1rem 1.5rem; width: 60px;"></th>
                         </tr>
                     </thead>
                     <tbody id="bookingsTableBody">
@@ -1140,7 +1169,38 @@
             </div>
         </div>
 
-        <!-- AVAILABILITY TAB -->
+        <!-- INVENTORY REPORT TAB -->
+        <div id="tab-inventory-matrix" class="tab-content">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                <h1 class="page-title">Products <span style="color: var(--accent);">&amp; Inventory</span></h1>
+                <div style="position: relative;">
+                    <select id="inventoryReportFilter" class="input" style="padding: 0.5rem 2.5rem 0.5rem 1rem; appearance: none; cursor: pointer; font-weight: 500;">
+                        <option value="all">All Time</option>
+                    </select>
+                    <svg style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--muted);" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </div>
+            </div>
+
+            <div class="card" style="padding: 0;">
+                <div style="padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);">
+                    <span style="font-size: 0.85rem; font-weight: 600; color: var(--muted); letter-spacing: 0.05em;">All Products</span>
+                </div>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>NAME</th>
+                            <th>TYPE</th>
+                            <th>PRICE</th>
+                            <th>STOCK</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inventoryReportTableBody">
+                        <tr><td colspan="5" style="padding: 3rem; text-align: center; color: var(--muted);">Loading inventory...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div id="tab-availability" class="tab-content">
             <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <h1 class="page-title">Slot <span>Availability</span></h1>
@@ -1210,6 +1270,46 @@
                         <div style="display:flex; gap:0.5rem; align-self:flex-end;">
                             <button type="button" id="cancelEditCouponBtn" class="btn" style="display:none; background:var(--input-bg);">Cancel</button>
                             <button type="submit" id="couponSubmitBtn" class="btn btn-gold">Add</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="add-coupon-card">
+                <h3>Bulk Create Coupons (Series)</h3>
+                <form id="bulkCouponForm" autocomplete="off">
+                    <div class="form-row">
+                        <div class="field">
+                            <label>Prefix</label>
+                            <input type="text" id="bulkCouponPrefix" required placeholder="e.g. BAND-">
+                        </div>
+                        <div class="field">
+                            <label>Count (Max 500)</label>
+                            <input type="number" id="bulkCouponCount" required min="1" max="500" placeholder="e.g. 50">
+                        </div>
+                        <div class="field">
+                            <label>Format</label>
+                            <select id="bulkCouponFormat">
+                                <option value="sequential">Sequential (0001, 0002...)</option>
+                                <option value="random">Random (A3F2...)</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Discount Type</label>
+                            <select id="bulkCouponType">
+                                <option value="percent">Percentage (%)</option>
+                                <option value="flat">Flat Amount (₹)</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label>Value</label>
+                            <input type="number" id="bulkCouponValue" required placeholder="10">
+                        </div>
+                        <div class="field">
+                            <label>Max Uses</label>
+                            <input type="number" id="bulkCouponMaxUses" value="1" min="1" placeholder="Usually 1">
+                        </div>
+                        <div style="display:flex; gap:0.5rem; align-self:flex-end;">
+                            <button type="submit" id="bulkCouponSubmitBtn" class="btn btn-gold">Generate</button>
                         </div>
                     </div>
                 </form>
@@ -1297,33 +1397,39 @@
 
         <!-- INVENTORY TAB -->
         <div id="tab-inventory" class="tab-content">
-            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <h1 class="page-title">Products & <span>Inventory</span></h1>
-                <select id="inventoryMonthFilter" class="btn" style="background: var(--card2); border: 1px solid var(--border); color: #fff; padding: 0.5rem 1rem; cursor: pointer; outline: none;">
-                    <option value="all">All Time</option>
-                    <option value="SEP">September</option>
-                    <option value="OCT">October</option>
-                    <option value="NOV">November</option>
-                    <option value="DEC">December</option>
-                </select>
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h1 class="page-title" style="display: flex; align-items: center; gap: 0.5rem;">Products <span id="productCountHeader" style="color: var(--muted); font-weight: 400;">0</span></h1>
+                <div style="display: flex; gap: 1rem;">
+
+                    <button class="btn" style="background: #116dff; color: #fff; border: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 20px;" onclick="openProductModal()">+ New Product</button>
+                </div>
             </div>
 
-            <div class="table-card">
-                <div class="table-card-header">
-                    <span class="table-card-title">All Products</span>
+            <div class="table-card" style="background: #1a1a1a; padding: 0;">
+                <div class="table-card-header" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 1.5rem;">
+                        <!-- Options removed per user request -->
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+
+                        <div style="position: relative;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%);"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                            <input type="text" id="productSearchInput" placeholder="Search..." style="background: transparent; border: 1px solid var(--border); color: #fff; padding: 0.3rem 1rem 0.3rem 2rem; border-radius: 20px; font-size: 0.8rem; width: 200px; font-family: 'Outfit';">
+                        </div>
+                    </div>
                 </div>
-                <table>
+                <table style="width: 100%; border-collapse: collapse;">
                     <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Price</th>
-                            <th>Stock</th>
-                            <th>Action</th>
+                        <tr style="border-bottom: 1px solid var(--border);">
+                            <th style="padding: 1rem 1.5rem; width: 40px; text-align: left;"><input type="checkbox" id="selectAllProducts" style="cursor: pointer;"></th>
+                            <th style="padding: 1rem 1.5rem; text-align: left; font-weight: 500; color: var(--muted); font-size: 0.85rem;">Name</th>
+                            <th style="padding: 1rem 1.5rem; text-align: left; font-weight: 500; color: var(--muted); font-size: 0.85rem;">Type</th>
+                            <th style="padding: 1rem 1.5rem; text-align: left; font-weight: 500; color: var(--muted); font-size: 0.85rem;">Price</th>
+                            <th style="padding: 1rem 1.5rem; width: 60px;"></th>
                         </tr>
                     </thead>
                     <tbody id="inventoryTableBody">
-                        <tr><td colspan="5" class="empty-state">Loading products…</td></tr>
+                        <tr><td colspan="5" class="empty-state" style="padding: 2rem; text-align: center; color: var(--muted);">Loading products...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -1332,32 +1438,184 @@
     </main>
 
     <!-- Product Modal -->
-    <div id="productModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; align-items: center; justify-content: center; backdrop-filter: blur(4px);">
-        <div class="modal-box" style="width: 400px; max-width: 90%; background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 2rem;">
-            <h2 id="productModalTitle" style="margin-bottom: 1.5rem; font-size: 1.25rem;">Add Product</h2>
-            <form id="productForm" autocomplete="off">
+    <div id="productModal" class="product-modal">
+        <!-- Top Bar -->
+        <div style="position: sticky; top: 0; background: #111113; padding: 1.5rem 3rem; display: flex; justify-content: space-between; align-items: center; z-index: 10; border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <div>
+                <div style="font-size: 0.85rem; color: #a1a1aa; margin-bottom: 0.8rem; font-weight: 500;">Products &gt; <span id="productModalBreadcrumb">New Product</span></div>
+                <h2 id="productModalTitle" style="margin: 0 0 0.8rem 0; font-size: 1.8rem; font-weight: 600; color: #fff;">Add Product</h2>
+                <span style="font-size: 0.7rem; font-weight: 700; background: rgba(255,255,255,0.1); color: #e4e4e7; padding: 0.3rem 0.6rem; border-radius: 4px; letter-spacing: 0.5px;">PHYSICAL PRODUCT</span>
+            </div>
+            <div style="display: flex; gap: 1rem; align-items: center;">
+                <button type="button" style="background: transparent; border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 0.5rem 1.5rem; border-radius: 20px; font-weight: 500; font-size: 0.9rem; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.05)'" onmouseout="this.style.background='transparent'" onclick="closeProductModal()">Cancel</button>
+                <button type="submit" form="productForm" style="background: #fff; color: #000; border: none; padding: 0.5rem 1.5rem; border-radius: 20px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Save</button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div style="max-width: 1100px; margin: 2.5rem auto; padding: 0 2rem; display: grid; grid-template-columns: 1fr 320px; gap: 2rem; align-items: start;">
+            
+            <form id="productForm" autocomplete="off" enctype="multipart/form-data" style="display: contents;">
                 <input type="hidden" id="productId">
-                <div class="field" style="margin-bottom: 1rem;">
-                    <label>Product Name</label>
-                    <input type="text" id="productName" required placeholder="e.g. Race Sim GT" style="width: 100%; padding: 0.75rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit';">
-                </div>
-                <div class="field" style="margin-bottom: 1rem;">
-                    <label>Type / Category</label>
-                    <input type="text" id="productType" required placeholder="e.g. Simulator, Merchandise" style="width: 100%; padding: 0.75rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit';">
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
-                    <div class="field">
-                        <label>Price (₹)</label>
-                        <input type="number" id="productPrice" required placeholder="0" style="width: 100%; padding: 0.75rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit';">
+                <input type="hidden" id="productOptionsData" value='[]'>
+                <!-- Keep other inputs hidden so we don't break JS submission -->
+                <input type="hidden" id="productPrice" value="0" style="display:none;">
+                <input type="hidden" id="productStock" value="0">
+                <input type="file" id="productImage" accept="image/*" style="display: none;" onchange="handleProductImageChange(this)">
+                <small id="currentProductImage" style="display: none;"></small>
+                
+                <!-- Left Column -->
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+
+                    <!-- Images & Videos Card -->
+                    <div style="background: #18181b; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 0;">
+                        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <span style="font-size: 1.05rem; font-weight: 600; color: #fff;">Images and videos</span>
+                            </div>
+                        </div>
+                        <div style="padding: 1.5rem;">
+                            <!-- Drop Zone -->
+                            <div id="imageDropZone"
+                                style="border: 2px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 2.5rem 1rem; text-align: center; cursor: pointer; transition: border-color 0.2s; margin-bottom: 1rem;"
+                                onclick="document.getElementById('productImage').click()"
+                                ondragover="event.preventDefault(); this.style.borderColor='#3b82f6';"
+                                ondragleave="this.style.borderColor='rgba(255,255,255,0.15)';"
+                                ondrop="event.preventDefault(); this.style.borderColor='rgba(255,255,255,0.15)'; handleProductImageDrop(event);">
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 0.75rem;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                <div style="font-size: 0.95rem; color: #a1a1aa; margin-bottom: 0.25rem;">Drag & drop or <span style="color: #3b82f6; text-decoration: underline;">click to upload</span></div>
+                                <div style="font-size: 0.8rem; color: #52525b;">PNG, JPG, GIF, WEBP accepted</div>
+                            </div>
+
+                            <!-- Image Preview Grid -->
+                            <div id="imagePreviewGrid" style="display: flex; flex-wrap: wrap; gap: 0.75rem;"></div>
+                        </div>
                     </div>
-                    <div class="field">
-                        <label>Stock Qty</label>
-                        <input type="number" id="productStock" required placeholder="0" style="width: 100%; padding: 0.75rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit';">
+
+                    <!-- Basic Info Card -->
+                    <div style="background: #18181b; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 0;">
+                        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: #fff;">Basic info</h3>
+                        </div>
+                        <div style="padding: 1.5rem;">
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; font-weight: 500; color: #e4e4e7; margin-bottom: 0.5rem; text-transform: none; letter-spacing: normal;">
+                                    Name * 
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                </label>
+                                <input type="text" id="productName" required style="width: 100%; padding: 0.6rem 1rem; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+                            </div>
+                            
+                            <div>
+                                <label style="display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; font-weight: 500; color: #e4e4e7; margin-bottom: 0.5rem; text-transform: none; letter-spacing: normal;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        Description
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                    </div>
+                                </label>
+                                <textarea id="productDescription" rows="6" style="width: 100%; padding: 0.75rem 1rem; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none; resize: vertical;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'"></textarea>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- Pricing Card -->
+                    <div style="background: #18181b; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 0;">
+                        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: #fff;">Pricing</h3>
+                        </div>
+                        <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem;">
+                            <!-- Price Row -->
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <label style="display: block; font-size: 0.85rem; font-weight: 500; color: #a1a1aa; margin-bottom: 0.5rem; text-transform: none; letter-spacing: normal;">Price *</label>
+                                    <div style="position: relative;">
+                                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #a1a1aa; font-size: 0.95rem;">₹</span>
+                                        <input type="number" id="productPriceVisible" min="0" step="0.01" placeholder="0.00" required
+                                            style="width: 100%; padding: 0.6rem 1rem 0.6rem 2rem; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none; box-sizing: border-box;"
+                                            onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'; document.getElementById('productPrice').value=this.value;"
+                                            oninput="document.getElementById('productPrice').value=this.value;">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label style="display: block; font-size: 0.85rem; font-weight: 500; color: #a1a1aa; margin-bottom: 0.5rem; text-transform: none; letter-spacing: normal;">Compare-at price</label>
+                                    <div style="position: relative;">
+                                        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #a1a1aa; font-size: 0.95rem;">₹</span>
+                                        <input type="number" id="productComparePrice" min="0" step="0.01" placeholder="0.00"
+                                            style="width: 100%; padding: 0.6rem 1rem 0.6rem 2rem; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none; box-sizing: border-box;"
+                                            onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1.25rem;">
+                                <label style="display: block; font-size: 0.85rem; font-weight: 500; color: #a1a1aa; margin-bottom: 0.5rem; text-transform: none; letter-spacing: normal;">Cost per item</label>
+                                <div style="position: relative; max-width: 50%;">
+                                    <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #a1a1aa; font-size: 0.95rem;">₹</span>
+                                    <input type="number" id="productCostPerItem" min="0" step="0.01" placeholder="0.00"
+                                        style="width: 100%; padding: 0.6rem 1rem 0.6rem 2rem; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none; box-sizing: border-box;"
+                                        onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+                                </div>
+                                <p style="font-size: 0.8rem; color: #71717a; margin: 0.5rem 0 0;">Customers won't see this.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Product Options Card -->
+                    <div style="background: #18181b; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 0;">
+                        <!-- Header -->
+                        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: flex-start;">
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: #fff;">Product options</h3>
+                            </div>
+                        </div>
+                        
+                        <!-- List Container -->
+                        <div id="shopifyOptionsListContainer" style="display: flex; flex-direction: column;">
+                        </div>
+
+
+                    </div>
+
                 </div>
-                <div style="display: flex; gap: 1rem;">
-                    <button type="button" class="btn" style="flex:1; background: rgba(255,255,255,0.1);" onclick="closeProductModal()">Cancel</button>
-                    <button type="submit" class="btn btn-gold" style="flex:1;">Save Product</button>
+
+                <!-- Right Column -->
+                <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+                    
+
+                    <!-- Tax Card -->
+                    <div style="background: #18181b; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 0;">
+                        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                            <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: #fff;">Tax</h3>
+                        </div>
+                        <div style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+                            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; text-transform: none; color: #e4e4e7; font-weight: 400; font-size: 0.95rem; letter-spacing: normal;">
+                                <input type="checkbox" id="productTaxable" checked style="width: 16px; height: 16px; cursor: pointer; accent-color: #3b82f6;">
+                                Charge tax on this product
+                            </label>
+                            <div>
+                                <label style="display: block; font-size: 0.85rem; font-weight: 500; color: #a1a1aa; margin-bottom: 0.5rem; text-transform: none; letter-spacing: normal;">Tax rate</label>
+                                <select id="productTaxRate" style="width: 100%; padding: 0.6rem 1rem; background: #111113; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none; cursor: pointer;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+                                    <option value="18">GST 18% (Standard)</option>
+                                    <option value="12">GST 12%</option>
+                                    <option value="5">GST 5%</option>
+                                    <option value="0">GST 0% (Exempt)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Categories Card -->
+                    <div style="background: #18181b; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 0;">
+                        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
+                            <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: #fff;">Categories</h3>
+                            <button type="button" style="background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; color: #3b82f6; font-size: 0.8rem; font-weight: 500; padding: 0.2rem 0.8rem; cursor: pointer;">+ Assign</button>
+                        </div>
+                        <div style="padding: 1.5rem;">
+                            <div style="margin-bottom: 1rem;">
+                                <input type="text" id="productType" required placeholder="Type or Category" style="width: 100%; padding: 0.6rem 1rem; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </form>
         </div>
@@ -1371,9 +1629,6 @@
             <button class="filter-close" id="closeFilterBtn">&times;</button>
         </div>
         <div class="filter-body">
-            <div class="filter-search">
-                <input type="text" placeholder="Search filters">
-            </div>
             
             <div class="accordion">
                 <!-- Date created -->
@@ -1396,12 +1651,27 @@
                             <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;">
                                 <input type="radio" name="dateCreated" value="Custom"> Custom
                             </label>
+                              <div id="customDateRange" style="display: none; flex-direction: column; gap: 0.5rem; padding-left: 1.5rem; margin-top: -0.3rem;">
+                                  <label style="font-size: 0.8rem; color: var(--muted); margin-bottom: -0.3rem;">From</label>
+                                  <input type="date" id="customDateFrom" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: #fff; padding: 0.4rem; border-radius: 6px; font-family: 'Outfit';">
+                                  <label style="font-size: 0.8rem; color: var(--muted); margin-bottom: -0.3rem;">To</label>
+                                  <input type="date" id="customDateTo" style="background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: #fff; padding: 0.4rem; border-radius: 6px; font-family: 'Outfit';">
+                              </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Booking date -->
+                <div class="accordion-item">
+                    <button class="accordion-header">Booking date <span class="arrow">&#9660;</span></button>
+                    <div class="accordion-content">
+                        <div class="accordion-content-inner">
+                            <input type="date" id="bookingDateFilter" style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit', sans-serif; outline: none; margin-bottom: 0.5rem; cursor: pointer; color-scheme: dark;">
                         </div>
                     </div>
                 </div>
                 <!-- Booking month -->
                 <div class="accordion-item">
-                    <button class="accordion-header">Booking month <span class="arrow">▶</span></button>
+                    <button class="accordion-header">Booking month <span class="arrow">&#9660;</span></button>
                     <div class="accordion-content">
                         <div class="accordion-content-inner" style="display: flex; flex-direction: column; gap: 0.8rem; max-height: 200px; overflow-y: auto; padding-right: 10px;">
                             <label style="display: flex; align-items: center; gap: 0.6rem; cursor: pointer;"><input type="checkbox" name="bookingMonth" value="Jan"> January</label>
@@ -1441,10 +1711,12 @@
                 </div>
                 <!-- Product -->
                 <div class="accordion-item">
-                    <button class="accordion-header">Product <span class="arrow">▶</span></button>
+                    <button class="accordion-header">Product <span class="arrow">&#9660;</span></button>
                     <div class="accordion-content">
                         <div class="accordion-content-inner">
-                            <input type="text" id="productSearchInput" placeholder="Search by product name" style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit', sans-serif; outline: none; margin-bottom: 0.5rem;">
+                            <select id="productFilterSelect" style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit', sans-serif; outline: none; margin-bottom: 0.5rem; appearance: none; cursor: pointer;">
+                                <option value="">All Products</option>
+                            </select>
                         </div>
                     </div>
                 </div>
@@ -1490,6 +1762,40 @@
         </div>
     </div>
 
-    <script src="admin-dashboard.js?v=2"></script>
+    <!-- Shopify Option Modal (Toggle-based) -->
+    <div class="modal-overlay" id="shopifyOptionModal" style="display:none; z-index: 10001; align-items: center; justify-content: center; background: rgba(0,0,0,0.6);">
+        <div class="modal-box" style="max-width: 660px; width: 95%; text-align: left; background: #fff; border-radius: 16px; padding: 0; box-shadow: 0 20px 60px rgba(0,0,0,0.35); color: #111; border: none; overflow: hidden;">
+            
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid #f0f0f0;">
+                <h2 style="margin: 0; font-size: 1.1rem; font-weight: 600;" id="shopifyModalTitle">Edit option</h2>
+                <button type="button" onclick="closeShopifyOptionModal()" style="background: transparent; border: none; font-size: 1.5rem; cursor: pointer; color: #71717a; line-height: 1; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; hover:background:#f4f4f5;">&times;</button>
+            </div>
+
+            <!-- Hidden option name (still needed for JS) -->
+            <input type="text" id="shopifyOptionName" style="display:none;">
+
+            <!-- Toggle pills area -->
+            <div style="padding: 1rem 1.5rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span style="font-size: 0.85rem; font-weight: 500; color: #52525b;" id="shopifyToggleLabel">Toggle days on/off</span>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button type="button" onclick="setAllToggles(true)" style="padding: 0.3rem 0.8rem; border: 1px solid #d4d4d8; border-radius: 20px; background: transparent; font-size: 0.8rem; cursor: pointer; color: #3b82f6;">Enable all</button>
+                        <button type="button" onclick="setAllToggles(false)" style="padding: 0.3rem 0.8rem; border: 1px solid #d4d4d8; border-radius: 20px; background: transparent; font-size: 0.8rem; cursor: pointer; color: #ef4444;">Disable all</button>
+                    </div>
+                </div>
+                <div id="shopifyToggleGrid" style="display: flex; flex-wrap: wrap; gap: 0.5rem; max-height: 320px; overflow-y: auto; padding-right: 0.25rem;">
+                    <!-- Rendered by JS -->
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div style="display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.5rem; border-top: 1px solid #f0f0f0;">
+                <button type="button" style="background: transparent; color: #3b82f6; border: none; font-size: 0.95rem; cursor: pointer; padding: 0.5rem 1rem;" onclick="closeShopifyOptionModal()">Cancel</button>
+                <button type="button" style="background: #3b82f6; color: #fff; border: none; padding: 0.55rem 1.5rem; border-radius: 8px; font-size: 0.95rem; cursor: pointer; font-weight: 500;" onclick="saveShopifyOption()">Apply</button>
+            </div>
+        </div>
+    </div>
+    <script src="admin-dashboard.js?v=3"></script>
 </body>
 </html>

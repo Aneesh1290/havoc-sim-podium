@@ -17,7 +17,7 @@ const sendConfirmationEmail = async (booking) => {
 
     const { order_id, name, email, item_name, price, booking_date, booking_time } = booking;
 
-    const amountLabel = booking.status === 'CASH' ? 'Amount Due (at Desk)' : 'Amount Paid';
+    const amountLabel = booking.status === 'CASH' ? 'Amount Due (Pay At Desk)' : 'Amount Paid';
 
     const htmlContent = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #111114; color: #ffffff; padding: 20px; border-radius: 10px; border: 1px solid #333;">
@@ -42,6 +42,14 @@ const sendConfirmationEmail = async (booking) => {
                 <tr>
                     <td style="padding: 10px 0; border-bottom: 1px solid #333; color: #888;">Time</td>
                     <td style="padding: 10px 0; border-bottom: 1px solid #333; text-align: right; font-weight: bold;">${booking_time}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; color: #888;">Subtotal</td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; text-align: right; font-weight: bold;">₹${(price / 1.18).toFixed(2)}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; color: #888;">GST (18%)</td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; text-align: right; font-weight: bold;">₹${(price - (price / 1.18)).toFixed(2)}</td>
                 </tr>
                 <tr>
                     <td style="padding: 10px 0; color: #888;">${amountLabel}</td>
