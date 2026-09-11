@@ -1313,3 +1313,5 @@ a {
  . l e g a l - p a g e   a : h o v e r   {   t e x t - d e c o r a t i o n :   u n d e r l i n e ;   } 
   
  
+.logo-unit-text { font-size: 0.35rem; color: var(--text-muted); letter-spacing: 1px; margin-top: 1px; text-transform: uppercase; font-weight: 500; }
+
