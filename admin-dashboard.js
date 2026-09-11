@@ -1605,21 +1605,40 @@ document.addEventListener('DOMContentLoaded', () => {
         // 5. Booking Date
         const bookingDateFilter = document.getElementById('bookingDateFilter')?.value;
         if (bookingDateFilter) {
+            const filterParts = bookingDateFilter.split('-'); // ["2026", "09", "22"]
+            const fMonthInt = parseInt(filterParts[1], 10) - 1;
+            const fDateInt = parseInt(filterParts[2], 10);
+            
+            const fMonthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const fMonthNamesLong = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            
+            const fShortStr = `${fMonthNamesShort[fMonthInt]} ${fDateInt}`; // "Sep 22"
+            const fLongStrPadded = `${fMonthNamesLong[fMonthInt]} ${String(fDateInt).padStart(2,'0')}`; // "September 22"
+            const fLongStrUnpadded = `${fMonthNamesLong[fMonthInt]} ${fDateInt}`; // "September 22"
+
             filtered = filtered.filter(b => {
                 if (!b.booking_date) return false;
                 try {
                     let bDateStr = b.booking_date;
-                    // If stored as exactly YYYY-MM-DD, compare directly to avoid UTC shift
+                    // Exact YYYY-MM-DD
                     if (/^\d{4}-\d{2}-\d{2}$/.test(bDateStr)) {
                         return bDateStr === bookingDateFilter;
                     }
-                    const bDate = new Date(bDateStr);
-                    if (isNaN(bDate.getTime())) return false;
                     
-                    const y = bDate.getFullYear();
-                    const m = String(bDate.getMonth() + 1).padStart(2, '0');
-                    const d = String(bDate.getDate()).padStart(2, '0');
-                    return `${y}-${m}-${d}` === bookingDateFilter;
+                    // String matching
+                    if (bDateStr.includes(fShortStr) || bDateStr.includes(fLongStrPadded) || bDateStr.includes(fLongStrUnpadded)) {
+                        return true;
+                    }
+                    
+                    // Fallback to stripping parentheticals and parsing
+                    const cleanDateStr = bDateStr.replace(/\s*\([a-zA-Z]+\)/, '');
+                    const bDate = new Date(cleanDateStr);
+                    if (!isNaN(bDate.getTime())) {
+                        const m = String(bDate.getMonth() + 1).padStart(2, '0');
+                        const d = String(bDate.getDate()).padStart(2, '0');
+                        return m === filterParts[1] && d === filterParts[2];
+                    }
+                    return false;
                 } catch(e) {
                     return false;
                 }
@@ -1629,19 +1648,33 @@ document.addEventListener('DOMContentLoaded', () => {
         // 6. Booking Month
         const monthChecks = Array.from(document.querySelectorAll('input[name="bookingMonth"]:checked')).map(cb => cb.value.toUpperCase());
         if (monthChecks.length > 0) {
-            const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+            const monthNamesShort = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+            const monthNamesLong = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
             filtered = filtered.filter(b => {
                 if (!b.booking_date) return false;
                 try {
-                    let bDateStr = b.booking_date;
+                    let bDateStr = b.booking_date.toUpperCase();
                     if (/^\d{4}-\d{2}-\d{2}$/.test(bDateStr)) {
                         const mIndex = parseInt(bDateStr.split('-')[1], 10) - 1;
-                        return monthChecks.includes(monthNames[mIndex]);
+                        return monthChecks.includes(monthNamesShort[mIndex]);
                     }
-                    const d = new Date(bDateStr);
-                    if (isNaN(d.getTime())) return false;
-                    const m = monthNames[d.getMonth()];
-                    return monthChecks.includes(m);
+                    for (let m of monthChecks) {
+                        const idx = monthNamesShort.indexOf(m);
+                        if (idx !== -1) {
+                            if (bDateStr.includes(monthNamesShort[idx]) || bDateStr.includes(monthNamesLong[idx])) {
+                                return true;
+                            }
+                        }
+                    }
+                    
+                    // Fallback
+                    const cleanDateStr = b.booking_date.replace(/\s*\([a-zA-Z]+\)/, '');
+                    const dObj = new Date(cleanDateStr);
+                    if (!isNaN(dObj.getTime())) {
+                        const m = monthNamesShort[dObj.getMonth()];
+                        return monthChecks.includes(m);
+                    }
+                    return false;
                 } catch(e) {
                     return false;
                 }
