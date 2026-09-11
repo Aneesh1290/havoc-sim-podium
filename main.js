@@ -141,39 +141,87 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Simulator Carousel & Tabs Logic
-    const tabBtns = document.querySelectorAll('.tab-btn');
-    const simCards = document.querySelectorAll('.sim-card[data-category]');
+    // Simulator Carousel & Tabs Logic - Dynamic Fetching
     const carouselContainer = document.querySelector('.simulator-cards');
+    const dynamicTabsContainer = document.getElementById('dynamicExperienceTabs');
     const prevBtn = document.querySelector('.nav-btn.prev');
     const nextBtn = document.querySelector('.nav-btn.next');
 
-    if (tabBtns.length > 0) {
-        tabBtns.forEach((btn, index) => {
-            btn.addEventListener('click', () => {
-                // Update active tab
-                tabBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                
-                // Determine which category to show
-                const category = index === 0 ? 'racing' : 'flight';
-                
-                // Show/hide cards
-                simCards.forEach(card => {
-                    if (card.getAttribute('data-category') === category) {
-                        card.style.display = 'block';
-                    } else {
-                        card.style.display = 'none';
-                    }
-                });
-                
-                // Reset scroll position
-                if (carouselContainer) {
-                    carouselContainer.scrollLeft = 0;
-                }
+    async function loadSimulatorCards() {
+        if (!carouselContainer || !dynamicTabsContainer) return;
+
+        try {
+            const response = await fetch('/api/products');
+            const products = await response.json();
+
+            // Extract unique categories
+            const types = [...new Set(products.map(p => p.type).filter(Boolean))];
+            
+            // Generate Tabs
+            let tabsHtml = '';
+            types.forEach((type, index) => {
+                const activeClass = index === 0 ? 'active' : '';
+                tabsHtml += `<button class="tab-btn ${activeClass}" data-category="${type.toLowerCase()}">${type.toUpperCase()} SIMULATORS</button>`;
             });
-        });
+            dynamicTabsContainer.innerHTML = tabsHtml;
+
+            // Generate Cards
+            let cardsHtml = '';
+            products.forEach(p => {
+                const category = p.type.toLowerCase();
+                const displayStyle = category === types[0]?.toLowerCase() ? 'block' : 'none';
+                const imgHtml = p.image_url ? `<img src="${p.image_url}" alt="${p.name}">` : `<div style="width:100%; height:180px; background:#222;"></div>`;
+                
+                cardsHtml += `
+                <div class="sim-card" data-category="${category}" style="display: ${displayStyle};">
+                    ${p.compare_price && p.compare_price > p.price ? '<div class="badge">SALE</div>' : ''}
+                    <div class="sim-img-wrap">${imgHtml}</div>
+                    <div class="sim-info">
+                        <div class="sim-type">${p.type.toUpperCase()} SIM</div>
+                        <h3>${p.name}</h3>
+                        <div class="sim-meta">
+                            <span>⏱ ${p.description || '30 MINUTES'}</span>
+                        </div>
+                        <div class="sim-price">₹${p.price.toFixed(2)}</div>
+                        <a href="/book" class="btn btn-card">BOOK NOW</a>
+                    </div>
+                </div>
+                `;
+            });
+            carouselContainer.innerHTML = cardsHtml;
+
+            // Setup Tab Click Listeners
+            const tabBtns = dynamicTabsContainer.querySelectorAll('.tab-btn');
+            const simCards = carouselContainer.querySelectorAll('.sim-card');
+
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Update active tab
+                    tabBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    
+                    const selectedCategory = btn.getAttribute('data-category');
+                    
+                    // Show/hide cards
+                    simCards.forEach(card => {
+                        if (card.getAttribute('data-category') === selectedCategory) {
+                            card.style.display = 'block';
+                        } else {
+                            card.style.display = 'none';
+                        }
+                    });
+                    
+                    // Reset scroll position
+                    carouselContainer.scrollLeft = 0;
+                });
+            });
+
+        } catch (err) {
+            console.error('Error fetching products for home page:', err);
+        }
     }
+
+    loadSimulatorCards();
 
     if (carouselContainer && prevBtn && nextBtn) {
         prevBtn.addEventListener('click', () => {

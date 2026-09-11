@@ -98,31 +98,7 @@
             </div>
         </section>
 
-        <section class="stats-bar">
-            <div class="stat-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                <div class="stat-text">
-                    <strong>500+</strong>
-                    <span>HAPPY RIDERS</span>
-                </div>
-            </div>
-            <div class="stat-divider"></div>
-            <div class="stat-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"></line><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"></line><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"></line><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"></line></svg>
-                <div class="stat-text">
-                    <strong>5+</strong>
-                    <span>SIMULATORS</span>
-                </div>
-            </div>
-            <div class="stat-divider"></div>
-            <div class="stat-item">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                <div class="stat-text">
-                    <strong>4.8★</strong>
-                    <span>GOOGLE RATING</span>
-                </div>
-            </div>
-        </section>
+        
 
         <section id="simulators" class="main-content-grid">
             <div class="simulators-section">
@@ -131,106 +107,14 @@
 
                 </div>
                 
-                <div class="experience-tabs">
-                    <button class="tab-btn active">RACING SIMULATORS</button>
-                    <button class="tab-btn">FLIGHT SIMULATORS</button>
+                <div class="experience-tabs" id="dynamicExperienceTabs">
+                    <!-- Tabs will be dynamically injected here by JS -->
                 </div>
 
                 <div class="carousel-container">
                     <button class="nav-btn prev">&lt;</button>
-                    <div class="simulator-cards">
-                        <!-- Card 1 -->
-                        <div class="sim-card" data-category="racing">
-                            <div class="sim-img-wrap"><img src="assets/race-sim-beginner.png" alt="Beginner"></div>
-                            <div class="sim-info">
-                                <div class="sim-type">RACE SIM</div>
-                                <h3>BEGINNER</h3>
-                                <div class="sim-meta">
-                                    <span>⏱ 30 MINUTES</span>
-                                </div>
-                                <div class="sim-price">₹300</div>
-                                <a href="/book" class="btn btn-card">BOOK NOW</a>
-                            </div>
-                        </div>
-                        <!-- Card 2 -->
-                        <div class="sim-card" data-category="racing">
-                            <div class="sim-img-wrap"><img src="assets/race-sim-jr.png" alt="Junior"></div>
-                            <div class="sim-info">
-                                <div class="sim-type">RACE SIM</div>
-                                <h3>JUNIOR</h3>
-                                <div class="sim-meta">
-                                    <span>⏱ 30 MINUTES</span>
-                                </div>
-                                <div class="sim-price">₹400</div>
-                                <a href="/book" class="btn btn-card">BOOK NOW</a>
-                            </div>
-                        </div>
-                        <!-- Card 3 -->
-                        <div class="sim-card active" data-category="racing">
-                            <div class="badge">POPULAR</div>
-                            <div class="sim-img-wrap"><img src="assets/race-sim-gt.png" alt="GT"></div>
-                            <div class="sim-info">
-                                <div class="sim-type">RACE SIM</div>
-                                <h3>GT</h3>
-                                <div class="sim-meta">
-                                    <span>⏱ 30 MINUTES</span>
-                                </div>
-                                <div class="sim-price">₹500</div>
-                                <a href="/book" class="btn btn-card primary">BOOK NOW</a>
-                            </div>
-                        </div>
-                        <!-- Card 4 -->
-                        <div class="sim-card" data-category="racing">
-                            <div class="sim-img-wrap"><img src="assets/race-sim-f1.png" alt="F1"></div>
-                            <div class="sim-info">
-                                <div class="sim-type">RACE SIM</div>
-                                <h3>F1</h3>
-                                <div class="sim-meta">
-                                    <span>⏱ 30 MINUTES</span>
-                                </div>
-                                <div class="sim-price">₹600</div>
-                                <a href="/book" class="btn btn-card">BOOK NOW</a>
-                            </div>
-                        </div>
-                        <!-- Card 5 -->
-                        <div class="sim-card" data-category="flight" style="display: none;">
-                            <div class="sim-img-wrap"><img src="assets/flight-sim-pro(airbus).png" alt="Pro Airbus"></div>
-                            <div class="sim-info">
-                                <div class="sim-type">FLIGHT SIM</div>
-                                <h3>PRO (AIRBUS)</h3>
-                                <div class="sim-meta">
-                                    <span>⏱ 30 MINUTES</span>
-                                </div>
-                                <div class="sim-price">₹1,500</div>
-                                <a href="/book" class="btn btn-card">BOOK NOW</a>
-                            </div>
-                        </div>
-                        <!-- Card 5.5 (Boeing) -->
-                        <div class="sim-card" data-category="flight" style="display: none;">
-                            <div class="sim-img-wrap"><img src="assets/flight-sim-pro(boeing).png" alt="Pro Boeing"></div>
-                            <div class="sim-info">
-                                <div class="sim-type">FLIGHT SIM</div>
-                                <h3>PRO (BOEING)</h3>
-                                <div class="sim-meta">
-                                    <span>⏱ 30 MINUTES</span>
-                                </div>
-                                <div class="sim-price">₹1,500</div>
-                                <a href="/book" class="btn btn-card">BOOK NOW</a>
-                            </div>
-                        </div>
-                        <!-- Card 6 (Flight) -->
-                        <div class="sim-card" data-category="flight" style="display: none;">
-                            <div class="sim-img-wrap"><img src="assets/rc-flying-sim.png" alt="RC Flying"></div>
-                            <div class="sim-info">
-                                <div class="sim-type">FLIGHT SIM</div>
-                                <h3>RC FLYING</h3>
-                                <div class="sim-meta">
-                                    <span>⏱ 30 MINUTES</span>
-                                </div>
-                                <div class="sim-price">₹300</div>
-                                <a href="/book" class="btn btn-card">BOOK NOW</a>
-                            </div>
-                        </div>
+                    <div class="simulator-cards" id="dynamicSimulatorCards">
+                        <!-- Cards will be dynamically injected here by JS -->
                     </div>
                     <button class="nav-btn next">&gt;</button>
                 </div>
@@ -258,6 +142,32 @@
                             <span>OPEN EVERYDAY<br>11 AM - 11 PM</span>
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+
+<section class="stats-bar">
+            <div class="stat-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <div class="stat-text">
+                    <strong>500+</strong>
+                    <span>HAPPY RIDERS</span>
+                </div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="4"></circle><line x1="4.93" y1="4.93" x2="9.17" y2="9.17"></line><line x1="14.83" y1="14.83" x2="19.07" y2="19.07"></line><line x1="14.83" y1="9.17" x2="19.07" y2="4.93"></line><line x1="4.93" y1="19.07" x2="9.17" y2="14.83"></line></svg>
+                <div class="stat-text">
+                    <strong>5+</strong>
+                    <span>SIMULATORS</span>
+                </div>
+            </div>
+            <div class="stat-divider"></div>
+            <div class="stat-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                <div class="stat-text">
+                    <strong>4.8★</strong>
+                    <span>GOOGLE RATING</span>
                 </div>
             </div>
         </section>
@@ -402,3 +312,4 @@
     <script src="main.js"></script>
 </body>
 </html>
+
