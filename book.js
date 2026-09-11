@@ -463,6 +463,36 @@ document.addEventListener("DOMContentLoaded", () => {
                         openModal({ name: p.name, price: `₹${parseFloat(p.price).toFixed(2)}`, imgSrc: p.image_url, options: p.options });
                     });
                 });
+
+                const dynamicCategorySidebar = document.getElementById('dynamicCategorySidebar');
+                if (dynamicCategorySidebar) {
+                    const types = [...new Set(products.map(p => p.type).filter(Boolean))];
+                    let categoryHtml = '<li class="active" data-category="all">All Simulators</li>';
+                    types.forEach(t => {
+                        categoryHtml += `<li data-category="${t.toLowerCase()}">${t}</li>`;
+                    });
+                    dynamicCategorySidebar.innerHTML = categoryHtml;
+                    
+                    // Add click handlers for category filtering
+                    const catItems = dynamicCategorySidebar.querySelectorAll('li');
+                    catItems.forEach(item => {
+                        item.addEventListener('click', () => {
+                            catItems.forEach(i => i.classList.remove('active'));
+                            item.classList.add('active');
+                            
+                            const selectedCategory = item.getAttribute('data-category');
+                            const productCards = productGrid.querySelectorAll('.product-card');
+                            
+                            productCards.forEach(card => {
+                                if (selectedCategory === 'all' || card.getAttribute('data-category') === selectedCategory) {
+                                    card.style.display = 'block';
+                                } else {
+                                    card.style.display = 'none';
+                                }
+                            });
+                        });
+                    });
+                }
             }
         } catch (err) {
             console.error("Failed to load products/slots", err);

@@ -1774,6 +1774,20 @@ async function loadInventory() {
             });
         }
         
+        // Populate the category filter for products
+        const categoryFilter = document.getElementById('productCategoryFilter');
+        if (categoryFilter) {
+            const types = [...new Set(inventoryData.map(p => p.type).filter(Boolean))];
+            categoryFilter.innerHTML = '<option value="all" style="color: #000;">All Categories</option>';
+            types.forEach(type => {
+                const opt = document.createElement('option');
+                opt.value = type;
+                opt.textContent = type;
+                opt.style.color = '#000';
+                categoryFilter.appendChild(opt);
+            });
+        }
+
         renderInventory(inventoryData);
     } catch (err) {
         console.error('Failed to load inventory', err);
@@ -2058,15 +2072,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const searchInput = document.getElementById('productSearchInput');
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            const query = e.target.value.toLowerCase();
-            const filtered = inventoryData.filter(p => 
-                ((p.name || '').toLowerCase().includes(query)) || 
-                ((p.type || '').toLowerCase().includes(query))
-            );
-            renderInventory(filtered);
+    const categoryFilter = document.getElementById('productCategoryFilter');
+    
+    function filterProducts() {
+        if (!inventoryData) return;
+        const query = (searchInput ? searchInput.value : '').toLowerCase();
+        const category = categoryFilter ? categoryFilter.value : 'all';
+        
+        const filtered = inventoryData.filter(p => {
+            const matchesQuery = ((p.name || '').toLowerCase().includes(query)) || ((p.type || '').toLowerCase().includes(query));
+            const matchesCategory = category === 'all' || p.type === category;
+            return matchesQuery && matchesCategory;
         });
+        renderInventory(filtered);
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', filterProducts);
+    }
+    if (categoryFilter) {
+        categoryFilter.addEventListener('change', filterProducts);
     }
 
     const bookingSearchInput = document.getElementById('bookingSearchInput');
