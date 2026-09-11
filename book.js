@@ -246,6 +246,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         timePillsEl.innerHTML = "";
 
+        const exceptionsOpt = customOpts.find(o => o.name === "Exceptions");
+        const slotExceptions = (exceptionsOpt && exceptionsOpt.choices) ? exceptionsOpt.choices : [];
+        
+        const dateParts = selectedDateStr.split('-');
+        const dObj = new Date(dateParts[0], parseInt(dateParts[1])-1, dateParts[2]);
+        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const fullDateLabel = `${monthNames[dObj.getMonth()]} ${String(dObj.getDate()).padStart(2,'0')} (${dayNames[dObj.getDay()]})`;
+
         availableSlots.forEach(slot => {
             let isPast = false;
             if (isToday) {
@@ -254,8 +263,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (slotHour <= nowDecimal) isPast = true;
             }
 
-            // Check if slot is already booked
-            const isBooked = bookedSlots.includes(slot);
+            // Check if slot is already booked or is an exception
+            let isBooked = bookedSlots.includes(slot);
+            if (!isBooked && slotExceptions.includes(`${fullDateLabel}|${slot}`)) {
+                isBooked = true; // Treat exception as booked
+            }
 
             const pill = document.createElement("button");
             pill.className = "pill" + (isPast || isBooked ? " pill-disabled" : "");

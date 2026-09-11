@@ -1608,14 +1608,18 @@ document.addEventListener('DOMContentLoaded', () => {
             filtered = filtered.filter(b => {
                 if (!b.booking_date) return false;
                 try {
-                    const bDate = new Date(b.booking_date);
-                    const fDate = new Date(bookingDateFilter);
-                    if (isNaN(bDate.getTime()) || isNaN(fDate.getTime())) return false;
+                    let bDateStr = b.booking_date;
+                    // If stored as exactly YYYY-MM-DD, compare directly to avoid UTC shift
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(bDateStr)) {
+                        return bDateStr === bookingDateFilter;
+                    }
+                    const bDate = new Date(bDateStr);
+                    if (isNaN(bDate.getTime())) return false;
                     
-                    // Compare just the date portion
-                    return bDate.getFullYear() === fDate.getFullYear() &&
-                           bDate.getMonth() === fDate.getMonth() &&
-                           bDate.getDate() === fDate.getDate();
+                    const y = bDate.getFullYear();
+                    const m = String(bDate.getMonth() + 1).padStart(2, '0');
+                    const d = String(bDate.getDate()).padStart(2, '0');
+                    return `${y}-${m}-${d}` === bookingDateFilter;
                 } catch(e) {
                     return false;
                 }
@@ -1629,7 +1633,12 @@ document.addEventListener('DOMContentLoaded', () => {
             filtered = filtered.filter(b => {
                 if (!b.booking_date) return false;
                 try {
-                    const d = new Date(b.booking_date);
+                    let bDateStr = b.booking_date;
+                    if (/^\d{4}-\d{2}-\d{2}$/.test(bDateStr)) {
+                        const mIndex = parseInt(bDateStr.split('-')[1], 10) - 1;
+                        return monthChecks.includes(monthNames[mIndex]);
+                    }
+                    const d = new Date(bDateStr);
                     if (isNaN(d.getTime())) return false;
                     const m = monthNames[d.getMonth()];
                     return monthChecks.includes(m);
@@ -2180,6 +2189,14 @@ const initOptionsFromDB = (jsonStr) => {
     const dbOpts = parseOptionsFromDB(jsonStr);
     window.currentOptionsList = buildDefaultOptionsList();
     window._toggleStates = {};
+    window._slotExceptions = [];
+
+    if (dbOpts) {
+        const exceptionsOpt = dbOpts.find(o => o.name === "Exceptions");
+        if (exceptionsOpt && exceptionsOpt.choices) {
+            window._slotExceptions = [...exceptionsOpt.choices];
+        }
+    }
 
     window.currentOptionsList.forEach((opt, i) => {
         if (!dbOpts) {
@@ -2219,10 +2236,18 @@ const initOptionsFromDB = (jsonStr) => {
 };
 
 const serializeOptions = () => {
-    return window.currentOptionsList.map((opt, i) => ({
+    const opts = window.currentOptionsList.map((opt, i) => ({
         name: opt.name,
         choices: [...(window._toggleStates[i] || new Set())]
     }));
+    
+    if (window._slotExceptions && window._slotExceptions.length > 0) {
+        opts.push({
+            name: "Exceptions",
+            choices: window._slotExceptions
+        });
+    }
+    return opts;
 };
 
 window.renderShopifyOptionsList = () => {
@@ -2431,6 +2456,7 @@ window.saveShopifyOption = () => {
     const serialized = serializeOptions();
     document.getElementById('productOptionsData').value = JSON.stringify(serialized);
     renderShopifyOptionsList();
+    if(window.populateExceptionDropdowns) window.populateExceptionDropdowns();
     closeShopifyOptionModal();
 };
 
@@ -2438,10 +2464,63 @@ window.initShopifyOptions = (optsJsonStr) => {
     initOptionsFromDB(optsJsonStr);
     document.getElementById('productOptionsData').value = JSON.stringify(serializeOptions());
     renderShopifyOptionsList();
+    if(window.populateExceptionDropdowns) window.populateExceptionDropdowns();
+    if(window.renderSlotExceptionsList) window.renderSlotExceptionsList();
+};
+window.renderSlotExceptionsList = () => {
+    const list = document.getElementById('slotExceptionsList');
+    if (!list) return;
+    
+    if (!window._slotExceptions || window._slotExceptions.length === 0) {
+        list.innerHTML = '<span style="font-size: 0.8rem; color: var(--muted);">No exceptions added.</span>';
+        return;
+    }
+    
+    list.innerHTML = window._slotExceptions.map((ex, i) => {
+        const parts = ex.split('|');
+        const date = parts[0];
+        const slot = parts[1];
+        return `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.6rem 1rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 6px;">
+            <div style="font-size: 0.85rem; color: #fff;">
+                <span style="color: var(--gold); font-weight: 500;">${date}</span> &mdash; ${slot}
+            </div>
+            <button type="button" onclick="removeSlotException(${i})" style="background: transparent; border: none; color: var(--red); font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; height: 24px; width: 24px;">✕</button>
+        </div>
+        `;
+    }).join('');
 };
 
+window.populateExceptionDropdowns = () => {
+    const dateSelect = document.getElementById('exceptionDateSelect');
+    const slotSelect = document.getElementById('exceptionSlotSelect');
+    if (!dateSelect || !slotSelect) return;
+    
+    const datesState = window._toggleStates[0] || new Set();
+    const slotsState = window._toggleStates[1] || new Set();
+    
+    dateSelect.innerHTML = [...datesState].map(d => `<option value="${d}">${d}</option>`).join('');
+    slotSelect.innerHTML = [...slotsState].map(s => `<option value="${s}">${s}</option>`).join('');
+};
 
+window.addSlotException = () => {
+    const dateVal = document.getElementById('exceptionDateSelect').value;
+    const slotVal = document.getElementById('exceptionSlotSelect').value;
+    if (!dateVal || !slotVal) return alert('Select both a date and a slot.');
+    
+    const exStr = `${dateVal}|${slotVal}`;
+    if (!window._slotExceptions) window._slotExceptions = [];
+    if (window._slotExceptions.includes(exStr)) return alert('This exception is already added.');
+    
+    window._slotExceptions.push(exStr);
+    window.renderSlotExceptionsList();
+    document.getElementById('productOptionsData').value = JSON.stringify(serializeOptions());
+};
 
-
-
+window.removeSlotException = (index) => {
+    if (!window._slotExceptions) return;
+    window._slotExceptions.splice(index, 1);
+    window.renderSlotExceptionsList();
+    document.getElementById('productOptionsData').value = JSON.stringify(serializeOptions());
+};
 

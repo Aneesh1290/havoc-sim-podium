@@ -1572,6 +1572,30 @@
                         <div id="shopifyOptionsListContainer" style="display: flex; flex-direction: column;">
                         </div>
 
+                        <!-- Slot Exceptions Section -->
+                        <div style="padding: 1.25rem 1.5rem; border-top: 1px solid rgba(255,255,255,0.05);">
+                            <h4 style="font-size: 0.95rem; font-weight: 600; color: #fff; margin-bottom: 0.75rem;">Slot Exceptions</h4>
+                            <p style="font-size: 0.8rem; color: var(--muted); margin-bottom: 1rem;">Select specific time slots on specific dates that should be unavailable.</p>
+                            
+                            <div style="display: flex; gap: 0.75rem; align-items: flex-end; margin-bottom: 1rem;">
+                                <div style="flex: 1;">
+                                    <label style="display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem;">Date</label>
+                                    <select id="exceptionDateSelect" style="width: 100%; padding: 0.6rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: #fff; font-family: 'Outfit'; font-size: 0.9rem; outline: none;"></select>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label style="display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 0.3rem;">Time Slot</label>
+                                    <select id="exceptionSlotSelect" style="width: 100%; padding: 0.6rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 6px; color: #fff; font-family: 'Outfit'; font-size: 0.9rem; outline: none;"></select>
+                                </div>
+                                <div>
+                                    <button type="button" onclick="addSlotException()" style="padding: 0.6rem 1rem; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3); border-radius: 6px; color: var(--green); font-family: 'Outfit'; font-weight: 600; cursor: pointer; transition: all 0.2s;">Add Exception</button>
+                                </div>
+                            </div>
+
+                            <div id="slotExceptionsList" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                                <!-- Exceptions injected here -->
+                            </div>
+                        </div>
+
 
                     </div>
 
