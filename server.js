@@ -348,12 +348,13 @@ app.get('/api/coupons', (req, res) => {
 
 // Bulk create coupons (Protected, Admin only)
 app.post('/api/admin/coupons/bulk', verifyToken, verifySuperAdmin, (req, res) => {
-    const { prefix, count, type, value, expires_at, max_uses, format } = req.body;
+    const { prefix, count, start_from, type, value, expires_at, max_uses, format } = req.body;
     
     if (!prefix || !count || count < 1 || count > 500) {
         return res.status(400).json({ error: 'Invalid prefix or count (max 500).' });
     }
 
+    const startIdx = start_from ? parseInt(start_from) : 1;
     const expiresVal = expires_at || null;
     const maxUsesVal = max_uses != null && max_uses !== '' ? parseInt(max_uses) : null;
     const codes = [];
@@ -367,7 +368,7 @@ app.post('/api/admin/coupons/bulk', verifyToken, verifySuperAdmin, (req, res) =>
         return result;
     };
 
-    for (let i = 1; i <= count; i++) {
+    for (let i = startIdx; i < startIdx + count; i++) {
         let code = '';
         if (format === 'random') {
             code = `${prefix}${generateRandomString(6)}`;

@@ -1048,6 +1048,7 @@ document.getElementById('bulkCouponForm').addEventListener('submit', async (e) =
     e.preventDefault();
     const prefix = document.getElementById('bulkCouponPrefix').value.trim();
     const count = parseInt(document.getElementById('bulkCouponCount').value);
+    const startFrom = parseInt(document.getElementById('bulkCouponStart')?.value) || 1;
     const format = document.getElementById('bulkCouponFormat').value;
     const type = document.getElementById('bulkCouponType').value;
     const value = document.getElementById('bulkCouponValue').value;
@@ -1064,7 +1065,7 @@ document.getElementById('bulkCouponForm').addEventListener('submit', async (e) =
 
     const res = await fetchAuth('/api/admin/coupons/bulk', {
         method: 'POST',
-        body: JSON.stringify({ prefix, count, format, type, value: parseFloat(value), max_uses })
+        body: JSON.stringify({ prefix, count, start_from: startFrom, format, type, value: parseFloat(value), max_uses })
     });
     
     const data = await res.json();
