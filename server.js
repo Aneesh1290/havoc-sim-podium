@@ -373,7 +373,7 @@ app.post('/api/admin/coupons/bulk', verifyToken, verifySuperAdmin, (req, res) =>
             code = `${prefix}${generateRandomString(6)}`;
         } else {
             // sequential default
-            code = `${prefix}${String(i).padStart(4, '0')}`;
+            code = `${prefix}${i}`;
         }
         codes.push(code.toUpperCase());
     }
