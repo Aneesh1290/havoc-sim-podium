@@ -22,6 +22,7 @@ const initDb = () => {
             name TEXT,
             type TEXT,
             price REAL,
+            compare_price REAL,
             stock_quantity INTEGER DEFAULT 0,
             description TEXT,
             image_url TEXT,
@@ -115,6 +116,7 @@ const initDb = () => {
         db.run(`ALTER TABLE products ADD COLUMN description TEXT`, () => {});
         db.run(`ALTER TABLE products ADD COLUMN image_url TEXT`, () => {});
         db.run(`ALTER TABLE products ADD COLUMN options TEXT`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN compare_price REAL`, () => {});
 
         // Migrations for coupons table (expiry + usage limits)
         db.run(`ALTER TABLE coupons ADD COLUMN expires_at TEXT`, () => {});

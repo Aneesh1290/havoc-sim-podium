@@ -542,7 +542,10 @@ app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.single(
     }
     
     db.run(query, params, (err) => {
-        if (err) return res.status(500).json({ error: 'Failed to update product' });
+        if (err) {
+            console.error("SQL UPDATE ERROR:", err);
+            return res.status(500).json({ error: 'Failed to update product' });
+        }
         res.json({ success: true });
     });
 });
