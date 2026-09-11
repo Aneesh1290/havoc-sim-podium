@@ -68,7 +68,8 @@ const initDb = () => {
         db.run(`CREATE TABLE IF NOT EXISTS slots (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             time_range TEXT UNIQUE,
-            active INTEGER DEFAULT 1
+            active INTEGER DEFAULT 1,
+            sort_order INTEGER DEFAULT 0
         )`);
 
         // Auto-seed default slots if empty
@@ -117,6 +118,9 @@ const initDb = () => {
         db.run(`ALTER TABLE products ADD COLUMN image_url TEXT`, () => {});
         db.run(`ALTER TABLE products ADD COLUMN options TEXT`, () => {});
         db.run(`ALTER TABLE products ADD COLUMN compare_price REAL`, () => {});
+
+        // Migrations for slots table
+        db.run(`ALTER TABLE slots ADD COLUMN sort_order INTEGER DEFAULT 0`, () => {});
 
         // Migrations for coupons table (expiry + usage limits)
         db.run(`ALTER TABLE coupons ADD COLUMN expires_at TEXT`, () => {});
