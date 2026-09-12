@@ -502,6 +502,10 @@ document.addEventListener("DOMContentLoaded", () => {
     loadProductsAndSlots();
 
     closeCartBtn?.addEventListener("click", () => cartDrawer?.classList.remove("open"));
+    
+    // Also close the cart when "Add More Bookings" is clicked
+    const addMoreBtn = document.getElementById("addMoreBtn");
+    addMoreBtn?.addEventListener("click", () => cartDrawer?.classList.remove("open"));
 
     // Confirm from modal -> add to cart
     confirmBtn?.addEventListener("click", () => {
