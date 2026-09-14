@@ -21,15 +21,8 @@ if (!fs.existsSync(uploadDir)){
 }
 
 // Configure multer
-const storage = multer.diskStorage({
-    destination: function (req, file, cb) {
-        cb(null, uploadDir)
-    },
-    filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname)
-    }
-});
-const upload = multer({ storage: storage });
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage, limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB limit
 
 
 const helmet = require('helmet');
@@ -567,7 +560,11 @@ app.get('/api/products', (req, res) => {
 
 app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
     const { name, type, price, compare_price, stock_quantity, description, options } = req.body;
-    const image_url = req.file ? `assets/uploads/${req.file.filename}` : null;
+    let image_url = null;
+    if (req.file) {
+        const base64Data = req.file.buffer.toString('base64');
+        image_url = `data:${req.file.mimetype};base64,${base64Data}`;
+    }
     db.run("INSERT INTO products (name, type, price, compare_price, stock_quantity, description, image_url, options) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [name, type, price, compare_price || null, stock_quantity || 10, description, image_url, options || '[]'],
         function(err) {
@@ -583,8 +580,10 @@ app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.single(
     let params = [name, type, price, compare_price || null, stock_quantity || 10, description, options || '[]', req.params.id];
     
     if (req.file) {
+        const base64Data = req.file.buffer.toString('base64');
+        const image_url = `data:${req.file.mimetype};base64,${base64Data}`;
         query = "UPDATE products SET name=?, type=?, price=?, compare_price=?, stock_quantity=?, description=?, options=?, image_url=? WHERE id=?";
-        params = [name, type, price, compare_price || null, stock_quantity || 10, description, options || '[]', `assets/uploads/${req.file.filename}`, req.params.id];
+        params = [name, type, price, compare_price || null, stock_quantity || 10, description, options || '[]', image_url, req.params.id];
     }
     
     db.run(query, params, (err) => {

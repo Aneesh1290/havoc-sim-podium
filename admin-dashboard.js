@@ -1905,7 +1905,8 @@ window.openProductModal = (product = null) => {
         // Show existing image in preview
         const dz = document.getElementById('imageDropZone');
         if (product.image_url) {
-            renderImagePreview(`/${product.image_url}`, true);
+            const previewUrl = product.image_url.startsWith('data:') ? product.image_url : `/${product.image_url}`;
+            renderImagePreview(previewUrl, true);
         } else {
             const grid = document.getElementById('imagePreviewGrid');
             if (grid) grid.innerHTML = '';
