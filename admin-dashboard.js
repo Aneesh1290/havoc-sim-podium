@@ -2583,3 +2583,130 @@ window.removeSlotException = (index) => {
     document.getElementById('productOptionsData').value = JSON.stringify(serializeOptions());
 };
 
+// --- Newsletter Management ---
+
+async function loadNewsletterSubscribers() {
+    try {
+        const response = await fetch('/api/admin/newsletter-subscribers', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                logout();
+                return;
+            }
+            throw new Error('Failed to fetch subscribers');
+        }
+        
+        const data = await response.json();
+        const tbody = document.getElementById('newsletter-table-body');
+        const countSpan = document.getElementById('newsletter-total-count');
+        
+        tbody.innerHTML = '';
+        
+        if (data.subscribers && data.subscribers.length > 0) {
+            countSpan.textContent = data.subscribers.length;
+            
+            data.subscribers.forEach((sub, index) => {
+                const tr = document.createElement('tr');
+                const date = new Date(sub.subscribed_at).toLocaleString();
+                
+                tr.innerHTML = `
+                    <td>${index + 1}</td>
+                    <td>${sub.email}</td>
+                    <td>${date}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } else {
+            countSpan.textContent = '0';
+            tbody.innerHTML = '<tr><td colspan="3" style="text-align: center;">No subscribers found</td></tr>';
+        }
+        
+    } catch (error) {
+        console.error('Error loading newsletter subscribers:', error);
+        alert('Failed to load newsletter subscribers.');
+    }
+}
+
+// Export Newsletter Subscribers to CSV
+document.getElementById('exportNewsletterBtn')?.addEventListener('click', async () => {
+    try {
+        const response = await fetch('/api/admin/newsletter-subscribers', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch data for export');
+        
+        const data = await response.json();
+        if (!data.subscribers || data.subscribers.length === 0) {
+            alert('No subscribers to export.');
+            return;
+        }
+
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "ID,Email,Subscribed At\n"; // Header row
+        
+        data.subscribers.forEach(sub => {
+            const row = `${sub.id},${sub.email},${sub.subscribed_at}`;
+            csvContent += row + "\n";
+        });
+        
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `newsletter_subscribers_${new Date().toISOString().split('T')[0]}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+    } catch (error) {
+        console.error('Export error:', error);
+        alert('Failed to export subscribers.');
+    }
+});
+
+// Handle Compose Email Form
+document.getElementById('newsletter-compose-form')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const subject = document.getElementById('newsletter-subject').value;
+    const body = document.getElementById('newsletter-body').value;
+    const btn = document.getElementById('sendNewsletterBtn');
+    
+    if(!confirm('Are you sure you want to send this email to ALL subscribers?')) return;
+    
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<span class="icon">⏳</span> Sending...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch('/api/admin/newsletter-send', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ subject, body })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            alert(`Success: ${result.message}`);
+            document.getElementById('newsletter-compose-form').reset();
+        } else {
+            alert(`Error: ${result.error || 'Failed to send bulk email'}`);
+        }
+    } catch (error) {
+        console.error('Error sending newsletter:', error);
+        alert('An unexpected error occurred while sending the email.');
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+});
+document.querySelector('.nav-btn[data-target="tab-newsletter"]')?.addEventListener('click', () => {
+    loadNewsletterSubscribers();
+});

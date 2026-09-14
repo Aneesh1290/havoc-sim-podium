@@ -10,7 +10,7 @@ const bcrypt = require('bcrypt');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const db = require('./database');
-const { sendConfirmationEmail } = require('./mailer');
+const { sendConfirmationEmail, sendBulkEmail } = require('./mailer');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
@@ -96,6 +96,51 @@ const verifySuperAdmin = (req, res, next) => {
 app.get('/api/admin/me', verifyToken, (req, res) => {
     // We could query DB for latest role, but JWT role is usually fine for session
     res.json({ username: req.user.username, role: req.user.role });
+});
+
+// Newsletter Subscription
+app.post('/api/newsletter', express.json(), (req, res) => {
+    const email = req.body.email;
+    if (!email) return res.status(400).json({ error: 'Email is required.' });
+    
+    db.run("INSERT INTO newsletter_subscribers (email) VALUES (?)", [email], function(err) {
+        if (err) {
+            if (err.message.includes('UNIQUE constraint failed')) {
+                return res.status(400).json({ error: 'Email is already subscribed.' });
+            }
+            return res.status(500).json({ error: 'Internal server error.' });
+        }
+        res.json({ success: true, message: 'Successfully subscribed!' });
+    });
+});
+
+app.get('/api/admin/newsletter-subscribers', verifyToken, (req, res) => {
+    db.all("SELECT id, email, subscribed_at FROM newsletter_subscribers ORDER BY subscribed_at DESC", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Failed to fetch subscribers.' });
+        res.json({ subscribers: rows });
+    });
+});
+
+app.post('/api/admin/newsletter-send', verifyToken, async (req, res) => {
+    const { subject, body } = req.body;
+    if (!subject || !body) return res.status(400).json({ error: 'Subject and body are required.' });
+
+    db.all("SELECT email FROM newsletter_subscribers", [], async (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Failed to fetch subscribers.' });
+        
+        if (rows.length === 0) {
+            return res.status(400).json({ error: 'No subscribers found.' });
+        }
+
+        const bccList = rows.map(r => r.email);
+        const result = await sendBulkEmail(subject, body, bccList);
+
+        if (result.success) {
+            res.json({ success: true, message: `Email sent to ${bccList.length} subscribers.` });
+        } else {
+            res.status(500).json({ error: result.error || 'Failed to send bulk email.' });
+        }
+    });
 });
 
 // 1. Admin Login (Username + Password + TOTP)

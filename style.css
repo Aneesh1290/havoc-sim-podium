@@ -227,10 +227,11 @@ a {
     font-style: italic;
     line-height: 1.05;
     margin-bottom: 1.5rem;
+    word-break: break-word;
 }
 
 .hero-subtitle {
-    color: var(--text-muted);
+    color: var(--accent);
     font-size: 1.1rem;
     margin-bottom: 2.5rem;
 }
@@ -477,6 +478,7 @@ a {
     display: flex;
     gap: 1rem;
     margin-bottom: 2rem;
+    flex-wrap: wrap;
 }
 
 .tab-btn {
@@ -497,7 +499,11 @@ a {
 
 .carousel-container {
     position: relative;
+    display: flex;
+    align-items: center;
     width: 100%;
+    padding: 0 45px;
+    box-sizing: border-box;
 }
 
 .nav-btn {
@@ -521,11 +527,11 @@ a {
 }
 
 .nav-btn.prev {
-    left: -20px;
+    left: 0;
 }
 
 .nav-btn.next {
-    right: -20px;
+    right: 0;
 }
 
 .nav-btn:hover {
@@ -662,10 +668,11 @@ a {
 .venue-widget h3 { font-size: 1.2rem; margin-bottom: 1rem; }
 .venue-img {
     width: 100%;
-    height: 120px;
+    height: auto;
+    aspect-ratio: 16 / 9;
     object-fit: cover;
     border-radius: 4px;
-    margin-bottom: 1.5rem;
+    margin-bottom: 2rem;
 }
 
 .venue-icons {
@@ -761,15 +768,23 @@ a {
     border: none;
     padding: 0.8rem 1rem;
     outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    border-radius: 0;
+    margin: 0;
 }
 .input-group button {
     background: var(--accent-gold);
     border: none;
-    width: 40px;
+    width: 45px;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    border-radius: 0;
+    margin: 0;
 }
 .input-group button svg { width: 16px; height: 16px; }
 
@@ -873,12 +888,14 @@ a {
     .stat-divider { width: 100%; height: 1px; }
     
     .sidebar { grid-template-columns: 1fr; }
+    .venue-widget { padding: 1rem; }
+    .venue-icons { gap: 1rem; }
     .events-grid { grid-template-columns: 1fr; }
     .footer-top { grid-template-columns: 1fr; }
     
-    .carousel-container { margin: 0; }
+    .carousel-container { margin: 0; width: 100%; padding: 0; }
     .nav-btn { display: none; /* Hide carousel arrows on mobile, rely on native swipe */ }
-    .simulator-cards { padding-left: 0; padding-right: 0; }
+    .simulator-cards { padding-left: 0; padding-right: 0; width: 100%; }
     .sim-card { min-width: 240px; }
 }
 

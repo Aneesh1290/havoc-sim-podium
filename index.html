@@ -92,7 +92,7 @@
             <div class="sidebar">
                 <div class="venue-widget">
                     <h3>OUR VENUE</h3>
-                    <img src="C:\Users\anees\.gemini\antigravity-ide\brain\d44ea021-ee79-43e1-ab0b-96b842cf6359\sim_gt_1787311835495.jpg" alt="Venue" class="venue-img">
+                    <img src="assets/venue.png" alt="Venue" class="venue-img">
                     <div class="venue-icons">
                         <div class="v-icon">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
@@ -200,10 +200,11 @@
             <div class="newsletter">
                 <h3>STAY IN THE LOOP</h3>
                 <p>Get updates on events, offers & more!</p>
-                <div class="input-group">
-                    <input type="email" placeholder="Enter your email">
-                    <button><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
-                </div>
+                <form id="newsletter-form" class="input-group">
+                    <input type="email" id="newsletter-email" placeholder="Enter your email" required>
+                    <button type="submit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg></button>
+                </form>
+                <p id="newsletter-msg" style="display:none; font-size: 0.8rem; margin-top: 0.5rem;"></p>
                 <p class="copyright">&copy; 2026 Havoc Sim Podium. All rights reserved.</p>
             </div>
             

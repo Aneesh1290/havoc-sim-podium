@@ -282,3 +282,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 });
+
+    // Newsletter logic
+    const newsletterForm = document.getElementById('newsletter-form');
+    if (newsletterForm) {
+        newsletterForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('newsletter-email').value;
+            const msgEl = document.getElementById('newsletter-msg');
+            msgEl.style.display = 'none';
+            msgEl.style.color = '';
+            
+            try {
+                const res = await fetch('/api/newsletter', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await res.json();
+                
+                msgEl.style.display = 'block';
+                if (res.ok) {
+                    msgEl.textContent = data.message;
+                    msgEl.style.color = 'green';
+                    newsletterForm.reset();
+                } else {
+                    msgEl.textContent = data.error || 'Failed to subscribe.';
+                    msgEl.style.color = 'red';
+                }
+            } catch (err) {
+                msgEl.style.display = 'block';
+                msgEl.textContent = 'Connection error. Try again.';
+                msgEl.style.color = 'red';
+            }
+        });
+    }

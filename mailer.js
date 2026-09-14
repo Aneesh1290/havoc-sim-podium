@@ -81,4 +81,28 @@ const sendConfirmationEmail = async (booking) => {
     }
 };
 
-module.exports = { sendConfirmationEmail };
+const sendBulkEmail = async (subject, htmlBody, bccList) => {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.warn("SMTP credentials not configured. Skipping bulk email.");
+        return { success: false, error: "SMTP credentials not configured." };
+    }
+
+    try {
+        const mailOptions = {
+            from: `"Havoc Sim Podium" <${process.env.SMTP_USER}>`,
+            to: process.env.SMTP_USER, // Send to self, bcc everyone else
+            bcc: bccList,
+            subject: subject,
+            html: htmlBody
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Bulk email sent: ' + info.response);
+        return { success: true };
+    } catch (error) {
+        console.error('Error sending bulk email:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+module.exports = { sendConfirmationEmail, sendBulkEmail };

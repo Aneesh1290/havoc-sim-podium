@@ -1062,6 +1062,9 @@
             <button class="nav-btn" data-target="tab-inventory" id="nav-inventory">
                 <span class="icon">📦</span> Products
             </button>
+            <button class="nav-btn" data-target="tab-newsletter" id="nav-newsletter">
+                <span class="icon">📧</span> Newsletter
+            </button>
         </div>
 
         <div class="sidebar-footer">
@@ -1441,6 +1444,60 @@
                         <tr><td colspan="5" class="empty-state" style="padding: 2rem; text-align: center; color: var(--muted);">Loading products...</td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- NEWSLETTER TAB -->
+        <div id="tab-newsletter" class="tab-content">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h2>Newsletter Subscribers</h2>
+                    <p>Total Subscribers: <span id="newsletter-total-count" style="color: var(--gold);">0</span></p>
+                </div>
+                <button id="exportNewsletterBtn" style="background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 0.6rem 1rem; border-radius: 8px; cursor: pointer; font-family: 'Outfit'; transition: all 0.2s;" onmouseover="this.style.color='#fff'; this.style.borderColor='var(--gold)';" onmouseout="this.style.color='var(--muted)'; this.style.borderColor='var(--border)';">
+                    <span class="icon">⬇️</span> Export CSV
+                </button>
+            </div>
+
+            <div class="dashboard-grid" style="grid-template-columns: 1fr; margin-bottom: 2rem;">
+                <div class="stat-card" style="grid-column: 1 / -1; padding: 2rem; border-radius: 12px; background: rgba(255,255,255,0.02); border: 1px solid var(--border);">
+                    <h3 style="margin-bottom: 1.5rem; font-size: 1.2rem; color: #fff;">Compose Email Blast</h3>
+                    <form id="newsletter-compose-form" style="display: flex; flex-direction: column; gap: 1.5rem;">
+                        <div class="form-group">
+                            <label for="newsletter-subject" style="color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; display: block;">Subject <span class="required" style="color: var(--red);">*</span></label>
+                            <input type="text" id="newsletter-subject" required placeholder="Enter email subject" style="width: 100%; padding: 0.85rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 9px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'">
+                        </div>
+                        <div class="form-group">
+                            <label for="newsletter-body" style="color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; display: block;">Email Body (HTML supported) <span class="required" style="color: var(--red);">*</span></label>
+                            <textarea id="newsletter-body" required rows="8" placeholder="Type your message here... <br> is supported for new lines." style="width: 100%; padding: 0.85rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 9px; color: #fff; font-family: inherit; font-size: 0.95rem; resize: vertical; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='var(--gold)'" onblur="this.style.borderColor='var(--border)'"></textarea>
+                        </div>
+                        <div style="display: flex; justify-content: flex-end; margin-top: 0.5rem;">
+                            <button type="submit" id="sendNewsletterBtn" style="background: var(--gold); color: #000; border: none; padding: 0.8rem 1.5rem; border-radius: 9px; font-weight: 600; cursor: pointer; font-family: 'Outfit'; transition: transform 0.2s, opacity 0.2s;" onmouseover="this.style.opacity='0.9'; this.style.transform='translateY(-1px)';" onmouseout="this.style.opacity='1'; this.style.transform='none';">
+                                <span class="icon">🚀</span> Send to All Subscribers
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3>Subscriber List</h3>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Email</th>
+                                <th>Subscribed At</th>
+                            </tr>
+                        </thead>
+                        <tbody id="newsletter-table-body">
+                            <!-- Populated by JS -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
