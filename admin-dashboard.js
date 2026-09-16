@@ -2272,15 +2272,42 @@ const initOptionsFromDB = (jsonStr) => {
                 const isNewFormat = saved.choices.some(c => /\(\w{3}\)/.test(c));
                 const savedSet = new Set(saved.choices);
                 const enabledSet = new Set();
+
+                // Build a set of all month prefixes that are in the saved data
+                // so we can tell which months are "new" and should default to ON
+                const savedMonths = new Set();
+                saved.choices.forEach(c => {
+                    const monthMatch = c.match(/^(\w+)/);
+                    if (monthMatch) savedMonths.add(monthMatch[1]);
+                });
+
                 opt.allItems.forEach(d => {
                     if (isNewFormat) {
-                        // New format: exact match, trust saved state fully
-                        if (savedSet.has(d.label)) enabledSet.add(d.label);
+                        if (savedSet.has(d.label)) {
+                            // Exact match — was saved as ON
+                            enabledSet.add(d.label);
+                        } else {
+                            // Check if this date's month was NEVER saved at all
+                            // (i.e. it's a brand-new month not in the old saved data)
+                            const monthMatch = d.label.match(/^(\w+)/);
+                            const dateMonth = monthMatch ? monthMatch[1] : '';
+                            if (!savedMonths.has(dateMonth) && !d.isMonday && !d.isPast) {
+                                // New month — default to ON
+                                enabledSet.add(d.label);
+                            }
+                        }
                     } else {
                         // Old format: match by prefix (no day name), but FORCE Mondays OFF
                         const prefix = d.label.replace(/ \(\w+\)$/, '');
                         if (savedSet.has(prefix) && !d.isMonday && !d.isPast) {
                             enabledSet.add(d.label);
+                        } else {
+                            // Check if this is a new month not covered by old format
+                            const monthMatch = d.label.match(/^(\w+)/);
+                            const dateMonth = monthMatch ? monthMatch[1] : '';
+                            if (!savedMonths.has(dateMonth) && !d.isMonday && !d.isPast) {
+                                enabledSet.add(d.label);
+                            }
                         }
                     }
                 });

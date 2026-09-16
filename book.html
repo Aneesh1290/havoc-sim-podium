@@ -27,7 +27,13 @@
                 <a href="/">HOME</a>
                 <a href="index.html#simulators">SIMULATORS</a>
                 <a href="index.html#contact">CONTACT</a>
+                <a href="javascript:void(0)" id="navCartBtn" class="nav-cart-btn">🛒 Cart <span id="navCartCount" class="cart-badge-nav">0</span></a>
             </nav>
+
+            <!-- Mobile cart button: visible next to hamburger on small screens -->
+            <button class="mobile-cart-icon" id="mobileCartBtn" onclick="document.getElementById('cartDrawer').classList.add('open')">
+                🛒 <span id="mobileCartCount" class="mobile-cart-badge">0</span>
+            </button>
 
             <button class="hamburger-menu">
                 <span></span>
@@ -111,7 +117,6 @@
             </div>
         </div>
     </div>
-
     <!-- Slide-out Cart -->
     <div id="cartDrawer" class="cart-drawer">
         <div class="cart-header">

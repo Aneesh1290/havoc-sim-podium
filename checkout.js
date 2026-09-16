@@ -5,7 +5,21 @@
 // Backend URL -- Replace with deployed server URL in production
 const BACKEND_URL = "";
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+
+    // Fetch product catalog to map item names to images
+    let productMap = {};
+    try {
+        const res = await fetch(BACKEND_URL + "/api/products");
+        if (res.ok) {
+            const products = await res.json();
+            products.forEach(p => {
+                productMap[p.name] = p.image || 'havoc_logo.png';
+            });
+        }
+    } catch (err) {
+        console.error("Failed to fetch product catalog:", err);
+    }
 
     // Initialize Cashfree SDK
     // Mode should be "sandbox" or "production"
@@ -50,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const div = document.createElement("div");
             div.className = "summary-item";
             div.innerHTML = `
-                <img id="co-item-img-${index}" src="${item.itemImage}" alt="Simulator" class="summary-img">
+                <img id="co-item-img-${index}" src="${productMap[item.itemName] || item.itemImage || 'havoc_logo.png'}" alt="Simulator" class="summary-img">
                 <div class="summary-details">
                     <strong id="co-item-name-${index}">${item.itemName}</strong>
                     <span id="co-item-date-${index}" class="summary-meta">Date: ${item.dateLabel}</span>

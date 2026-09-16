@@ -1,6 +1,6 @@
 {
-    "simpleCodingInsights.inactivityTimeout": 0.5,
-    "simpleCodingInsights.focusTimeout": 1,
+    "simpleCodingInsights.inactivityTimeout": 0.01,
+    "simpleCodingInsights.focusTimeout": 0.01,
     "simpleCodingInsights.statusBar.showSeconds": true,
     "simpleCodingInsights.statusBar.icon": "$(clock)",
     "simpleCodingInsights.statusBar.backgroundStyle": "default",

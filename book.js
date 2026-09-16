@@ -147,6 +147,15 @@ document.addEventListener("DOMContentLoaded", () => {
             ? new Set(dateOption.choices)
             : null; // null = no restriction (use default calendar logic)
 
+        // Track which months have ANY saved data, so brand-new months default to OPEN
+        const savedMonths = new Set();
+        if (dateOption && dateOption.choices) {
+            dateOption.choices.forEach(c => {
+                const m = c.match(/^(\w+)/);
+                if (m) savedMonths.add(m[1]);
+            });
+        }
+
         const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
         for (let d = 1; d <= daysInMonth; d++) {
@@ -160,17 +169,23 @@ document.addEventListener("DOMContentLoaded", () => {
             // Also support old format "September 05" for backward compat
             const fullMonthLabel = `${monthNames[month]} ${String(d).padStart(2,'0')} (${dayName})`;
             const fullMonthLabelOld = `${monthNames[month]} ${String(d).padStart(2,'0')}`;
+            const thisMonthName = monthNames[month]; // e.g. "October"
             
             let isForceClosed = false;
             
             if (enabledDays !== null) {
-                // If admin saved a "Select Date" option, use that as whitelist
-                const isEnabled = enabledDays.has(fullMonthLabel) || enabledDays.has(fullMonthLabelOld);
-                if (!isEnabled) {
-                    isForceClosed = true;
-                } else {
-                    isMonday = false; // If explicitly enabled, override Monday rule
+                // If this month was NEVER saved (brand-new month), treat it as open by default
+                const monthWasSaved = savedMonths.has(thisMonthName);
+                if (monthWasSaved) {
+                    // Month is known — use whitelist strictly
+                    const isEnabled = enabledDays.has(fullMonthLabel) || enabledDays.has(fullMonthLabelOld);
+                    if (!isEnabled) {
+                        isForceClosed = true;
+                    } else {
+                        isMonday = false; // If explicitly enabled, override Monday rule
+                    }
                 }
+                // else: month not in saved data → leave isForceClosed = false (open by default)
             }
             // If no custom dates saved, fall back to: close Mondays only
             
@@ -347,6 +362,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeCartBtn = document.querySelector(".close-cart");
     const cartTotal     = document.getElementById("cartTotal");
     const cartCount     = document.getElementById("cartCount");
+    const navCartBtn    = document.getElementById("navCartBtn");
+    const navCartCount  = document.getElementById("navCartCount");
+    const mobileCartCount = document.getElementById("mobileCartCount");
     const cartItemsContainer = document.getElementById("cartItemsContainer");
     
     // Initialize cart state
@@ -358,6 +376,15 @@ document.addEventListener("DOMContentLoaded", () => {
             if (cart.itemName) cart = [cart];
             else cart = [];
         }
+        // Sanitize: remove huge base64 images from existing cart items to fix QuotaExceededError
+        let modified = false;
+        cart.forEach(item => {
+            if (item.itemImage) {
+                delete item.itemImage;
+                modified = true;
+            }
+        });
+        if (modified) localStorage.setItem("havoc_cart", JSON.stringify(cart));
     } catch(e) {
         cart = [];
     }
@@ -377,10 +404,13 @@ document.addEventListener("DOMContentLoaded", () => {
             const priceVal = parseFloat((item.itemPrice || "0").replace(/[^0-9.]/g, ""));
             total += isNaN(priceVal) ? 0 : priceVal;
             
+            const matchedProduct = window.havocProducts ? window.havocProducts.find(p => p.name === item.itemName) : null;
+            const imgSrc = (matchedProduct && matchedProduct.image_url) ? matchedProduct.image_url : (item.itemImage || 'havoc_logo.png');
+
             const div = document.createElement("div");
             div.className = "cart-item";
             div.innerHTML = `
-                <img src="${item.itemImage}" alt="Sim" id="cartItemImage_${index}">
+                <img src="${imgSrc}" alt="Sim" id="cartItemImage_${index}">
                 <div class="cart-item-details">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
                         <h4 style="margin:0; flex:1; line-height:1.3;">${item.itemName}</h4>
@@ -394,6 +424,9 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         
         if (cartCount) cartCount.innerText = cart.length;
+        if (navCartCount) navCartCount.innerText = cart.length;
+        if (mobileCartCount) mobileCartCount.innerText = cart.length;
+        // navCartBtn is always visible — no need to toggle display
         if (cartTotal) cartTotal.innerText = `₹${total.toFixed(2)}`;
         
         const checkoutBtn = document.querySelector(".checkout-btn");
@@ -435,6 +468,7 @@ document.addEventListener("DOMContentLoaded", () => {
             TIME_SLOTS = slots.map(s => s.time_range);
 
             const products = await productsRes.json();
+            window.havocProducts = products; // Save globally for cart rendering
             const productGrid = document.getElementById('publicProductGrid');
             if (productGrid) {
                 productGrid.innerHTML = products.map(p => {
@@ -503,6 +537,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     closeCartBtn?.addEventListener("click", () => cartDrawer?.classList.remove("open"));
     
+    if (navCartBtn) {
+        navCartBtn.addEventListener("click", () => {
+            cartDrawer?.classList.add("open");
+        });
+    }
+    
     // Also close the cart when "Add More Bookings" is clicked
     const addMoreBtn = document.getElementById("addMoreBtn");
     addMoreBtn?.addEventListener("click", () => cartDrawer?.classList.remove("open"));
@@ -515,7 +555,6 @@ document.addEventListener("DOMContentLoaded", () => {
             id: Date.now().toString(),
             itemName: pendingProduct.name,
             itemPrice: pendingProduct.price,
-            itemImage: pendingProduct.imgSrc,
             date: selectedDate.iso,
             dateLabel: selectedDate.label,
             slot: selectedSlot
