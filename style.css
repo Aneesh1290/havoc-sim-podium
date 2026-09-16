@@ -1388,13 +1388,12 @@ a {
 .floating-cart-btn .cart-badge { position: absolute; top: -5px; right: -5px; background: var(--red); color: white; font-size: 0.8rem; font-weight: bold; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
 
 /* Nav Cart Button */
-/* Nav Cart Button */
 .nav-cart-btn { 
     display: inline-flex; 
     align-items: center; 
     gap: 6px; 
     position: relative; 
-    background: var(--gold); 
+    background: var(--gold, #f5a623); 
     color: #000 !important; 
     padding: 7px 16px !important; 
     border-radius: 20px; 
@@ -1402,16 +1401,21 @@ a {
     font-size: 0.9rem;
     transition: background 0.2s ease, transform 0.15s ease;
     text-decoration: none !important;
+    line-height: 1;
 }
 .nav-cart-btn:hover { background: #ffcc00; transform: scale(1.05); }
 .cart-badge-nav { 
-    background: var(--red); 
-    color: white; 
-    font-size: 0.72rem; 
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #e53e3e; 
+    color: #fff; 
+    font-size: 0.7rem; 
     padding: 2px 7px; 
-    border-radius: 10px; 
-    font-weight: bold; 
+    border-radius: 999px; 
+    font-weight: 800; 
     min-width: 18px;
-    text-align: center;
+    height: 18px;
+    line-height: 1;
+    vertical-align: middle;
 }
-
