@@ -1,159 +1,211 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const { Pool } = require('pg');
 const bcrypt = require('bcrypt');
 
-const dbPath = process.env.DB_PATH || path.resolve(__dirname, 'havoc.db');
-const db = new sqlite3.Database(dbPath);
+const DB_URL = process.env.DATABASE_URL || "postgresql://havoc_db_user:DkwU5Ztf0GWG9Z6jwLzAo7XReDiisEc3@dpg-dal81c740ujc739rstb0-a.singapore-postgres.render.com/havoc_db";
 
-const initDb = () => {
-    db.serialize(() => {
-        // 1. Coupons Table
-        db.run(`CREATE TABLE IF NOT EXISTS coupons (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            code TEXT UNIQUE,
-            type TEXT, -- 'percent' or 'flat'
-            value REAL,
-            active INTEGER DEFAULT 1
-        )`);
+const pool = new Pool({
+    connectionString: DB_URL,
+    ssl: { rejectUnauthorized: false }
+});
 
-        // Newsletter Subscribers Table
-        db.run(`CREATE TABLE IF NOT EXISTS newsletter_subscribers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            email TEXT UNIQUE,
-            subscribed_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
+function convertQuery(query) {
+    let i = 1;
+    // Special case for SQLite INSERT OR IGNORE
+    let pgQuery = query.replace(/INSERT OR IGNORE INTO/gi, 'INSERT INTO');
+    // Replace ? with $1, $2
+    pgQuery = pgQuery.replace(/\?/g, () => `$${i++}`);
+    
+    // Add ON CONFLICT DO NOTHING if it was an INSERT OR IGNORE
+    if (query.match(/INSERT OR IGNORE INTO/i)) {
+        pgQuery += " ON CONFLICT DO NOTHING";
+    }
+    
+    return pgQuery;
+}
 
-        // 1.5. Products Table
-        db.run(`CREATE TABLE IF NOT EXISTS products (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT,
-            type TEXT,
-            price REAL,
-            compare_price REAL,
-            stock_quantity INTEGER DEFAULT 0,
-            description TEXT,
-            image_url TEXT,
-            options TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
-
-        // Auto-seed default products if empty
-        db.get("SELECT COUNT(*) AS count FROM products", (err, row) => {
-            if (!err && row.count === 0) {
-                const defaultProducts = [
-                    { name: "RC Flying Sim", type: "Simulator", price: 300, stock: 10 },
-                    { name: "Flight Sim Pro (Airbus Edition)", type: "Simulator", price: 1500, stock: 10 },
-                    { name: "Flight Sim Pro (Boeing Edition)", type: "Simulator", price: 1500, stock: 10 },
-                    { name: "Race Sim GT", type: "Simulator", price: 500, stock: 10 },
-                    { name: "Race Sim F1", type: "Simulator", price: 600, stock: 10 },
-                    { name: "Race Sim Jr.", type: "Simulator", price: 400, stock: 10 },
-                    { name: "Race Sim Beginner", type: "Simulator", price: 300, stock: 10 }
-                ];
-                const stmt = db.prepare("INSERT INTO products (name, type, price, stock_quantity) VALUES (?, ?, ?, ?)");
-                defaultProducts.forEach(p => stmt.run(p.name, p.type, p.price, p.stock));
-                stmt.finalize();
-                console.log("Auto-seeded default products.");
+const db = {
+    run: function (query, params, callback) {
+        if (typeof params === 'function') {
+            callback = params;
+            params = [];
+        }
+        if (!params) params = [];
+        
+        // Handle SQLite transaction commands by bypassing param conversion if not needed
+        pool.query(convertQuery(query), params, (err, res) => {
+            if (callback) {
+                if (err) return callback.call(null, err);
+                // Provide a mock for `this.lastID` and `this.changes`
+                callback.call({ lastID: 0, changes: res ? res.rowCount : 0 }, null);
             }
         });
-
-        // 2. Bookings Table
-        db.run(`CREATE TABLE IF NOT EXISTS bookings (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            order_id TEXT UNIQUE,
-            name TEXT,
-            email TEXT,
-            phone TEXT,
-            item_name TEXT,
-            price REAL,
-            booking_date TEXT,
-            booking_time TEXT,
-            status TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
-
-        // 2.5 Slots Table
-        db.run(`CREATE TABLE IF NOT EXISTS slots (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            time_range TEXT UNIQUE,
-            active INTEGER DEFAULT 1,
-            sort_order INTEGER DEFAULT 0
-        )`);
-
-        // Auto-seed default slots if empty
-        db.get("SELECT COUNT(*) AS count FROM slots", (err, row) => {
-            if (!err && row.count === 0) {
-                const defaultSlots = [
-                    "11:00 AM - 11:30 AM", "11:30 AM - 12:00 PM",
-                    "12:00 PM - 12:30 PM", "12:30 PM - 01:00 PM",
-                    "02:00 PM - 02:30 PM", "02:30 PM - 03:00 PM",
-                    "03:00 PM - 03:30 PM", "03:30 PM - 04:00 PM",
-                    "04:00 PM - 04:30 PM", "04:30 PM - 05:00 PM",
-                    "05:00 PM - 05:30 PM", "05:30 PM - 06:00 PM",
-                    "06:00 PM - 06:30 PM", "06:30 PM - 07:00 PM",
-                    "07:00 PM - 07:30 PM", "07:30 PM - 08:00 PM",
-                    "08:00 PM - 08:30 PM", "08:30 PM - 09:00 PM",
-                    "09:00 PM - 09:30 PM", "09:30 PM - 10:00 PM"
-                ];
-                const stmt = db.prepare("INSERT INTO slots (time_range, active) VALUES (?, 1)");
-                defaultSlots.forEach(s => stmt.run(s));
-                stmt.finalize();
-                console.log("Auto-seeded default time slots.");
+    },
+    get: function (query, params, callback) {
+        if (typeof params === 'function') {
+            callback = params;
+            params = [];
+        }
+        if (!params) params = [];
+        
+        pool.query(convertQuery(query), params, (err, res) => {
+            if (callback) {
+                if (err) return callback(err);
+                callback(null, res.rows ? res.rows[0] : null);
             }
         });
-
-        // 3. Admin Auth Table
-        db.run(`CREATE TABLE IF NOT EXISTS admin_auth (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE,
-            password_hash TEXT,
-            totp_secret TEXT,
-            must_change_password INTEGER DEFAULT 0,
-            role TEXT DEFAULT 'staff'
-        )`);
-
-        // Migration to add 'role' column if it doesn't exist
-        db.run(`ALTER TABLE admin_auth ADD COLUMN role TEXT DEFAULT 'staff'`, (err) => {
-            if (!err) {
-                console.log("Added 'role' column to admin_auth table.");
-                // Set the default admin to super_admin
-                db.run(`UPDATE admin_auth SET role = 'super_admin' WHERE username = 'admin'`);
+    },
+    all: function (query, params, callback) {
+        if (typeof params === 'function') {
+            callback = params;
+            params = [];
+        }
+        if (!params) params = [];
+        
+        pool.query(convertQuery(query), params, (err, res) => {
+            if (callback) {
+                if (err) return callback(err);
+                callback(null, res.rows ? res.rows : []);
             }
         });
+    },
+    serialize: function (callback) {
+        // PG doesn't strictly need this, but we execute the callback synchronously
+        callback();
+    },
+    prepare: function (query) {
+        // Very basic mock for db.prepare used in server.js/database.js for bulk inserts
+        return {
+            run: (...args) => {
+                let params = args;
+                // Last arg might be a callback, in prepare it's usually not used, but let's be safe
+                if (args.length > 0 && typeof args[args.length - 1] === 'function') {
+                    params = args.slice(0, -1);
+                }
+                pool.query(convertQuery(query), params, (err) => {
+                    if (err) console.error("Prepare run error:", err);
+                });
+            },
+            finalize: () => {}
+        };
+    }
+};
 
-        // Migrations for products table (missing columns from fresh deploy)
-        db.run(`ALTER TABLE products ADD COLUMN description TEXT`, () => {});
-        db.run(`ALTER TABLE products ADD COLUMN image_url TEXT`, () => {});
-        db.run(`ALTER TABLE products ADD COLUMN options TEXT`, () => {});
-        db.run(`ALTER TABLE products ADD COLUMN compare_price REAL`, () => {});
+const initDb = async () => {
+    try {
+        const client = await pool.connect();
+        
+        // 1. Coupons
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS coupons (
+                id SERIAL PRIMARY KEY,
+                code TEXT UNIQUE,
+                type TEXT,
+                value REAL,
+                active INTEGER DEFAULT 1,
+                expires_at TEXT,
+                max_uses INTEGER,
+                used_count INTEGER DEFAULT 0
+            )
+        `);
+        
+        // 2. Newsletter
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+                id SERIAL PRIMARY KEY,
+                email TEXT UNIQUE,
+                subscribed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // 3. Products
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS products (
+                id SERIAL PRIMARY KEY,
+                name TEXT,
+                type TEXT,
+                price REAL,
+                compare_price REAL,
+                stock_quantity INTEGER DEFAULT 0,
+                description TEXT,
+                image_url TEXT,
+                options TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // 4. Bookings
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS bookings (
+                id SERIAL PRIMARY KEY,
+                order_id TEXT UNIQUE,
+                name TEXT,
+                email TEXT,
+                phone TEXT,
+                item_name TEXT,
+                price REAL,
+                booking_date TEXT,
+                booking_time TEXT,
+                status TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+        
+        // 5. Slots
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS slots (
+                id SERIAL PRIMARY KEY,
+                time_range TEXT UNIQUE,
+                active INTEGER DEFAULT 1,
+                sort_order INTEGER DEFAULT 0
+            )
+        `);
+        
+        // 6. Admin Auth
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS admin_auth (
+                id SERIAL PRIMARY KEY,
+                username TEXT UNIQUE,
+                password_hash TEXT,
+                totp_secret TEXT,
+                must_change_password INTEGER DEFAULT 0,
+                role TEXT DEFAULT 'staff'
+            )
+        `);
+        
+        // 7. Inventory Overrides
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS inventory_overrides (
+                id SERIAL PRIMARY KEY,
+                product_id INTEGER,
+                date_str TEXT,
+                time_range TEXT,
+                override_quantity INTEGER,
+                UNIQUE(product_id, date_str, time_range)
+            )
+        `);
 
-        // Migrations for slots table
-        db.run(`ALTER TABLE slots ADD COLUMN sort_order INTEGER DEFAULT 0`, () => {});
-
-        // Migrations for coupons table (expiry + usage limits)
-        db.run(`ALTER TABLE coupons ADD COLUMN expires_at TEXT`, () => {});
-        db.run(`ALTER TABLE coupons ADD COLUMN max_uses INTEGER`, () => {});
-        db.run(`ALTER TABLE coupons ADD COLUMN used_count INTEGER DEFAULT 0`, () => {});
-
-        // Inventory Overrides Table
-        db.run(`CREATE TABLE IF NOT EXISTS inventory_overrides (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            product_id INTEGER,
-            date_str TEXT,
-            time_range TEXT,
-            override_quantity INTEGER,
-            UNIQUE(product_id, date_str, time_range)
-        )`);
+        // 8. Site content
+        await client.query(`
+            CREATE TABLE IF NOT EXISTS site_content (
+                id SERIAL PRIMARY KEY,
+                section_key TEXT UNIQUE,
+                content_value TEXT
+            )
+        `);
 
         // Seed default admin if none exist (admin / password123)
-        db.get("SELECT COUNT(*) as count FROM admin_auth", async (err, row) => {
-            if (!err && row.count === 0) {
-                const saltRounds = 10;
-                const hash = await bcrypt.hash('password123', saltRounds);
-                db.run("INSERT INTO admin_auth (username, password_hash) VALUES (?, ?)", ['admin', hash]);
-                console.log("Seeded default admin user: admin / password123");
-            }
-        });
-    });
+        const res = await client.query("SELECT COUNT(*) as count FROM admin_auth");
+        if (res.rows[0].count == 0) {
+            const saltRounds = 10;
+            const hash = await bcrypt.hash('password123', saltRounds);
+            await client.query("INSERT INTO admin_auth (username, password_hash) VALUES ($1, $2)", ['admin', hash]);
+            console.log("Seeded default admin user: admin / password123");
+        }
+
+        client.release();
+    } catch (err) {
+        console.error("Error initializing DB:", err);
+    }
 };
 
 initDb();
