@@ -52,12 +52,12 @@
 
             <section class="co-section">
                 <h2>Payment</h2>
-                <div class="payment-option" data-method="cashfree" style="display: none;">
+                <div class="payment-option" data-method="online" style="display: none;">
                     <div class="payment-radio"></div>
-                    <img src="https://www.cashfree.com/favicon.ico" alt="Cashfree" class="payment-icon" style="width:28px;height:28px;object-fit:contain;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="payment-icon" style="width:28px;height:28px;"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
                     <div>
-                        <strong>Cashfree</strong>
-                        <p>Pay securely via UPI, Card, Net Banking or Wallets</p>
+                        <strong>Online Payment</strong>
+                        <p>Pay securely via UPI, Card, Net Banking</p>
                     </div>
                 </div>
 
@@ -71,7 +71,14 @@
                 </div>
             </section>
 
-            <button class="btn-pay" id="payNowBtn">
+            <div class="co-terms" style="margin-top: 1.5rem; display: flex; align-items: flex-start; gap: 10px; font-size: 0.9rem; color: #ccc;">
+                <input type="checkbox" id="co-terms-checkbox" required style="margin-top: 3px; cursor: pointer;">
+                <label for="co-terms-checkbox" style="cursor: pointer; line-height: 1.4;">
+                    I agree to the <a href="/terms-conditions" target="_blank" style="color: var(--gold); text-decoration: underline;">Terms & Conditions</a> and <a href="/refund-policy" target="_blank" style="color: var(--gold); text-decoration: underline;">Refund & Cancellation Policy</a>
+                </label>
+            </div>
+
+            <button class="btn-pay" id="payNowBtn" style="margin-top: 1rem;">
                 <span id="payBtnLabel">PAY NOW</span>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
             </button>
@@ -119,15 +126,19 @@
                     <span id="co-total">-</span>
                 </div>
 
-                <div class="secure-badge">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                    <span>Secured by Cashfree</span>
+                <div class="secure-badge" style="display: flex; flex-direction: column; align-items: center; gap: 5px;">
+                    <span style="font-size: 0.8rem; color: #888;">Supported Payment Methods</span>
+                    <div class="card-logos" style="display: flex; gap: 10px;">
+                        <span style="background:#fff; padding: 2px 5px; border-radius: 4px; font-weight: bold; color: #1a1f71; font-size: 0.8rem;">VISA</span>
+                        <span style="background:#fff; padding: 2px 5px; border-radius: 4px; font-weight: bold; color: #eb001b; font-size: 0.8rem;">Mastercard</span>
+                        <span style="background:#fff; padding: 2px 5px; border-radius: 4px; font-weight: bold; color: #e15c1e; font-size: 0.8rem;">RuPay</span>
+                        <span style="background:#fff; padding: 2px 5px; border-radius: 4px; font-weight: bold; color: #000; font-size: 0.8rem;">UPI</span>
+                    </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
     <script src="checkout.js"></script>
 </body>
 </html>

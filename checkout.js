@@ -21,16 +21,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.error("Failed to fetch product catalog:", err);
     }
 
-    // Initialize Cashfree SDK
-    // Mode should be "sandbox" or "production"
-    let cashfree;
-    try {
-        cashfree = Cashfree({
-            mode: "sandbox", 
-        });
-    } catch (e) {
-        console.error("Failed to load Cashfree SDK:", e);
-    }
+    // Initialize Payment SDK (Pending ICICI Integration)
+    // let cashfree;
+    // try {
+    //     cashfree = Cashfree({
+    //         mode: "sandbox", 
+    //     });
+    // } catch (e) {
+    //     console.error("Failed to load Payment SDK:", e);
+    // }
 
     // ---- 1. Load cart from localStorage ----
     let raw = localStorage.getItem("havoc_cart");
@@ -174,8 +173,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         const email = document.getElementById("co-email")?.value.trim();
         const phone = document.getElementById("co-phone")?.value.trim();
 
+        const termsCheckbox = document.getElementById("co-terms-checkbox");
         if (!name || !email || !phone) {
             alert("Please fill in all required fields before proceeding.");
+            return;
+        }
+        if (!termsCheckbox || !termsCheckbox.checked) {
+            alert("Please agree to the Terms & Conditions and Refund & Cancellation Policy before proceeding.");
             return;
         }
 
