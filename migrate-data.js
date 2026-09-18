@@ -7,7 +7,7 @@ const SQLITE_FILE = path.join(__dirname, 'havoc_backup_2026-09-16.db');
 
 const pgPool = new Pool({
     connectionString: DB_URL,
-    ssl: { rejectUnauthorized: false } //Required for Render Postgres
+    ssl: { rejectUnauthorized: false } // Required for Render Postgres
 });
 
 const sqliteDb = new sqlite3.Database(SQLITE_FILE);
