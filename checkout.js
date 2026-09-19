@@ -58,7 +58,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         itemsContainer.innerHTML = "";
         cart.forEach((item, index) => {
             const priceVal = parseFloat((item.itemPrice || "0").replace(/[^\d.]/g, ""));
-            originalPrice += isNaN(priceVal) ? 0 : priceVal;
+            const instFee = item.instructorFee ? parseFloat(item.instructorFee) : 0;
+            const itemTotal = (isNaN(priceVal) ? 0 : priceVal) + instFee;
+            originalPrice += itemTotal;
             
             const div = document.createElement("div");
             div.className = "summary-item";
@@ -68,9 +70,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                     <strong id="co-item-name-${index}">${item.itemName}</strong>
                     <span id="co-item-date-${index}" class="summary-meta">Date: ${item.dateLabel}</span>
                     <span id="co-item-time-${index}" class="summary-meta">Slot: ${item.slot}</span>
-                    ${item.instructor ? `<span id="co-item-instructor-${index}" class="summary-meta">Instructor: ${item.instructor.name}</span>` : ''}
+                    ${item.instructor ? `<span id="co-item-instructor-${index}" class="summary-meta" style="color: var(--gold);">👤 Instructor: ${item.instructor.name} (+₹${instFee})</span>` : ''}
                 </div>
-                <span id="co-item-price-${index}" class="summary-price">${item.itemPrice}</span>
+                <span id="co-item-price-${index}" class="summary-price">₹${itemTotal.toFixed(2)}</span>
             `;
             itemsContainer.appendChild(div);
         });
@@ -203,7 +205,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 item_name: item.itemName,
                 date: item.dateLabel,
                 time: item.slot,
-                instructor_id: item.instructor ? item.instructor.id : null
+                instructor_id: item.instructor ? item.instructor.id : null,
+                instructor_fee: item.instructorFee || 0
             }));
 
             if (selectedPaymentMethod === 'cod') {

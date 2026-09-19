@@ -1267,6 +1267,7 @@ async function loadInstructors() {
                 <td>${inst.photo_url ? `<img src="${inst.photo_url}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">` : '<div style="width:40px;height:40px;border-radius:50%;background:#383b4d;"></div>'}</td>
                 <td><strong>${inst.name}</strong></td>
                 <td>${inst.role || '-'}</td>
+                <td><span style="color: var(--gold); font-weight:600;">₹${inst.fee != null ? inst.fee : 500}</span></td>
                 <td><span style="color: ${inst.status === 'Available' ? 'var(--green)' : 'var(--red)'}">${inst.status}</span></td>
                 <td>
                     <button class="btn btn-primary btn-sm" onclick='editInstructor(${JSON.stringify(inst).replace(/'/g, "&#39;")})'>Edit</button>
@@ -1298,6 +1299,7 @@ window.editInstructor = function(inst) {
     document.getElementById('instructorRole').value = inst.role || '';
     document.getElementById('instructorAchievement').value = inst.key_achievement || '';
     document.getElementById('instructorStatus').value = inst.status || 'Available';
+    document.getElementById('instructorFee').value = inst.fee != null ? inst.fee : 500;
     document.getElementById('instructorBio').value = inst.biography || '';
     document.getElementById('instructorModalTitle').innerText = 'Edit Instructor';
     document.getElementById('instructorModal').style.display = 'flex';
@@ -1330,6 +1332,7 @@ if (instructorForm) {
         formData.append('role', document.getElementById('instructorRole').value);
         formData.append('key_achievement', document.getElementById('instructorAchievement').value);
         formData.append('status', document.getElementById('instructorStatus').value);
+        formData.append('fee', document.getElementById('instructorFee').value || 500);
         formData.append('biography', document.getElementById('instructorBio').value);
         
         const photoFile = document.getElementById('instructorPhoto').files[0];

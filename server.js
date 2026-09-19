@@ -536,14 +536,14 @@ app.get('/api/instructors', (req, res) => {
 });
 
 app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
-    const { name, age, role, key_achievement, status, biography } = req.body;
+    const { name, age, role, key_achievement, status, biography, fee } = req.body;
     let photo_url = null;
     if (req.file) {
         const base64Data = req.file.buffer.toString('base64');
         photo_url = `data:${req.file.mimetype};base64,${base64Data}`;
     }
-    db.run("INSERT INTO instructors (name, age, role, key_achievement, status, biography, photo_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
-        [name, age || null, role, key_achievement, status || 'Available', biography, photo_url],
+    db.run("INSERT INTO instructors (name, age, role, key_achievement, status, biography, photo_url, fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        [name, age || null, role, key_achievement, status || 'Available', biography, photo_url, fee != null ? parseFloat(fee) : 500],
         function(err) {
             if (err) return res.status(500).json({ error: 'Failed to add instructor' });
             res.json({ success: true, id: this.lastID });
@@ -552,15 +552,16 @@ app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single(
 });
 
 app.put('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
-    const { name, age, role, key_achievement, status, biography } = req.body;
-    let query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=? WHERE id=?";
-    let params = [name, age || null, role, key_achievement, status || 'Available', biography, req.params.id];
+    const { name, age, role, key_achievement, status, biography, fee } = req.body;
+    const feeVal = fee != null ? parseFloat(fee) : 500;
+    let query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=? WHERE id=?";
+    let params = [name, age || null, role, key_achievement, status || 'Available', biography, feeVal, req.params.id];
     
     if (req.file) {
         const base64Data = req.file.buffer.toString('base64');
         const photo_url = `data:${req.file.mimetype};base64,${base64Data}`;
-        query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=?, photo_url=? WHERE id=?";
-        params = [name, age || null, role, key_achievement, status || 'Available', biography, photo_url, req.params.id];
+        query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=?, photo_url=? WHERE id=?";
+        params = [name, age || null, role, key_achievement, status || 'Available', biography, feeVal, photo_url, req.params.id];
     }
     
     db.run(query, params, (err) => {

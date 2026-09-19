@@ -567,6 +567,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const instructorContainerInPrompt = document.getElementById("instructorContainer");
 
     const addToCartAndClose = () => {
+        const instructorFee = selectedInstructor ? (selectedInstructor.fee != null ? selectedInstructor.fee : 500) : 0;
         const cartItem = {
             id: Date.now().toString(),
             itemName: pendingProduct.name,
@@ -574,7 +575,8 @@ document.addEventListener("DOMContentLoaded", () => {
             date: selectedDate.iso,
             dateLabel: selectedDate.label,
             slot: selectedSlot,
-            instructor: selectedInstructor
+            instructor: selectedInstructor,
+            instructorFee: instructorFee
         };
         
         cart.push(cartItem);
@@ -600,12 +602,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 if (available.length > 0) {
                     instructorContainerInPrompt.innerHTML = available.map(inst => `
-                        <div class="pill instructor-pill" style="display:flex; align-items:center; gap:1rem; padding:0.5rem 1rem; border:1px solid var(--border); border-radius:10px; cursor:pointer; color:#fff;" data-id="${inst.id}">
-                            ${inst.photo_url ? `<img src="${inst.photo_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">` : `<div style="width:40px;height:40px;border-radius:50%;background:#383b4d;"></div>`}
+                        <div class="pill instructor-pill" style="display:flex; align-items:center; gap:1rem; padding:0.75rem 1rem; border:1px solid var(--border); border-radius:10px; cursor:pointer; color:#fff;" data-id="${inst.id}">
+                            ${inst.photo_url ? `<img src="${inst.photo_url}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">` : `<div style="width:44px;height:44px;border-radius:50%;background:#383b4d;"></div>`}
                             <div style="flex:1;">
                                 <div style="font-weight:600;">${inst.name}</div>
                                 <div style="font-size:0.8rem; color:var(--muted);">${inst.role || 'Instructor'}</div>
                             </div>
+                            <div style="font-weight:700; color:var(--gold); font-size:0.95rem;">+ ₹${inst.fee != null ? inst.fee : 500}</div>
                         </div>
                     `).join("");
                     
