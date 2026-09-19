@@ -124,6 +124,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let pendingProduct = null;  // { name, price, imgSrc }
     let selectedDate   = null;
     let selectedSlot   = null;
+    let selectedInstructor = null;
 
     // Build date pills for the active month
     const buildDatePills = () => {
@@ -298,6 +299,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     };
 
+
     const selectDate = async (pill) => {
         datePillsEl.querySelectorAll(".pill").forEach(p => p.classList.remove("selected"));
         pill.classList.add("selected");
@@ -314,9 +316,22 @@ document.addEventListener("DOMContentLoaded", () => {
         updateSummary();
     };
 
+    const selectInstructor = (pill, instructor, container) => {
+        if (pill.classList.contains("selected")) {
+            // deselect
+            pill.classList.remove("selected");
+            selectedInstructor = null;
+        } else {
+            container.querySelectorAll(".instructor-pill").forEach(p => p.classList.remove("selected"));
+            pill.classList.add("selected");
+            selectedInstructor = instructor;
+        }
+    };
+
     const updateSummary = () => {
         if (selectedDate && selectedSlot) {
-            slotSummaryEl.textContent = `${selectedDate.label}  •  ${selectedSlot}`;
+            let text = `${selectedDate.label}  •  ${selectedSlot}`;
+            slotSummaryEl.textContent = text;
             slotSummaryEl.classList.add("has-selection");
             confirmBtn.disabled = false;
         } else if (selectedDate) {
@@ -334,6 +349,7 @@ document.addEventListener("DOMContentLoaded", () => {
         pendingProduct = product;
         selectedDate   = null;
         selectedSlot   = null;
+        selectedInstructor = null;
 
         document.getElementById("modalProductName").innerText  = product.name;
         document.getElementById("modalProductPrice").innerText = product.price;
@@ -416,7 +432,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         <h4 style="margin:0; flex:1; line-height:1.3;">${item.itemName}</h4>
                         <button class="remove-item-btn" data-index="${index}" aria-label="Remove item" style="background:transparent;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:1.8rem;line-height:0.8;padding:0;transition:0.2s;">&times;</button>
                     </div>
-                    <p class="cart-item-slot" style="margin:0.2rem 0; color:#888; font-size:0.85rem;">${item.dateLabel}  •  ${item.slot}</p>
+                    <p class="cart-item-slot" style="margin:0.2rem 0; color:#888; font-size:0.85rem;">${item.dateLabel}  •  ${item.slot}${item.instructor ? `  •  w/ ${item.instructor.name}` : ''}</p>
                     <div class="cart-price">${item.itemPrice}</div>
                 </div>
             `;
@@ -547,17 +563,18 @@ document.addEventListener("DOMContentLoaded", () => {
     const addMoreBtn = document.getElementById("addMoreBtn");
     addMoreBtn?.addEventListener("click", () => cartDrawer?.classList.remove("open"));
 
-    // Confirm from modal -> add to cart
-    confirmBtn?.addEventListener("click", () => {
-        if (!pendingProduct || !selectedDate || !selectedSlot) return;
+    const instructorPromptModal = document.getElementById("instructorPromptModal");
+    const instructorContainerInPrompt = document.getElementById("instructorContainer");
 
+    const addToCartAndClose = () => {
         const cartItem = {
             id: Date.now().toString(),
             itemName: pendingProduct.name,
             itemPrice: pendingProduct.price,
             date: selectedDate.iso,
             dateLabel: selectedDate.label,
-            slot: selectedSlot
+            slot: selectedSlot,
+            instructor: selectedInstructor
         };
         
         cart.push(cartItem);
@@ -565,7 +582,65 @@ document.addEventListener("DOMContentLoaded", () => {
         
         renderCart();
         closeModal();
+        instructorPromptModal?.classList.remove("open");
         cartDrawer?.classList.add("open");
+    };
+
+    // Confirm from modal -> add to cart
+    confirmBtn?.addEventListener("click", async () => {
+        if (!pendingProduct || !selectedDate || !selectedSlot) return;
+
+        selectedInstructor = null;
+
+        if (instructorPromptModal && instructorContainerInPrompt) {
+            try {
+                const res = await fetch("/api/instructors");
+                const instructors = await res.json();
+                const available = instructors.filter(i => i.status === 'Available');
+                
+                if (available.length > 0) {
+                    instructorContainerInPrompt.innerHTML = available.map(inst => `
+                        <div class="pill instructor-pill" style="display:flex; align-items:center; gap:1rem; padding:0.5rem 1rem; border:1px solid var(--border); border-radius:10px; cursor:pointer; color:#fff;" data-id="${inst.id}">
+                            ${inst.photo_url ? `<img src="${inst.photo_url}" style="width:40px;height:40px;border-radius:50%;object-fit:cover;">` : `<div style="width:40px;height:40px;border-radius:50%;background:#383b4d;"></div>`}
+                            <div style="flex:1;">
+                                <div style="font-weight:600;">${inst.name}</div>
+                                <div style="font-size:0.8rem; color:var(--muted);">${inst.role || 'Instructor'}</div>
+                            </div>
+                        </div>
+                    `).join("");
+                    
+                    instructorContainerInPrompt.querySelectorAll('.instructor-pill').forEach((pill) => {
+                        pill.addEventListener('click', () => {
+                            const id = pill.dataset.id;
+                            const instructor = available.find(i => i.id == id);
+                            selectInstructor(pill, instructor, instructorContainerInPrompt);
+                        });
+                    });
+
+                    instructorPromptModal.classList.add("open");
+                } else {
+                    addToCartAndClose();
+                }
+            } catch (err) {
+                console.error(err);
+                addToCartAndClose();
+            }
+        } else {
+            addToCartAndClose();
+        }
+    });
+
+    document.getElementById("skipInstructorBtn")?.addEventListener("click", () => {
+        selectedInstructor = null;
+        addToCartAndClose();
+    });
+
+    document.getElementById("confirmInstructorBtn")?.addEventListener("click", () => {
+        addToCartAndClose();
+    });
+
+    document.getElementById("instructorPromptClose")?.addEventListener("click", () => {
+        instructorPromptModal?.classList.remove("open");
     });
 
     // Checkout -> redirect

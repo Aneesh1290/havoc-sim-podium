@@ -1059,6 +1059,9 @@
             <button class="nav-btn" data-target="tab-staff" id="nav-staff">
                 <span class="icon">👥</span> Staff
             </button>
+            <button class="nav-btn" data-target="tab-instructors" id="nav-instructors">
+                <span class="icon">🎓</span> Instructors
+            </button>
             <button class="nav-btn" data-target="tab-inventory" id="nav-inventory">
                 <span class="icon">📦</span> Products
             </button>
@@ -1080,7 +1083,79 @@
         </div>
     </aside>
 
-    <!-- Main -->
+    <!-- Add Instructor Modal -->
+    <div id="instructorModal" class="modal-overlay" style="display:none; z-index: 10000; align-items: center; justify-content: center; background: rgba(0,0,0,0.6);">
+        <div class="modal-box" style="max-width: 600px; text-align: left;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="instructorModalTitle">Add Instructor</h2>
+                <button class="modal-close" onclick="closeInstructorModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="instructorForm">
+                    <input type="hidden" id="instructorId">
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="field">
+                            <label>Name *</label>
+                            <div class="input-wrap">
+                                <input type="text" id="instructorName" required>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>Age</label>
+                            <div class="input-wrap">
+                                <input type="number" id="instructorAge" placeholder="e.g. 18">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="field">
+                            <label>Role</label>
+                            <div class="input-wrap">
+                                <input type="text" id="instructorRole" placeholder="e.g. Senior Flight Instructor">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>Key Achievement</label>
+                            <div class="input-wrap">
+                                <input type="text" id="instructorAchievement" placeholder="e.g. MRF 1600 National Champion">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="field">
+                            <label>Status</label>
+                            <div class="input-wrap">
+                                <select id="instructorStatus" style="width:100%; padding: 0.9rem 1.1rem; background: transparent !important; border: none !important; outline: none; color: #fff; font-family: 'Outfit', sans-serif; font-size: 0.95rem; appearance: none; -webkit-appearance: none;">
+                                    <option value="Available" style="color:#000;">Available</option>
+                                    <option value="Unavailable" style="color:#000;">Unavailable</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>Profile Photo</label>
+                            <div class="input-wrap" style="padding: 0.5rem;">
+                                <input type="file" id="instructorPhoto" accept="image/*" style="width:100%;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="field" style="margin-bottom: 1.5rem;">
+                        <label>Biography / Description</label>
+                        <div class="input-wrap">
+                            <textarea id="instructorBio" rows="4" placeholder="Started racing at age 8..." style="width:100%; background:transparent; border:none; outline:none; color:#fff; font-family:'Outfit'; font-size:0.95rem; padding: 0.9rem 1.1rem; resize:vertical;"></textarea>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-gold" style="width: 100%;">Save Instructor</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals End -->
     <main class="main">
 
         <!-- ORDER DETAILS VIEW -->
@@ -1347,27 +1422,6 @@
         <!-- STAFF TAB -->
         <div id="tab-staff" class="tab-content">
             <div class="page-header">
-                <h1 class="page-title">Staff <span>Accounts</span></h1>
-                <p style="color: var(--muted); margin-top: 0.5rem;">Manage worker login access to this dashboard.</p>
-            </div>
-
-            <div class="staff-grid" style="display: grid; grid-template-columns: 1fr 350px; gap: 2rem; align-items: start;">
-                
-                <div class="table-card">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>User ID</th>
-                                <th>Username</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody id="staffTableBody">
-                            <!-- Populated by JS -->
-                        </tbody>
-                    </table>
-                </div>
-
                 <div class="add-coupon-card">
                     <h3 style="margin-bottom: 1.5rem; font-size: 1.2rem;">Create Account</h3>
                     <form id="addStaffForm" autocomplete="off">
@@ -1399,6 +1453,30 @@
                         <button type="submit" class="btn btn-gold">Create Account</button>
                     </form>
                 </div>
+            </div>
+        </div>
+
+        <!-- INSTRUCTORS TAB -->
+        <div id="tab-instructors" class="tab-content">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                <h1 class="page-title">Instructor <span>Management</span></h1>
+                <button class="btn" style="background: #116dff; color: #fff; border: none; font-weight: 500; padding: 0.5rem 1rem; border-radius: 20px;" onclick="showAddInstructorModal()">+ Add Instructor</button>
+            </div>
+            <div class="table-card">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Photo</th>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="instructorsTableBody">
+                        <tr><td colspan="5" style="text-align:center;">Loading instructors...</td></tr>
+                    </tbody>
+                </table>
             </div>
         </div>
 

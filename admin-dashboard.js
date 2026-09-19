@@ -1248,12 +1248,123 @@ async function checkRole() {
     }
 }
 
+// ================= INSTRUCTORS =================
+async function loadInstructors() {
+    const tbody = document.getElementById('instructorsTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading instructors...</td></tr>';
+    try {
+        const res = await fetchAuth('/api/instructors');
+        const data = await res.json();
+        
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--muted);">No instructors found.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = data.map(inst => `
+            <tr>
+                <td>${inst.photo_url ? `<img src="${inst.photo_url}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">` : '<div style="width:40px;height:40px;border-radius:50%;background:#383b4d;"></div>'}</td>
+                <td><strong>${inst.name}</strong></td>
+                <td>${inst.role || '-'}</td>
+                <td><span style="color: ${inst.status === 'Available' ? 'var(--green)' : 'var(--red)'}">${inst.status}</span></td>
+                <td>
+                    <button class="btn btn-primary btn-sm" onclick='editInstructor(${JSON.stringify(inst).replace(/'/g, "&#39;")})'>Edit</button>
+                    <button class="btn btn-sm" style="background:rgba(248,113,113,0.1); color:var(--red);" onclick="deleteInstructor(${inst.id})">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        console.error(err);
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--red);">Failed to load instructors.</td></tr>';
+    }
+}
+
+function showAddInstructorModal() {
+    document.getElementById('instructorForm').reset();
+    document.getElementById('instructorId').value = '';
+    document.getElementById('instructorModalTitle').innerText = 'Add Instructor';
+    document.getElementById('instructorModal').style.display = 'flex';
+}
+
+function closeInstructorModal() {
+    document.getElementById('instructorModal').style.display = 'none';
+}
+
+window.editInstructor = function(inst) {
+    document.getElementById('instructorId').value = inst.id;
+    document.getElementById('instructorName').value = inst.name;
+    document.getElementById('instructorAge').value = inst.age || '';
+    document.getElementById('instructorRole').value = inst.role || '';
+    document.getElementById('instructorAchievement').value = inst.key_achievement || '';
+    document.getElementById('instructorStatus').value = inst.status || 'Available';
+    document.getElementById('instructorBio').value = inst.biography || '';
+    document.getElementById('instructorModalTitle').innerText = 'Edit Instructor';
+    document.getElementById('instructorModal').style.display = 'flex';
+};
+
+window.deleteInstructor = async function(id) {
+    if (!confirm("Are you sure you want to delete this instructor?")) return;
+    try {
+        const res = await fetchAuth(`/api/admin/instructors/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            loadInstructors();
+        } else {
+            alert(data.error || "Failed to delete");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Error deleting instructor");
+    }
+};
+
+const instructorForm = document.getElementById('instructorForm');
+if (instructorForm) {
+    instructorForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('instructorId').value;
+        const formData = new FormData();
+        formData.append('name', document.getElementById('instructorName').value);
+        formData.append('age', document.getElementById('instructorAge').value);
+        formData.append('role', document.getElementById('instructorRole').value);
+        formData.append('key_achievement', document.getElementById('instructorAchievement').value);
+        formData.append('status', document.getElementById('instructorStatus').value);
+        formData.append('biography', document.getElementById('instructorBio').value);
+        
+        const photoFile = document.getElementById('instructorPhoto').files[0];
+        if (photoFile) formData.append('image', photoFile);
+
+        const url = id ? `/api/admin/instructors/${id}` : `/api/admin/instructors`;
+        const method = id ? 'PUT' : 'POST';
+
+        try {
+            const res = await fetch(`${BACKEND_URL}${url}`, {
+                method,
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+            const data = await res.json();
+            if (data.success) {
+                closeInstructorModal();
+                loadInstructors();
+            } else {
+                alert(data.error || "Failed to save instructor");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error saving instructor");
+        }
+    });
+}
+
 // Init
 initAvailabilityDates();
 renderSimFilters();
 loadBookings();
 loadAvailability();
 checkRole();
+loadInstructors();
 
 // ==========================================
 // CHANGE MY PASSWORD LOGIC

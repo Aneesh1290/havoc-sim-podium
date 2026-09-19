@@ -109,6 +109,7 @@
                     <h4>Select Time Slot <span class="slot-required">*</span></h4>
                     <div class="time-pills" id="timePills"></div>
                 </div>
+
             </div>
 
             <div class="slot-modal-footer">
@@ -133,6 +134,25 @@
             </div>
             <button class="btn btn-primary btn-full checkout-btn">CHECKOUT</button>
             <button class="btn btn-full add-more-btn" style="margin-top: 10px; background: transparent; border: 1px solid #d4af37; color: #d4af37;" id="addMoreBtn">ADD MORE BOOKINGS</button>
+        </div>
+    </div>
+    <!-- Instructor Prompt Modal -->
+    <div id="instructorPromptModal" class="slot-modal-overlay">
+        <div class="slot-modal" style="max-width: 450px;">
+            <div class="slot-modal-header">
+                <h3 id="instructorPromptTitle">Select an Instructor</h3>
+                <button class="close-modal" id="instructorPromptClose">&times;</button>
+            </div>
+            <div class="slot-modal-body" style="text-align: center; padding-top: 1rem;">
+                <p style="color: var(--muted); margin-bottom: 1rem;">Would you like to book an expert instructor to guide your session? (Optional)</p>
+                <div id="instructorContainer" style="display: flex; flex-direction: column; gap: 1rem; text-align: left; max-height: 300px; overflow-y: auto; margin-bottom: 1.5rem;">
+                    <!-- Instructors injected here -->
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button class="btn" style="flex:1; border: 1px solid var(--border); color: #fff; background: transparent; padding: 0.8rem; border-radius: 8px; cursor:pointer;" id="skipInstructorBtn">Skip</button>
+                    <button class="btn-add-confirm" style="flex:1;" id="confirmInstructorBtn">Continue</button>
+                </div>
+            </div>
         </div>
     </div>
 

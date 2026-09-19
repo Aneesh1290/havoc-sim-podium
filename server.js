@@ -524,8 +524,60 @@ app.get('/api/admin/backup', verifyToken, verifySuperAdmin, (req, res) => {
 });
 
 // ==========================================
-// CMS ROUTES (Content, Products, Slots)
+// CMS ROUTES (Content, Products, Slots, Instructors)
 // ==========================================
+
+// Instructors API
+app.get('/api/instructors', (req, res) => {
+    db.all("SELECT * FROM instructors ORDER BY id ASC", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows);
+    });
+});
+
+app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
+    const { name, age, role, key_achievement, status, biography } = req.body;
+    let photo_url = null;
+    if (req.file) {
+        const base64Data = req.file.buffer.toString('base64');
+        photo_url = `data:${req.file.mimetype};base64,${base64Data}`;
+    }
+    db.run("INSERT INTO instructors (name, age, role, key_achievement, status, biography, photo_url) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        [name, age || null, role, key_achievement, status || 'Available', biography, photo_url],
+        function(err) {
+            if (err) return res.status(500).json({ error: 'Failed to add instructor' });
+            res.json({ success: true, id: this.lastID });
+        }
+    );
+});
+
+app.put('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
+    const { name, age, role, key_achievement, status, biography } = req.body;
+    let query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=? WHERE id=?";
+    let params = [name, age || null, role, key_achievement, status || 'Available', biography, req.params.id];
+    
+    if (req.file) {
+        const base64Data = req.file.buffer.toString('base64');
+        const photo_url = `data:${req.file.mimetype};base64,${base64Data}`;
+        query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=?, photo_url=? WHERE id=?";
+        params = [name, age || null, role, key_achievement, status || 'Available', biography, photo_url, req.params.id];
+    }
+    
+    db.run(query, params, (err) => {
+        if (err) {
+            console.error("SQL UPDATE ERROR:", err);
+            return res.status(500).json({ error: 'Failed to update instructor' });
+        }
+        res.json({ success: true });
+    });
+});
+
+app.delete('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, (req, res) => {
+    db.run("DELETE FROM instructors WHERE id=?", [req.params.id], (err) => {
+        if (err) return res.status(500).json({ error: 'Error deleting instructor' });
+        res.json({ success: true });
+    });
+});
 
 // Content API
 app.get('/api/content', (req, res) => {
@@ -989,9 +1041,9 @@ app.post('/api/bookings/cod', async (req, res) => {
             // Distribute price evenly for DB records (or keep 0, it's mostly for reference)
             const itemPrice = (parseFloat(amount) / items.length).toFixed(2);
             
-            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING'], 
+            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null], 
                 function(err) {
                     if (err) {
                         console.error("DB Insert Error (COD):", err);
@@ -1062,9 +1114,9 @@ app.post('/create-order', async (req, res) => {
             const itemPrice = (parseFloat(amount) / items.length).toFixed(2);
             
             // Save pending booking to DB
-            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING'], 
+            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null], 
                 function(err) {
                     if (err) console.error("DB Insert Error:", err);
                     insertedCount++;
