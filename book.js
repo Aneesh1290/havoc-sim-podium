@@ -602,14 +602,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 if (available.length > 0) {
                     instructorContainerInPrompt.innerHTML = available.map(inst => `
-                        <div class="pill instructor-pill" style="display:flex; align-items:center; gap:1rem; padding:0.75rem 1rem; border:1px solid var(--border); border-radius:10px; cursor:pointer; color:#fff;" data-id="${inst.id}">
-                            ${inst.photo_url ? `<img src="${inst.photo_url}" style="width:44px;height:44px;border-radius:50%;object-fit:cover;">` : `<div style="width:44px;height:44px;border-radius:50%;background:#383b4d;"></div>`}
-                            <div style="flex:1;">
-                                <div style="font-weight:600;">${inst.name}</div>
-                                <div style="font-size:0.8rem; color:var(--muted);">${inst.role || 'Instructor'}</div>
+                        <div class="pill instructor-pill" style="display:flex; flex-direction:column; gap:0.5rem; padding:1rem; border:1px solid var(--border); border-radius:12px; cursor:pointer; color:#fff;" data-id="${inst.id}">
+                            <div style="display:flex; align-items:center; gap:1rem; width:100%;">
+                                ${inst.photo_url ? `<img src="${inst.photo_url}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div style="width:48px;height:48px;border-radius:50%;background:#383b4d;flex-shrink:0;"></div>`}
+                                <div style="flex:1;">
+                                    <div style="font-weight:600; font-size:1.05rem;">${inst.name}</div>
+                                    <div style="font-size:0.85rem; color:var(--muted);">${inst.role || 'Instructor'}</div>
+                                </div>
+                                <div style="font-weight:700; color:var(--gold); font-size:1rem;">+ ₹${inst.fee != null ? inst.fee : 500}</div>
                             </div>
-                            <div style="font-weight:700; color:var(--gold); font-size:0.95rem;">+ ₹${inst.fee != null ? inst.fee : 500}</div>
+                            ${inst.biography ? `<div style="font-size:0.85rem; color:rgba(255,255,255,0.7); line-height:1.4; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.5rem; margin-top:0.25rem;">${inst.biography}</div>` : ''}
                         </div>
+
                     `).join("");
                     
                     instructorContainerInPrompt.querySelectorAll('.instructor-pill').forEach((pill) => {
