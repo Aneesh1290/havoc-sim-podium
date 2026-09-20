@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (res.ok) {
             const products = await res.json();
             products.forEach(p => {
-                productMap[p.name] = p.image || 'havoc_logo.png';
+                productMap[p.name] = p.image_url || 'havoc_logo.png';
             });
         }
     } catch (err) {
