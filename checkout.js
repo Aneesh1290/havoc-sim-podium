@@ -66,13 +66,20 @@ document.addEventListener("DOMContentLoaded", async () => {
             div.className = "summary-item";
             div.innerHTML = `
                 <img id="co-item-img-${index}" src="${productMap[item.itemName] || item.itemImage || 'havoc_logo.png'}" alt="Simulator" class="summary-img">
-                <div class="summary-details">
-                    <strong id="co-item-name-${index}">${item.itemName}</strong>
+                <div class="summary-details" style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.2rem;">
+                        <strong id="co-item-name-${index}">${item.itemName}</strong>
+                        <span class="summary-price" style="font-size: 1rem; white-space: nowrap; margin-left: 0.5rem;">₹${(isNaN(priceVal) ? 0 : priceVal).toFixed(2)}</span>
+                    </div>
                     <span id="co-item-date-${index}" class="summary-meta">Date: ${item.dateLabel}</span>
                     <span id="co-item-time-${index}" class="summary-meta">Slot: ${item.slot}</span>
-                    ${item.instructor ? `<span id="co-item-instructor-${index}" class="summary-meta" style="color: var(--gold);">👤 Instructor: ${item.instructor.name} (+₹${instFee})</span>` : ''}
+                    ${item.instructor ? `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px dashed rgba(255,255,255,0.1);">
+                        <span id="co-item-instructor-${index}" class="summary-meta" style="color: var(--gold); margin: 0;">👨‍✈️ Instructor: ${item.instructor.name}</span>
+                        <span style="color: var(--gold); font-size: 0.9rem; font-weight: 500;">+₹${instFee.toFixed(2)}</span>
+                    </div>
+                    ` : ''}
                 </div>
-                <span id="co-item-price-${index}" class="summary-price">₹${itemTotal.toFixed(2)}</span>
             `;
             itemsContainer.appendChild(div);
         });

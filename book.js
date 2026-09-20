@@ -418,7 +418,9 @@ document.addEventListener("DOMContentLoaded", () => {
         
         cart.forEach((item, index) => {
             const priceVal = parseFloat((item.itemPrice || "0").replace(/[^0-9.]/g, ""));
-            total += isNaN(priceVal) ? 0 : priceVal;
+            const instFee = item.instructorFee ? parseFloat(item.instructorFee) : 0;
+            const itemTotal = (isNaN(priceVal) ? 0 : priceVal) + instFee;
+            total += itemTotal;
             
             const matchedProduct = window.havocProducts ? window.havocProducts.find(p => p.name === item.itemName) : null;
             const imgSrc = (matchedProduct && matchedProduct.image_url) ? matchedProduct.image_url : (item.itemImage || 'havoc_logo.png');
@@ -427,13 +429,14 @@ document.addEventListener("DOMContentLoaded", () => {
             div.className = "cart-item";
             div.innerHTML = `
                 <img src="${imgSrc}" alt="Sim" id="cartItemImage_${index}">
-                <div class="cart-item-details">
+                <div class="cart-item-details" style="width: 100%;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
                         <h4 style="margin:0; flex:1; line-height:1.3;">${item.itemName}</h4>
                         <button class="remove-item-btn" data-index="${index}" aria-label="Remove item" style="background:transparent;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:1.8rem;line-height:0.8;padding:0;transition:0.2s;">&times;</button>
                     </div>
-                    <p class="cart-item-slot" style="margin:0.2rem 0; color:#888; font-size:0.85rem;">${item.dateLabel}  •  ${item.slot}${item.instructor ? `  •  w/ ${item.instructor.name}` : ''}</p>
-                    <div class="cart-price">${item.itemPrice}</div>
+                    <p class="cart-item-slot" style="margin:0.2rem 0; color:#888; font-size:0.85rem;">${item.dateLabel}  •  ${item.slot}</p>
+                    ${item.instructor ? `<div style="display:flex; justify-content:space-between; align-items:center; margin:0.4rem 0;"><span style="color:var(--gold); font-size:0.85rem; font-weight:500; margin:0;">👨‍✈️ Instructor: ${item.instructor.name}</span><span style="color:var(--gold); font-size:0.85rem; font-weight:500;">+₹${instFee.toFixed(2)}</span></div>` : ''}
+                    <div class="cart-price" style="margin-top: 0.5rem; font-weight: 600; font-size: 1.1rem; color: #fff;">₹${itemTotal.toFixed(2)}</div>
                 </div>
             `;
             cartItemsContainer.appendChild(div);
