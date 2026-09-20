@@ -947,12 +947,55 @@
         }
 
         @media (max-width: 900px) {
-            .product-modal {
-                left: 0;
-                width: 100%;
-            }
+        .product-modal {
+            left: 0;
+            width: 100%;
         }
-    </style>
+    }
+
+    /* ===== REUSABLE MODALS ===== */
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 260px; /* Sidebar width */
+        right: 0;
+        bottom: 0;
+        z-index: 10000;
+        backdrop-filter: blur(4px);
+    }
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+    }
+    .modal-title {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin: 0;
+    }
+    .modal-close {
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        font-size: 1.8rem;
+        line-height: 1;
+        cursor: pointer;
+        transition: color 0.2s;
+        padding: 0.2rem;
+    }
+    .modal-close:hover {
+        color: #fff;
+    }
+
+    @media (max-width: 900px) {
+        .modal-overlay {
+            left: 0;
+        }
+    }
+</style>
 </head>
 <body>
     <!-- Walk-in Booking Modal -->
