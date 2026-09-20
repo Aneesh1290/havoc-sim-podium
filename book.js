@@ -596,10 +596,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (instructorPromptModal && instructorContainerInPrompt) {
             try {
-                const res = await fetch("/api/instructors");
+                const res = await fetch(`/api/available-instructors?date=${selectedDate}&time=${selectedSlot}`);
                 const instructors = await res.json();
                 const available = instructors.filter(i => {
-                    if (i.status !== 'Available') return false;
                     const instType = i.simulator_type || 'All';
                     return instType === 'All' || instType === pendingProduct.type;
                 });

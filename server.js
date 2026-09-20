@@ -538,6 +538,24 @@ app.get('/api/instructors', (req, res) => {
     });
 });
 
+app.get('/api/available-instructors', (req, res) => {
+    const { date, time } = req.query;
+    if (!date || !time) return res.status(400).json({ error: 'Date and time required' });
+
+    db.all("SELECT instructor_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PAID', 'ATTENDED', 'CASH', 'PENDING') AND instructor_id IS NOT NULL", [date, time], (err, bookedRows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        
+        const bookedInstructorIds = bookedRows.map(r => r.instructor_id);
+        
+        db.all("SELECT * FROM instructors WHERE status = 'Available' ORDER BY id ASC", [], (err, instructors) => {
+            if (err) return res.status(500).json({ error: 'Database error' });
+            
+            const availableInstructors = instructors.filter(i => !bookedInstructorIds.includes(i.id));
+            res.json(availableInstructors);
+        });
+    });
+});
+
 app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
     const { name, age, role, key_achievement, status, biography, fee, email, phone, simulator_type } = req.body;
     let photo_url = null;
