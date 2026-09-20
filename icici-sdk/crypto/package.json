@@ -1,0 +1,22 @@
+{
+  "name": "@icici/crypto",
+  "version": "1.0.0",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/bundle.d.ts",
+  "scripts": {
+    "build": "rollup -c",
+    "clean": "rimraf dist"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "es-dirname": "^0.1.0"
+  }
+}

@@ -10,10 +10,13 @@ const bcrypt = require('bcrypt');
 const speakeasy = require('speakeasy');
 const qrcode = require('qrcode');
 const db = require('./database');
-const { sendConfirmationEmail, sendBulkEmail } = require('./mailer');
+const { sendConfirmationEmail, sendBulkEmail, sendInstructorEmail } = require('./mailer');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const { SdkClient } = require('@icici/http-core');
+const { CollectPayRequestDTO } = require('@icici/eazypay');
+
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, 'assets', 'uploads');
 if (!fs.existsSync(uploadDir)){
@@ -536,14 +539,14 @@ app.get('/api/instructors', (req, res) => {
 });
 
 app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
-    const { name, age, role, key_achievement, status, biography, fee } = req.body;
+    const { name, age, role, key_achievement, status, biography, fee, email, phone, simulator_type } = req.body;
     let photo_url = null;
     if (req.file) {
         const base64Data = req.file.buffer.toString('base64');
         photo_url = `data:${req.file.mimetype};base64,${base64Data}`;
     }
-    db.run("INSERT INTO instructors (name, age, role, key_achievement, status, biography, photo_url, fee) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [name, age || null, role, key_achievement, status || 'Available', biography, photo_url, fee != null ? parseFloat(fee) : 500],
+    db.run("INSERT INTO instructors (name, age, role, key_achievement, status, biography, photo_url, fee, email, phone, simulator_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [name, age || null, role, key_achievement, status || 'Available', biography, photo_url, fee != null ? parseFloat(fee) : 500, email, phone, simulator_type || 'All'],
         function(err) {
             if (err) return res.status(500).json({ error: 'Failed to add instructor' });
             res.json({ success: true, id: this.lastID });
@@ -552,16 +555,17 @@ app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single(
 });
 
 app.put('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
-    const { name, age, role, key_achievement, status, biography, fee } = req.body;
+    const { name, age, role, key_achievement, status, biography, fee, email, phone, simulator_type } = req.body;
     const feeVal = fee != null ? parseFloat(fee) : 500;
-    let query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=? WHERE id=?";
-    let params = [name, age || null, role, key_achievement, status || 'Available', biography, feeVal, req.params.id];
+    const simTypeVal = simulator_type || 'All';
+    let query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=?, email=?, phone=?, simulator_type=? WHERE id=?";
+    let params = [name, age || null, role, key_achievement, status || 'Available', biography, feeVal, email, phone, simTypeVal, req.params.id];
     
     if (req.file) {
         const base64Data = req.file.buffer.toString('base64');
         const photo_url = `data:${req.file.mimetype};base64,${base64Data}`;
-        query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=?, photo_url=? WHERE id=?";
-        params = [name, age || null, role, key_achievement, status || 'Available', biography, feeVal, photo_url, req.params.id];
+        query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=?, email=?, phone=?, simulator_type=?, photo_url=? WHERE id=?";
+        params = [name, age || null, role, key_achievement, status || 'Available', biography, feeVal, email, phone, simTypeVal, photo_url, req.params.id];
     }
     
     db.run(query, params, (err) => {
@@ -1056,9 +1060,20 @@ app.post('/api/bookings/cod', async (req, res) => {
                         if (hasError) return res.status(500).json({ error: 'Database error while inserting items' });
                         
                         // Send confirmation email for the first row as proxy
-                        db.get("SELECT * FROM bookings WHERE order_id = ?", [items.length > 1 ? `${baseOrderId}_0` : baseOrderId], (err, row) => {
-                            if (!err && row && row.email) {
-                                sendConfirmationEmail(row);
+                        db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`], (err, rows) => {
+                            if (!err && rows && rows.length > 0) {
+                                if (rows[0].email) {
+                                    sendConfirmationEmail(rows[0]);
+                                }
+                                rows.forEach(row => {
+                                    if (row.instructor_id) {
+                                        db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
+                                            if (!err && instructor && instructor.email) {
+                                                sendInstructorEmail(instructor, row);
+                                            }
+                                        });
+                                    }
+                                });
                             }
                         });
 
@@ -1206,9 +1221,20 @@ app.post('/verify-payment', async (req, res) => {
             // Update booking status in DB (using LIKE to match base_id and base_id_0 etc)
             db.run("UPDATE bookings SET status = 'PAID' WHERE order_id LIKE ?", [`${order_id}%`], () => {
                 // Fetch booking details and send confirmation email
-                db.get("SELECT * FROM bookings WHERE order_id LIKE ?", [`${order_id}%`], (err, row) => {
-                    if (!err && row && row.email) {
-                        sendConfirmationEmail(row);
+                db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${order_id}%`], (err, rows) => {
+                    if (!err && rows && rows.length > 0) {
+                        if (rows[0].email) {
+                            sendConfirmationEmail(rows[0]);
+                        }
+                        rows.forEach(row => {
+                            if (row.instructor_id) {
+                                db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
+                                    if (!err && instructor && instructor.email) {
+                                        sendInstructorEmail(instructor, row);
+                                    }
+                                });
+                            }
+                        });
                     }
                 });
             });
@@ -1243,6 +1269,145 @@ setInterval(() => {
         }
     });
 }, 5 * 60 * 1000); // Run every 5 minutes
+
+// ==========================================
+// ICICI UPI PAYMENT ROUTES
+// ==========================================
+
+app.post('/api/upi/collect', async (req, res) => {
+    try {
+        const { amount, customer_details, booking_data, vpa } = req.body;
+        const items = Array.isArray(booking_data) ? booking_data : [booking_data];
+
+        if (!vpa) return res.status(400).json({ error: 'UPI ID (VPA) is required.' });
+
+        const checkAvailability = () => {
+            return new Promise((resolve, reject) => {
+                if (!items || items.length === 0) return resolve(false);
+                let checkCount = 0;
+                let hasConflict = false;
+                items.forEach(item => {
+                    db.get("SELECT COUNT(*) as count FROM bookings WHERE item_name = ? AND booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH')", 
+                    [item.item_name, item.date, item.time], (err, row) => {
+                        if (err) return reject(err);
+                        if (row.count > 0) hasConflict = true;
+                        checkCount++;
+                        if (checkCount === items.length) resolve(hasConflict);
+                    });
+                });
+            });
+        };
+
+        const hasConflict = await checkAvailability();
+        if (hasConflict) {
+            return res.status(409).json({ error: 'Sorry, one or more selected slots was just booked! Please select different slots.' });
+        }
+
+        const orderAmount = parseFloat(amount).toFixed(2);
+        const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const baseOrderId = `UPI_${shortCode}`;
+
+        let insertedCount = 0;
+        
+        items.forEach((item, index) => {
+            const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
+            const itemPrice = (parseFloat(amount) / items.length).toFixed(2);
+            
+            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null], 
+                function(err) {
+                    if (err) console.error("DB Insert Error:", err);
+                    insertedCount++;
+                    
+                    if (insertedCount === items.length) {
+                        initiateUPICollect(baseOrderId, orderAmount, vpa);
+                    }
+            });
+        });
+
+        async function initiateUPICollect(orderId, orderAmt, payerVa) {
+            try {
+                const payload = new CollectPayRequestDTO();
+                payload.amount = orderAmt;
+                payload.merchantId = {
+                    merchantId: process.env.ICICI_MERCHANT_ID || '',
+                    subMerchantId: process.env.ICICI_MERCHANT_ID || '',
+                    terminalId: process.env.ICICI_TERMINAL_ID || '',
+                    merchantTranId: orderId,
+                    payerVa: payerVa,
+                    amount: orderAmt,
+                    note: "Havoc Sim Podium Booking",
+                    collectByDate: "0",
+                    merchantName: "Havoc Sim Podium",
+                    subMerchantName: "Havoc Sim Podium",
+                    billNumber: orderId,
+                    validatePayerAccFlag: "N",
+                    payerAccount: "",
+                    payerIFSC: ""
+                };
+
+                const response = await SdkClient.execute("3007", "eazypay", payload);
+                console.log("UPI Collect Response:", response);
+                
+                if (response && response.success === "true") {
+                    res.json({ success: true, order_id: orderId, message: 'Please approve the payment in your UPI app.' });
+                } else {
+                    res.status(400).json({ error: response?.errormessage || 'Failed to initiate UPI payment' });
+                }
+            } catch (err) {
+                console.error('UPI Collect API error:', err);
+                res.status(500).json({ error: 'Failed to communicate with ICICI Bank' });
+            }
+        }
+    } catch (err) {
+        console.error('Create UPI order error:', err);
+        res.status(500).json({ error: 'Failed to create UPI order' });
+    }
+});
+
+// Callback for ICICI to send status updates
+app.post('/api/upi/callback', async (req, res) => {
+    try {
+        const encData = req.body;
+        const response = await SdkClient.decryptCallback(encData);
+        console.log("Decrypted Callback:", response);
+
+        if (response && response.status === 'SUCCESS') {
+            const orderId = response.merchantTranId;
+            db.run("UPDATE bookings SET status = 'PAID' WHERE order_id LIKE ?", [`${orderId}%`], () => {
+                db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${orderId}%`], (err, rows) => {
+                    if (!err && rows && rows.length > 0) {
+                        if (rows[0].email) {
+                            sendConfirmationEmail(rows[0]);
+                        }
+                        rows.forEach(row => {
+                            if (row.instructor_id) {
+                                db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
+                                    if (!err && instructor && instructor.email) {
+                                        sendInstructorEmail(instructor, row);
+                                    }
+                                });
+                            }
+                        });
+                    }
+                });
+            });
+        }
+        res.status(200).send('OK');
+    } catch (error) {
+        console.error("Callback Decryption Error:", error);
+        res.status(400).send('Bad Request');
+    }
+});
+
+app.get('/api/upi/status/:orderId', (req, res) => {
+    const { orderId } = req.params;
+    db.get("SELECT status FROM bookings WHERE order_id = ?", [orderId], (err, row) => {
+        if (err || !row) return res.status(404).json({ error: 'Order not found' });
+        res.json({ success: true, status: row.status });
+    });
+});
 
 app.listen(PORT, () => {
     console.log(`\n Havoc Sim Podium backend running at http://localhost:${PORT}`);

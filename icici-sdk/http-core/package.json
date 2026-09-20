@@ -1,0 +1,30 @@
+{
+  "name": "@icici/http-core",
+  "version": "1.0.1",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/bundle.d.ts",
+  "scripts": {
+    "build": "rollup -c",
+    "start": "cross-env NODE_ENV=development tsx src/index.ts",
+    "clean": "rimraf dist"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@icici/cibbulk": "file:../cibbulk",
+    "@icici/composite": "file:../composite",
+    "@icici/corporate": "file:../corporate",
+    "@icici/crypto": "file:../crypto",
+    "@icici/eazypay": "file:../eazypay"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0"
+  }
+}

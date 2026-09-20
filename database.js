@@ -71,8 +71,11 @@ const initDb = () => {
         db.run(`ALTER TABLE bookings ADD COLUMN instructor_fee REAL DEFAULT 0`, () => {});
         db.run(`CREATE TABLE IF NOT EXISTS inventory_overrides (id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER, date_str TEXT, time_range TEXT, override_quantity INTEGER, UNIQUE(product_id, date_str, time_range))`);
         
-        db.run(`CREATE TABLE IF NOT EXISTS instructors (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, age INTEGER, role TEXT, key_achievement TEXT, status TEXT DEFAULT 'Available', photo_url TEXT, biography TEXT, fee REAL DEFAULT 500)`);
+        db.run(`CREATE TABLE IF NOT EXISTS instructors (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, age INTEGER, role TEXT, key_achievement TEXT, status TEXT DEFAULT 'Available', photo_url TEXT, biography TEXT, fee REAL DEFAULT 500, email TEXT, phone TEXT, simulator_type TEXT DEFAULT 'All')`);
         db.run(`ALTER TABLE instructors ADD COLUMN fee REAL DEFAULT 500`, () => {});
+        db.run(`ALTER TABLE instructors ADD COLUMN email TEXT`, () => {});
+        db.run(`ALTER TABLE instructors ADD COLUMN phone TEXT`, () => {});
+        db.run(`ALTER TABLE instructors ADD COLUMN simulator_type TEXT DEFAULT 'All'`, () => {});
 
         db.get("SELECT COUNT(*) as count FROM admin_auth", async (err, row) => {
             if (!err && row.count === 0) {

@@ -510,7 +510,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         const id = e.target.getAttribute("data-id");
                         const p = products.find(prod => prod.id == id);
                         if (!p) return;
-                        openModal({ name: p.name, price: `₹${parseFloat(p.price).toFixed(2)}`, imgSrc: p.image_url, options: p.options });
+                        openModal({ name: p.name, type: p.type, price: `₹${parseFloat(p.price).toFixed(2)}`, imgSrc: p.image_url, options: p.options });
                     });
                 });
 
@@ -598,7 +598,11 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 const res = await fetch("/api/instructors");
                 const instructors = await res.json();
-                const available = instructors.filter(i => i.status === 'Available');
+                const available = instructors.filter(i => {
+                    if (i.status !== 'Available') return false;
+                    const instType = i.simulator_type || 'All';
+                    return instType === 'All' || instType === pendingProduct.type;
+                });
                 
                 if (available.length > 0) {
                     instructorContainerInPrompt.innerHTML = available.map(inst => `

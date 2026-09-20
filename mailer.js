@@ -105,4 +105,66 @@ const sendBulkEmail = async (subject, htmlBody, bccList) => {
     }
 };
 
-module.exports = { sendConfirmationEmail, sendBulkEmail };
+const sendInstructorEmail = async (instructor, booking) => {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.warn("SMTP credentials not configured. Skipping instructor email for", booking.order_id);
+        return;
+    }
+    
+    if (!instructor.email) return;
+
+    const { name, item_name, booking_date, booking_time } = booking;
+
+    const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #111114; color: #ffffff; padding: 20px; border-radius: 10px; border: 1px solid #333;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h1 style="color: #e5b869; margin-bottom: 5px;">New Booking Assigned!</h1>
+            <p style="color: #aaaaaa; margin-top: 0;">You have a new student.</p>
+        </div>
+        
+        <div style="background-color: #1a1a1f; padding: 20px; border-radius: 8px;">
+            <p style="font-size: 16px; margin-top: 0;">Hi <strong>${instructor.name}</strong>,</p>
+            <p style="font-size: 16px; color: #cccccc;">A new slot has been booked with you as the instructor.</p>
+            
+            <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; color: #888;">Student Name</td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; text-align: right; font-weight: bold;">${name}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; color: #888;">Simulator</td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; text-align: right; font-weight: bold;">${item_name}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; color: #888;">Date</td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; text-align: right; font-weight: bold;">${booking_date}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; color: #888;">Time</td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; text-align: right; font-weight: bold;">${booking_time}</td>
+                </tr>
+            </table>
+        </div>
+        
+        <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+            <p>Havoc Sim Podium • Instructor Notification</p>
+        </div>
+    </div>
+    `;
+
+    const mailOptions = {
+        from: '"Havoc Sim Podium" <' + process.env.SMTP_USER + '>',
+        to: instructor.email,
+        subject: `New Booking: ${booking_date} at ${booking_time}`,
+        html: htmlContent
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log("Instructor email sent successfully to", instructor.email);
+    } catch (err) {
+        console.error("Error sending instructor email:", err);
+    }
+};
+
+module.exports = { sendConfirmationEmail, sendBulkEmail, sendInstructorEmail };

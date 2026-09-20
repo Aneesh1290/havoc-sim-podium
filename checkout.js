@@ -165,6 +165,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             option.classList.add('selected');
             selectedPaymentMethod = option.getAttribute('data-method');
             updatePricing();
+            
+            const vpaContainer = document.getElementById("vpa-input-container");
+            if (vpaContainer) {
+                vpaContainer.style.display = selectedPaymentMethod === 'upi' ? 'block' : 'none';
+            }
         });
     });
 
@@ -181,6 +186,13 @@ document.addEventListener("DOMContentLoaded", async () => {
             alert("Please fill in all required fields before proceeding.");
             return;
         }
+        
+        const vpa = document.getElementById("co-vpa")?.value.trim();
+        if (selectedPaymentMethod === 'upi' && !vpa) {
+            alert("Please enter your UPI ID (VPA) to proceed with UPI Payment.");
+            return;
+        }
+
         if (!termsCheckbox || !termsCheckbox.checked) {
             alert("Please agree to the Terms & Conditions and Refund & Cancellation Policy before proceeding.");
             return;
@@ -250,30 +262,49 @@ document.addEventListener("DOMContentLoaded", async () => {
                 window.location.href = `/success.html?order_id=${orderData.order_id || ''}`;
 
             } else {
-                // Cashfree Flow
-                const orderRes = await fetch(BACKEND_URL + "/create-order", {
+                // UPI Flow
+                const orderRes = await fetch(BACKEND_URL + "/api/upi/collect", {
                     method:  "POST",
                     headers: { "Content-Type": "application/json" },
                     body:    JSON.stringify({ 
                         amount, 
+                        vpa,
                         customer_details: { name, email, phone },
-                        order_meta: { return_url: window.location.origin + "/success.html" },
                         booking_data
                     })
                 });
 
                 if (!orderRes.ok) {
                     const errData = await orderRes.json();
-                    throw new Error(errData.error || "Failed to create order");
+                    throw new Error(errData.error || "Failed to initiate UPI request");
                 }
                 
-                const { payment_session_id } = await orderRes.json();
-
-                let checkoutOptions = {
-                    paymentSessionId: payment_session_id,
-                    redirectTarget: "_self"
-                };
-                cashfree.checkout(checkoutOptions);
+                const data = await orderRes.json();
+                if (data.success) {
+                    // Start polling
+                    payBtnLabelEl.innerText = "Check your UPI app...";
+                    const orderId = data.order_id;
+                    
+                    const pollInterval = setInterval(async () => {
+                        try {
+                            const statusRes = await fetch(BACKEND_URL + `/api/upi/status/${orderId}`);
+                            if (statusRes.ok) {
+                                const statusData = await statusRes.json();
+                                if (statusData.status === 'PAID' || statusData.status === 'SUCCESS') {
+                                    clearInterval(pollInterval);
+                                    window.location.href = `/success.html?order_id=${orderId}`;
+                                } else if (statusData.status === 'FAILED' || statusData.status === 'CANCELLED') {
+                                    clearInterval(pollInterval);
+                                    alert("Payment failed or was cancelled. Please try again.");
+                                    payBtn.disabled = false;
+                                    updatePricing();
+                                }
+                            }
+                        } catch (e) {
+                            console.error("Polling error", e);
+                        }
+                    }, 3000);
+                }
             }
 
         } catch (err) {

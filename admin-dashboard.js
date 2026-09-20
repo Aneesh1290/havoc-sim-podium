@@ -1252,13 +1252,13 @@ async function checkRole() {
 async function loadInstructors() {
     const tbody = document.getElementById('instructorsTableBody');
     if (!tbody) return;
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;">Loading instructors...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">Loading instructors...</td></tr>';
     try {
         const res = await fetchAuth('/api/instructors');
         const data = await res.json();
         
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--muted);">No instructors found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color: var(--muted);">No instructors found.</td></tr>';
             return;
         }
 
@@ -1266,6 +1266,8 @@ async function loadInstructors() {
             <tr>
                 <td>${inst.photo_url ? `<img src="${inst.photo_url}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">` : '<div style="width:40px;height:40px;border-radius:50%;background:#383b4d;"></div>'}</td>
                 <td><strong>${inst.name}</strong></td>
+                <td>${inst.email || '-'}</td>
+                <td><span class="pill" style="padding:0.25rem 0.5rem; font-size:0.75rem;">${inst.simulator_type || 'All'}</span></td>
                 <td>${inst.role || '-'}</td>
                 <td><span style="color: var(--gold); font-weight:600;">₹${inst.fee != null ? inst.fee : 500}</span></td>
                 <td><span style="color: ${inst.status === 'Available' ? 'var(--green)' : 'var(--red)'}">${inst.status}</span></td>
@@ -1277,7 +1279,7 @@ async function loadInstructors() {
         `).join('');
     } catch (err) {
         console.error(err);
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color:var(--red);">Failed to load instructors.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--red);">Failed to load instructors.</td></tr>';
     }
 }
 
@@ -1295,6 +1297,9 @@ function closeInstructorModal() {
 window.editInstructor = function(inst) {
     document.getElementById('instructorId').value = inst.id;
     document.getElementById('instructorName').value = inst.name;
+    document.getElementById('instructorEmail').value = inst.email || '';
+    document.getElementById('instructorPhone').value = inst.phone || '';
+    document.getElementById('instructorSimulatorType').value = inst.simulator_type || 'All';
     document.getElementById('instructorAge').value = inst.age || '';
     document.getElementById('instructorRole').value = inst.role || '';
     document.getElementById('instructorAchievement').value = inst.key_achievement || '';
@@ -1328,6 +1333,9 @@ if (instructorForm) {
         const id = document.getElementById('instructorId').value;
         const formData = new FormData();
         formData.append('name', document.getElementById('instructorName').value);
+        formData.append('email', document.getElementById('instructorEmail').value);
+        formData.append('phone', document.getElementById('instructorPhone').value);
+        formData.append('simulator_type', document.getElementById('instructorSimulatorType').value);
         formData.append('age', document.getElementById('instructorAge').value);
         formData.append('role', document.getElementById('instructorRole').value);
         formData.append('key_achievement', document.getElementById('instructorAchievement').value);

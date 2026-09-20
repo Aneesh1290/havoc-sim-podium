@@ -1185,6 +1185,35 @@
                         </div>
                     </div>
 
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="field">
+                            <label>Email *</label>
+                            <div class="input-wrap">
+                                <input type="email" id="instructorEmail" placeholder="email@example.com" required>
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>Phone *</label>
+                            <div class="input-wrap">
+                                <input type="text" id="instructorPhone" placeholder="+91 9876543210" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="field">
+                            <label>Simulator Type</label>
+                            <div class="input-wrap">
+                                <select id="instructorSimulatorType" style="width:100%; padding: 0.9rem 1.1rem; background: transparent !important; border: none !important; outline: none; color: #fff; font-family: 'Outfit', sans-serif; font-size: 0.95rem; appearance: none; -webkit-appearance: none;">
+                                    <option value="All" style="color:#000;">All</option>
+                                    <option value="Racing" style="color:#000;">Racing</option>
+                                    <option value="Flying" style="color:#000;">Flying</option>
+                                    <option value="Driving" style="color:#000;">Driving</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="field" style="margin-bottom: 1rem;">
                         <label>Profile Photo</label>
                         <div class="input-wrap" style="padding: 0.5rem;">
@@ -1518,6 +1547,8 @@
                         <tr>
                             <th>Photo</th>
                             <th>Name</th>
+                            <th>Email</th>
+                            <th>Type</th>
                             <th>Role</th>
                             <th>Fee</th>
                             <th>Status</th>
