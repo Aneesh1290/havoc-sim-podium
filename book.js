@@ -596,7 +596,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (instructorPromptModal && instructorContainerInPrompt) {
             try {
-                const res = await fetch(`/api/available-instructors?date=${selectedDate}&time=${selectedSlot}`);
+                const res = await fetch(`/api/available-instructors?date=${selectedDate.iso}&time=${encodeURIComponent(selectedSlot)}`);
                 const instructors = await res.json();
                 const available = instructors.filter(i => {
                     const instType = i.simulator_type || 'All';
