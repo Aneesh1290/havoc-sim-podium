@@ -600,7 +600,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 const instructors = await res.json();
                 const available = instructors.filter(i => {
                     const instType = i.simulator_type || 'All';
-                    return instType === 'All' || instType === pendingProduct.type;
+                    if (instType === 'All') return true;
+                    if (instType === pendingProduct.type) return true;
+                    
+                    const prodName = (pendingProduct.name || '').toLowerCase();
+                    if (instType === 'Racing' && (prodName.includes('race') || prodName.includes('racing') || prodName.includes('f1') || prodName.includes('gt') || prodName.includes('driving'))) {
+                        return true;
+                    }
+                    if (instType === 'Flying' && (prodName.includes('flight') || prodName.includes('flying') || prodName.includes('rc') || prodName.includes('airbus') || prodName.includes('boeing'))) {
+                        return true;
+                    }
+                    
+                    return false;
                 });
                 
                 if (available.length > 0) {
