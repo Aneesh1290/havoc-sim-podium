@@ -2860,3 +2860,57 @@ document.getElementById('newsletter-compose-form')?.addEventListener('submit', a
 document.querySelector('.nav-btn[data-target="tab-newsletter"]')?.addEventListener('click', () => {
     loadNewsletterSubscribers();
 });
+
+// ==========================================
+// SETTINGS
+// ==========================================
+async function loadSettings() {
+    try {
+        const res = await fetch(BACKEND_URL + "/api/settings/payment", {
+            headers: { "Authorization": "Bearer " + getAuthToken() }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            document.getElementById("toggle-payment-cod").checked = data.cod;
+            document.getElementById("toggle-payment-upi").checked = data.upi;
+        }
+    } catch (e) {
+        console.error("Failed to load settings", e);
+    }
+}
+
+document.querySelector('.nav-btn[data-target="tab-settings"]')?.addEventListener('click', () => {
+    loadSettings();
+});
+
+document.getElementById("savePaymentSettingsBtn")?.addEventListener("click", async (e) => {
+    const btn = e.target;
+    btn.textContent = "Saving...";
+    btn.disabled = true;
+    
+    const cod = document.getElementById("toggle-payment-cod").checked;
+    const upi = document.getElementById("toggle-payment-upi").checked;
+    
+    try {
+        const res = await fetch(BACKEND_URL + "/api/admin/settings/payment", {
+            method: "POST",
+            headers: { 
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + getAuthToken() 
+            },
+            body: JSON.stringify({ cod, upi })
+        });
+        
+        if (res.ok) {
+            alert("Settings saved successfully!");
+        } else {
+            const data = await res.json();
+            alert("Error: " + (data.error || "Failed to save settings"));
+        }
+    } catch (err) {
+        alert("Network error while saving settings.");
+    } finally {
+        btn.textContent = "Save Settings";
+        btn.disabled = false;
+    }
+});

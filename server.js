@@ -139,6 +139,38 @@ app.post('/api/admin/newsletter-send', verifyToken, async (req, res) => {
     });
 });
 
+// ==========================================
+// SETTINGS ROUTES
+// ==========================================
+
+app.get('/api/settings/payment', (req, res) => {
+    db.get("SELECT value FROM settings WHERE key = 'payment_methods'", (err, row) => {
+        if (err || !row) return res.json({ cod: true, upi: true });
+        try {
+            res.json(JSON.parse(row.value));
+        } catch (e) {
+            res.json({ cod: true, upi: true });
+        }
+    });
+});
+
+app.post('/api/admin/settings/payment', verifyToken, verifySuperAdmin, (req, res) => {
+    const { cod, upi } = req.body;
+    const value = JSON.stringify({ cod: !!cod, upi: !!upi });
+    
+    db.run("UPDATE settings SET value = ? WHERE key = 'payment_methods'", [value], function(err) {
+        if (err) return res.status(500).json({ error: 'Failed to update settings.' });
+        if (this.changes === 0) {
+            db.run("INSERT INTO settings (key, value) VALUES ('payment_methods', ?)", [value], (insertErr) => {
+                if (insertErr) return res.status(500).json({ error: 'Failed to insert settings.' });
+                res.json({ success: true });
+            });
+        } else {
+            res.json({ success: true });
+        }
+    });
+});
+
 // 1. Admin Login (Username + Password + TOTP)
 app.post('/api/admin/login', (req, res) => {
     const { username, password, token } = req.body;

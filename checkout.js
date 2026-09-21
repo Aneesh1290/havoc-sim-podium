@@ -21,6 +21,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.error("Failed to fetch product catalog:", err);
     }
 
+    // Fetch payment settings
+    let paymentSettings = { cod: true, upi: true };
+    try {
+        const settingsRes = await fetch(BACKEND_URL + "/api/settings/payment");
+        if (settingsRes.ok) {
+            paymentSettings = await settingsRes.json();
+        }
+    } catch (err) {
+        console.error("Failed to fetch payment settings:", err);
+    }
+
     // Initialize Payment SDK (Pending ICICI Integration)
     // let cashfree;
     // try {
@@ -165,20 +176,41 @@ document.addEventListener("DOMContentLoaded", async () => {
     // ---- 1.6 Payment Option Selection ----
     const paymentOptions = document.querySelectorAll('.payment-option');
 
-
+    let firstAvailable = null;
     paymentOptions.forEach(option => {
-        option.addEventListener('click', () => {
-            paymentOptions.forEach(opt => opt.classList.remove('selected'));
-            option.classList.add('selected');
-            selectedPaymentMethod = option.getAttribute('data-method');
-            updatePricing();
+        const method = option.getAttribute('data-method');
+        // Check if the method is disabled in settings
+        if (paymentSettings[method] === false) {
+            option.style.display = 'none';
+            option.classList.remove('selected');
+        } else {
+            if (!firstAvailable) firstAvailable = option;
             
-            const vpaContainer = document.getElementById("vpa-input-container");
-            if (vpaContainer) {
-                vpaContainer.style.display = selectedPaymentMethod === 'upi' ? 'block' : 'none';
-            }
-        });
+            option.addEventListener('click', () => {
+                paymentOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+                selectedPaymentMethod = method;
+                updatePricing();
+                
+                const vpaContainer = document.getElementById("vpa-input-container");
+                if (vpaContainer) {
+                    vpaContainer.style.display = selectedPaymentMethod === 'upi' ? 'block' : 'none';
+                }
+            });
+        }
     });
+
+    // Auto-select the first available if the currently selected one was hidden
+    const currentlySelected = document.querySelector('.payment-option.selected');
+    if (!currentlySelected && firstAvailable) {
+        firstAvailable.click();
+    } else if (!firstAvailable) {
+        // If NO methods are available, disable checkout
+        selectedPaymentMethod = null;
+        document.getElementById("checkoutBtn").disabled = true;
+        document.getElementById("checkoutBtn").textContent = "No Payment Methods Available";
+        document.getElementById("checkoutBtn").style.opacity = "0.5";
+    }
 
     // ---- 2. PAY NOW button ----
     const payBtn = document.getElementById("payNowBtn");

@@ -83,6 +83,12 @@ const initDb = () => {
                 db.run("INSERT INTO admin_auth (username, password_hash) VALUES (?, ?)", ['admin', hash]);
             }
         });
+        db.run(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
+        db.get(`SELECT COUNT(*) AS count FROM settings WHERE key = 'payment_methods'`, (err, row) => {
+            if (!err && row.count === 0) {
+                db.run(`INSERT INTO settings (key, value) VALUES ('payment_methods', '{"cod": true, "upi": true}')`);
+            }
+        });
     });
 };
 

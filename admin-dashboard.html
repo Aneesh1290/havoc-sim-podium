@@ -1111,6 +1111,9 @@
             <button class="nav-btn" data-target="tab-newsletter" id="nav-newsletter">
                 <span class="icon">📧</span> Newsletter
             </button>
+            <button class="nav-btn" data-target="tab-settings" id="nav-settings">
+                <span class="icon">⚙️</span> Settings
+            </button>
         </div>
 
         <div class="sidebar-footer">
@@ -1660,6 +1663,52 @@
                 </div>
             </div>
         </div>
+        <!-- ==============================================
+             TAB: SETTINGS
+             ============================================== -->
+        <div class="nav-section" id="tab-settings">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                <h2>System Settings</h2>
+            </div>
+            
+            <div class="data-card" style="max-width: 600px;">
+                <h3 style="margin-top: 0; margin-bottom: 1.5rem; color: #fff;">Payment Methods</h3>
+                <p style="color: #aaa; font-size: 0.9rem; margin-bottom: 2rem;">Toggle payment methods on or off. Disabled methods will be hidden from the checkout page.</p>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <div>
+                        <strong style="color: #fff; font-size: 1.05rem;">UPI / Online Banking</strong>
+                        <div style="color: #888; font-size: 0.85rem; margin-top: 0.3rem;">Allow customers to pay online securely via ICICI UPI.</div>
+                    </div>
+                    <label class="switch" style="position: relative; display: inline-block; width: 50px; height: 26px;">
+                        <input type="checkbox" id="toggle-payment-upi" style="opacity: 0; width: 0; height: 0;">
+                        <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px;"></span>
+                    </label>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0;">
+                    <div>
+                        <strong style="color: #fff; font-size: 1.05rem;">Pay at Desk (COD)</strong>
+                        <div style="color: #888; font-size: 0.85rem; margin-top: 0.3rem;">Allow customers to book online and pay with cash/card when they arrive.</div>
+                    </div>
+                    <label class="switch" style="position: relative; display: inline-block; width: 50px; height: 26px;">
+                        <input type="checkbox" id="toggle-payment-cod" style="opacity: 0; width: 0; height: 0;">
+                        <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px;"></span>
+                    </label>
+                </div>
+                
+                <div style="margin-top: 2rem; text-align: right;">
+                    <button class="btn-primary" id="savePaymentSettingsBtn">Save Settings</button>
+                </div>
+            </div>
+            
+            <style>
+                .switch input:checked + .slider { background-color: var(--gold); }
+                .switch input:focus + .slider { box-shadow: 0 0 1px var(--gold); }
+                .switch input:checked + .slider:before { transform: translateX(24px); }
+                .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+            </style>
+        </div>
 
     </main>
 
@@ -2046,6 +2095,6 @@
             </div>
         </div>
     </div>
-    <script src="admin-dashboard.js?v=3"></script>
+    <script src="admin-dashboard.js?v=2"></script>
 </body>
 </html>
