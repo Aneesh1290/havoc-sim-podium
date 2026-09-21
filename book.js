@@ -660,6 +660,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     document.getElementById("confirmInstructorBtn")?.addEventListener("click", () => {
+        if (!selectedInstructor) {
+            alert("Please select an instructor before pressing continue. If you do not want an instructor, press Skip.");
+            return;
+        }
         addToCartAndClose();
     });
 
