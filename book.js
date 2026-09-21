@@ -602,6 +602,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 const res = await fetch(`/api/available-instructors?date=${selectedDate.iso}&time=${encodeURIComponent(selectedSlot)}`);
                 const instructors = await res.json();
                 const available = instructors.filter(i => {
+                    // Prevent showing an instructor if they are already in the cart for this exact date and slot
+                    const inCartForSameSlot = cart.some(item => 
+                        item.date === selectedDate.iso && 
+                        item.slot === selectedSlot && 
+                        item.instructor && 
+                        String(item.instructor.id) === String(i.id)
+                    );
+                    if (inCartForSameSlot) return false;
+
                     const instType = i.simulator_type || 'All';
                     if (instType === 'All') return true;
                     if (instType === pendingProduct.type) return true;
