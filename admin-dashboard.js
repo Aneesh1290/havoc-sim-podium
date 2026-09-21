@@ -2867,7 +2867,7 @@ document.querySelector('.nav-btn[data-target="tab-newsletter"]')?.addEventListen
 async function loadSettings() {
     try {
         const res = await fetch(BACKEND_URL + "/api/settings/payment", {
-            headers: { "Authorization": "Bearer " + getAuthToken() }
+            headers: { "Authorization": `Bearer ${token}` }
         });
         if (res.ok) {
             const data = await res.json();
@@ -2896,7 +2896,7 @@ document.getElementById("savePaymentSettingsBtn")?.addEventListener("click", asy
             method: "POST",
             headers: { 
                 "Content-Type": "application/json",
-                "Authorization": "Bearer " + getAuthToken() 
+                "Authorization": `Bearer ${token}`
             },
             body: JSON.stringify({ cod, upi })
         });
