@@ -1000,7 +1000,7 @@ app.get('/api/admin/bookings/date/:date', verifyToken, (req, res) => {
 // Delete a booking (Protected)
 app.delete('/api/admin/bookings/:order_id', verifyToken, (req, res) => {
     const { order_id } = req.params;
-    db.run("DELETE FROM bookings WHERE order_id = ?", [order_id], function(err) {
+    db.run("DELETE FROM bookings WHERE order_id LIKE ?", [`${order_id}%`], function(err) {
         if (err) return res.status(500).json({ error: 'Database error' });
         if (this.changes === 0) return res.status(404).json({ error: 'Booking not found' });
         res.json({ success: true });
@@ -1010,7 +1010,7 @@ app.delete('/api/admin/bookings/:order_id', verifyToken, (req, res) => {
 // Mark booking as attended (Protected)
 app.put('/api/admin/bookings/:order_id/attend', verifyToken, (req, res) => {
     const { order_id } = req.params;
-    db.run("UPDATE bookings SET status = 'ATTENDED' WHERE order_id = ?", [order_id], function(err) {
+    db.run("UPDATE bookings SET status = 'ATTENDED' WHERE order_id LIKE ?", [`${order_id}%`], function(err) {
         if (err) return res.status(500).json({ error: 'Database error' });
         if (this.changes === 0) return res.status(404).json({ error: 'Booking not found' });
         res.json({ success: true });
@@ -1027,7 +1027,7 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, (req, res) => {
         return res.status(400).json({ error: 'Invalid status value' });
     }
     
-    db.run("UPDATE bookings SET status = ? WHERE order_id = ?", [status.toUpperCase(), order_id], function(err) {
+    db.run("UPDATE bookings SET status = ? WHERE order_id LIKE ?", [status.toUpperCase(), `${order_id}%`], function(err) {
         if (err) return res.status(500).json({ error: 'Database error' });
         if (this.changes === 0) return res.status(404).json({ error: 'Booking not found' });
         res.json({ success: true });

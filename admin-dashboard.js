@@ -131,7 +131,36 @@ function renderBookings(bookingsToRender) {
         tbody.innerHTML = '<tr><td colspan="6" style="padding:3rem; text-align:center; color:rgba(255,255,255,0.35);">No bookings found</td></tr>';
         return;
     }
+    
+    const groupedMap = new Map();
     bookingsToRender.forEach(b => {
+        const match = b.order_id.match(/^(.*)_(\d+)$/);
+        const baseId = match ? match[1] : b.order_id;
+        if (!groupedMap.has(baseId)) {
+            groupedMap.set(baseId, {
+                order_id: baseId,
+                name: b.name,
+                email: b.email,
+                phone: b.phone,
+                status: b.status,
+                created_at: b.created_at,
+                items: [],
+                total_price: 0,
+                booking_date: b.booking_date,
+                booking_time: b.booking_time
+            });
+        }
+        const g = groupedMap.get(baseId);
+        g.items.push(b);
+        g.total_price += (b.price || 0);
+    });
+    
+    const groupedArray = Array.from(groupedMap.values());
+    
+    if (countHeader) countHeader.textContent = groupedArray.length;
+    if (countToolbar) countToolbar.textContent = `(${groupedArray.length})`;
+
+    groupedArray.forEach(b => {
         const isPending = (b.status || 'PENDING').toUpperCase() === 'PENDING';
         const isCancelled = (b.status || '').toUpperCase() === 'CANCELLED';
         const isAttended = (b.status || '').toUpperCase() === 'ATTENDED';
@@ -178,6 +207,10 @@ function renderBookings(bookingsToRender) {
                 }
             } catch(e) {}
         }
+        
+        let itemNameDisplay = b.items.length > 1 ? `${b.items.length} Items` : (b.items[0].item_name || 'Simulator');
+        let dateDisplay = b.items.length > 1 ? 'Multiple Dates' : dateFormatted;
+        let timeDisplay = b.items.length > 1 ? 'Multiple Times' : timeFormatted;
 
         const tr = document.createElement('tr');
         tr.setAttribute('data-order-id', b.order_id);
@@ -195,13 +228,13 @@ function renderBookings(bookingsToRender) {
             <td>
                 <div style="font-weight:600">${b.name}</div>
                 <small>${b.email} &nbsp;|&nbsp; ${b.phone}</small>
-                <div style="font-size: 0.75rem; color: var(--gold); margin-top: 4px; font-weight: 600;">${b.item_name || 'Simulator'}</div>
+                <div style="font-size: 0.75rem; color: var(--gold); margin-top: 4px; font-weight: 600;">${itemNameDisplay}</div>
             </td>
             <td>
-                <div style="font-weight:600; color:#fff;">${dateFormatted}</div>
-                <small style="color:#e5b869">${timeFormatted}</small>
+                <div style="font-weight:600; color:#fff;">${dateDisplay}</div>
+                <small style="color:#e5b869">${timeDisplay}</small>
             </td>
-            <td style="font-weight:600">₹${b.price}</td>
+            <td style="font-weight:600">₹${b.total_price.toFixed(2)}</td>
             <td>
                 <span class="badge ${getBadgeClass(paymentBadge)}">${paymentBadge}</span>
                 <span class="badge ${getBadgeClass(fulfillBadge)}" style="margin-left:4px;">${fulfillBadge}</span>
@@ -347,9 +380,15 @@ window.closeOrderDetails = () => {
     document.getElementById('tab-bookings').style.display = '';
 };
 
-window.openOrderDetails = (orderId) => {
-    const order = window.allBookings.find(b => b.order_id === orderId);
-    if(!order) return;
+window.openOrderDetails = (baseOrderId) => {
+    const items = window.allBookings.filter(b => {
+        const match = b.order_id.match(/^(.*)_(\d+)$/);
+        const base = match ? match[1] : b.order_id;
+        return base === baseOrderId;
+    });
+    if(!items.length) return;
+
+    const order = items[0];
 
     const view = document.getElementById('order-details-view');
     const tab = document.getElementById('tab-bookings');
@@ -373,7 +412,7 @@ window.openOrderDetails = (orderId) => {
         return 'badge-pending';
     };
 
-    const totalAmount = order.price || 0;
+    const totalAmount = items.reduce((sum, b) => sum + (b.price || 0), 0);
     const priceFormatted = totalAmount.toFixed(2);
     const baseCostFormatted = (totalAmount / 1.18).toFixed(2);
     const taxFormatted = (totalAmount - (totalAmount / 1.18)).toFixed(2);
@@ -384,32 +423,56 @@ window.openOrderDetails = (orderId) => {
     else if(order.booking_date) placedDateObj = new Date(order.booking_date);
     
     const placedDateStr = placedDateObj.toLocaleString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'});
-    const placedDateOnlyStr = placedDateObj.toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
-    const placedTimeOnlyStr = placedDateObj.toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+    
+    let itemsHtml = '';
+    items.forEach(item => {
+        const itemBaseCost = (item.price / 1.18).toFixed(2);
+        itemsHtml += `
+            <div class="od-item-row">
+                <div style="display: flex; gap: 1rem;">
+                    <div>
+                        <div style="font-weight: 600; display:flex; align-items:center; gap:0.5rem; flex-wrap: wrap;">
+                            ${item.item_name || 'Simulator'}
+                            <span class="od-badge ${getBadgeClass(paymentBadge)}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem; margin-left: 0;">${paymentBadge}</span>
+                            <span class="od-badge ${getBadgeClass(fulfillBadge)}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem; margin-left: 0;">${fulfillBadge}</span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem;">Select Date: ${item.booking_date}</div>
+                        <div style="font-size: 0.8rem; color: var(--muted);">Select Time Slot: ${item.booking_time}</div>
+                        ${item.instructor_name ? `<div style="font-size: 0.8rem; color: var(--gold); margin-top: 0.3rem; font-weight: 500;">Assigned Instructor: ${item.instructor_name}</div>` : ''}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 2rem; align-items: center;">
+                    <span style="color: var(--muted);">₹${itemBaseCost}</span>
+                    <span style="color: var(--muted);">X 1</span>
+                    <span style="font-weight: 600;">₹${itemBaseCost}</span>
+                </div>
+            </div>
+        `;
+    });
 
     view.innerHTML = `
-<div class="od-breadcrumb" onclick="closeOrderDetails()">Orders &gt; <span>Order #${order.order_id}</span></div>
+<div class="od-breadcrumb" onclick="closeOrderDetails()">Orders &gt; <span>Order #${baseOrderId}</span></div>
 <div class="od-header">
     <div class="od-title-area">
-        <h2>Order #${order.order_id}</h2>
+        <h2>Order #${baseOrderId}</h2>
         <span class="od-badge ${getBadgeClass(paymentBadge)}">${paymentBadge}</span>
         <span class="od-badge ${getBadgeClass(fulfillBadge)}">${fulfillBadge}</span>
         <div class="od-date">Placed on ${placedDateStr}</div>
     </div>
     <div class="od-actions">
         <div class="custom-dropdown">
-            <button class="btn-secondary" onclick="togglePaymentDropdown('${order.order_id}', 'more', event)">More Actions ˅</button>
-            <div class="custom-dropdown-menu" id="pay-menu-more-${order.order_id}" style="right:0; left:auto; min-width: 240px; background: #1c1c21;">
-                <div class="custom-dropdown-item" onclick="markOrderAsFulfilled('${order.order_id}')">✓ Mark as fulfilled</div>
-                <div class="custom-dropdown-item" onclick="markOrderAsUnfulfilled('${order.order_id}')">✗ Mark as unfulfilled</div>
-                <div class="custom-dropdown-item" onclick="cancelOrder('${order.order_id}')">✗ Cancel order</div>
+            <button class="btn-secondary" onclick="togglePaymentDropdown('${baseOrderId}', 'more', event)">More Actions ˅</button>
+            <div class="custom-dropdown-menu" id="pay-menu-more-${baseOrderId}" style="right:0; left:auto; min-width: 240px; background: #1c1c21;">
+                <div class="custom-dropdown-item" onclick="markOrderAsFulfilled('${baseOrderId}')">✓ Mark as fulfilled</div>
+                <div class="custom-dropdown-item" onclick="markOrderAsUnfulfilled('${baseOrderId}')">✗ Mark as unfulfilled</div>
+                <div class="custom-dropdown-item" onclick="cancelOrder('${baseOrderId}')">✗ Cancel order</div>
             </div>
         </div>
         <div class="custom-dropdown">
-            <button class="btn-blue" onclick="togglePaymentDropdown('${order.order_id}', 'header', event)">Collect Payment ˅</button>
-            <div class="custom-dropdown-menu" id="pay-menu-header-${order.order_id}" style="right:0; left:auto; min-width: 200px;">
-                <div class="custom-dropdown-item" onclick="markOrderAsPaid('${order.order_id}')">✓ Mark as paid</div>
-                <div class="custom-dropdown-item" onclick="markOrderAsUnpaid('${order.order_id}')">✗ Mark as unpaid</div>
+            <button class="btn-blue" onclick="togglePaymentDropdown('${baseOrderId}', 'header', event)">Collect Payment ˅</button>
+            <div class="custom-dropdown-menu" id="pay-menu-header-${baseOrderId}" style="right:0; left:auto; min-width: 200px;">
+                <div class="custom-dropdown-item" onclick="markOrderAsPaid('${baseOrderId}')">✓ Mark as paid</div>
+                <div class="custom-dropdown-item" onclick="markOrderAsUnpaid('${baseOrderId}')">✗ Mark as unpaid</div>
             </div>
         </div>
     </div>
@@ -419,26 +482,8 @@ window.openOrderDetails = (orderId) => {
     <!-- LEFT COL -->
     <div>
         <div class="od-card">
-            <div class="od-card-title">Items (1)</div>
-            <div class="od-item-row">
-                <div style="display: flex; gap: 1rem;">
-                    <div>
-                        <div style="font-weight: 600; display:flex; align-items:center; gap:0.5rem; flex-wrap: wrap;">
-                            ${order.item_name || 'Simulator'}
-                            <span class="od-badge ${getBadgeClass(paymentBadge)}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem; margin-left: 0;">${paymentBadge}</span>
-                            <span class="od-badge ${getBadgeClass(fulfillBadge)}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem; margin-left: 0;">${fulfillBadge}</span>
-                        </div>
-                        <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem;">Select Date: ${order.booking_date}</div>
-                        <div style="font-size: 0.8rem; color: var(--muted);">Select Time Slot: ${order.booking_time}</div>
-                        ${order.instructor_name ? `<div style="font-size: 0.8rem; color: var(--gold); margin-top: 0.3rem; font-weight: 500;">Assigned Instructor: ${order.instructor_name}</div>` : ''}
-                    </div>
-                </div>
-                <div style="display: flex; gap: 2rem; align-items: center;">
-                    <span style="color: var(--muted);">₹${baseCostFormatted}</span>
-                    <span style="color: var(--muted);">X 1</span>
-                    <span style="font-weight: 600;">₹${baseCostFormatted}</span>
-                </div>
-            </div>
+            <div class="od-card-title">Items (${items.length})</div>
+            ${itemsHtml}
         </div>
 
         <div class="od-card">
