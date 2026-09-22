@@ -599,7 +599,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (instructorPromptModal && instructorContainerInPrompt) {
             try {
-                const res = await fetch(`/api/available-instructors?date=${selectedDate.iso}&time=${encodeURIComponent(selectedSlot)}`);
+                const res = await fetch(`/api/available-instructors?date=${encodeURIComponent(selectedDate.label)}&time=${encodeURIComponent(selectedSlot)}`);
                 const instructors = await res.json();
                 const available = instructors.filter(i => {
                     // Prevent showing an instructor if they are already in the cart for this exact date and slot
