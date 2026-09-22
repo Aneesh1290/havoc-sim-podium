@@ -33,6 +33,22 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'havoc-super-secret-key-123';
 
+// Redirect secondary domains to primary domain (havocsim.in)
+app.use((req, res, next) => {
+    const host = req.hostname;
+    if (host && (
+        host === 'havocsim.com' || 
+        host === 'www.havocsim.com' || 
+        host === 'havocsimpodium.in' || 
+        host === 'www.havocsimpodium.in' || 
+        host === 'havocsimpodium.com' || 
+        host === 'www.havocsimpodium.com'
+    )) {
+        return res.redirect(301, 'https://havocsim.in' + req.originalUrl);
+    }
+    next();
+});
+
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
