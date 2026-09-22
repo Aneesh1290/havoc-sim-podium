@@ -1125,11 +1125,16 @@ app.post('/api/bookings/cod', async (req, res) => {
         let insertedCount = 0;
         let hasError = false;
 
+        const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
+
         items.forEach((item, index) => {
             const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
             
-            // Distribute price evenly for DB records (or keep 0, it's mostly for reference)
-            const itemPrice = (parseFloat(amount) / items.length).toFixed(2);
+            let itemPrice = (parseFloat(amount) / items.length).toFixed(2);
+            if (totalBaseCost > 0) {
+                const itemRatio = ((Number(item.base_price) || 0) + (Number(item.instructor_fee) || 0)) / totalBaseCost;
+                itemPrice = (parseFloat(amount) * itemRatio).toFixed(2);
+            }
             
             db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
@@ -1227,9 +1232,16 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
 
         let insertedCount = 0;
         
+        const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
+
         items.forEach((item, index) => {
             const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
-            const itemPrice = (parseFloat(amount) / items.length).toFixed(2);
+            
+            let itemPrice = (parseFloat(amount) / items.length).toFixed(2);
+            if (totalBaseCost > 0) {
+                const itemRatio = ((Number(item.base_price) || 0) + (Number(item.instructor_fee) || 0)) / totalBaseCost;
+                itemPrice = (parseFloat(amount) * itemRatio).toFixed(2);
+            }
             
             // Save pending booking to DB
             db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id) 
@@ -1405,9 +1417,16 @@ app.post('/create-order', async (req, res) => {
 
         let insertedCount = 0;
         
+        const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
+
         items.forEach((item, index) => {
             const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
-            const itemPrice = (parseFloat(amount) / items.length).toFixed(2);
+            
+            let itemPrice = (parseFloat(amount) / items.length).toFixed(2);
+            if (totalBaseCost > 0) {
+                const itemRatio = ((Number(item.base_price) || 0) + (Number(item.instructor_fee) || 0)) / totalBaseCost;
+                itemPrice = (parseFloat(amount) * itemRatio).toFixed(2);
+            }
             
             // Save pending booking to DB
             db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id) 
@@ -1588,9 +1607,16 @@ app.post('/api/upi/collect', async (req, res) => {
 
         let insertedCount = 0;
         
+        const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
+
         items.forEach((item, index) => {
             const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
-            const itemPrice = (parseFloat(amount) / items.length).toFixed(2);
+            
+            let itemPrice = (parseFloat(amount) / items.length).toFixed(2);
+            if (totalBaseCost > 0) {
+                const itemRatio = ((Number(item.base_price) || 0) + (Number(item.instructor_fee) || 0)) / totalBaseCost;
+                itemPrice = (parseFloat(amount) * itemRatio).toFixed(2);
+            }
             
             db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id) 
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 

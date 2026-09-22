@@ -257,7 +257,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 date: item.dateLabel,
                 time: item.slot,
                 instructor_id: item.instructor ? item.instructor.id : null,
-                instructor_fee: item.instructorFee || 0
+                instructor_fee: item.instructorFee || 0,
+                base_price: item.itemPrice || 0
             }));
 
             if (selectedPaymentMethod === 'cod') {
