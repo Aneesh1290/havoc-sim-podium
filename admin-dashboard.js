@@ -220,30 +220,36 @@ function renderBookings(bookingsToRender) {
             if(e.target.closest('.custom-dropdown') || e.target.closest('.btn-delete') || e.target.type === 'checkbox') return;
             openOrderDetails(b.order_id);
         };
+        let placedDateObj = new Date();
+        if(b.items[0].created_at) placedDateObj = new Date(b.items[0].created_at);
+        else if(b.items[0].booking_date) placedDateObj = new Date(b.items[0].booking_date);
+        
+        const placedDateStr = placedDateObj.toLocaleString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'});
+
         tr.innerHTML = `
             <td>
                 <input type="checkbox" class="row-checkbox" value="${b.order_id}" onclick="toggleBookingSelection(event, '${b.order_id}')">
             </td>
-            <td style="font-family:monospace; color:rgba(255,255,255,0.6); font-size:0.8rem;">#${b.order_id}</td>
+            <td style="font-weight: 500; font-size: 0.85rem; color: var(--muted);">#${b.order_id}</td>
+            <td style="color: var(--muted); font-size: 0.85rem;">${placedDateStr}</td>
             <td>
-                <div style="font-weight:600">${b.name}</div>
-                <small>${b.email} &nbsp;|&nbsp; ${b.phone}</small>
-                <div style="font-size: 0.75rem; color: var(--gold); margin-top: 4px; font-weight: 600;">${itemNameDisplay}</div>
+                <div style="font-weight: 500; font-size: 0.85rem; color: var(--muted);">${b.name}</div>
             </td>
             <td>
-                <div style="font-weight:600; color:#fff;">${dateDisplay}</div>
-                <small style="color:#e5b869">${timeDisplay}</small>
-            </td>
-            <td style="font-weight:600">₹${b.total_price.toFixed(2)}</td>
-            <td>
-                <span class="badge ${getBadgeClass(paymentBadge)}">${paymentBadge}</span>
-                <span class="badge ${getBadgeClass(fulfillBadge)}" style="margin-left:4px;">${fulfillBadge}</span>
+                <span class="badge ${getBadgeClass(paymentBadge)}" style="margin-left:0; padding: 0.2rem 0.6rem; font-size: 0.75rem;">${paymentBadge.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</span>
             </td>
             <td>
-                <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-                    <button class="btn btn-delete" onclick="deleteBookingRow('${b.order_id}')">Delete</button>
-                </div>
+                <span class="badge ${getBadgeClass(fulfillBadge)}" style="margin-left:0; padding: 0.2rem 0.6rem; font-size: 0.75rem;">${fulfillBadge.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</span>
             </td>
+            <td style="color: var(--muted); font-size: 0.85rem;">₹${b.total_price.toFixed(2)}</td>
+            <td style="color: #60a5fa; font-size: 0.85rem;">
+                ${b.items.length} 
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 2px; vertical-align: middle;">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </td>
+            <td></td>
+            <td style="width: 60px;"></td>
         `;
         tbody.appendChild(tr);
     });
