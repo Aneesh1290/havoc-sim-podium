@@ -7,6 +7,13 @@ const BACKEND_URL = "";
 
 document.addEventListener("DOMContentLoaded", async () => {
 
+    // Hidden Test Mode for Payment Gateway
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('test_payment') === '1') {
+        const iciciOption = document.getElementById('icici-payment-option');
+        if (iciciOption) iciciOption.style.display = 'flex';
+    }
+
     // Fetch product catalog to map item names to images
     let productMap = {};
     try {
