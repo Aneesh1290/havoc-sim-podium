@@ -430,6 +430,7 @@ window.openOrderDetails = (orderId) => {
                         </div>
                         <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem;">Select Date: ${order.booking_date}</div>
                         <div style="font-size: 0.8rem; color: var(--muted);">Select Time Slot: ${order.booking_time}</div>
+                        ${order.instructor_name ? `<div style="font-size: 0.8rem; color: var(--gold); margin-top: 0.3rem; font-weight: 500;">Assigned Instructor: ${order.instructor_name}</div>` : ''}
                     </div>
                 </div>
                 <div style="display: flex; gap: 2rem; align-items: center;">

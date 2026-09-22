@@ -981,7 +981,7 @@ app.get('/api/admin/inventory-report', verifyToken, (req, res) => {
 
 // Get all bookings (Protected)
 app.get('/api/admin/bookings', verifyToken, (req, res) => {
-    db.all("SELECT * FROM bookings ORDER BY created_at DESC", [], (err, rows) => {
+    db.all("SELECT bookings.*, instructors.name as instructor_name FROM bookings LEFT JOIN instructors ON bookings.instructor_id = instructors.id ORDER BY bookings.created_at DESC", [], (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         res.json(rows);
     });
