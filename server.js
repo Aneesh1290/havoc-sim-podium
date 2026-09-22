@@ -3,6 +3,7 @@
 // =============================================
 
 require('dotenv').config();
+const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
@@ -79,6 +80,18 @@ const getCashfreeBaseUrl = () => {
     return ENVIRONMENT === 'production' 
         ? 'https://api.cashfree.com/pg' 
         : 'https://sandbox.cashfree.com/pg';
+};
+
+// ICICI PG Direct UAT Credentials & Environment
+const ICICI_MERCHANT_ID = process.env.ICICI_MERCHANT_ID || '100000000007164';
+const ICICI_SECRET_KEY = process.env.ICICI_SECRET_KEY || 'db06cca0-838b-4e01-8b20-6ac446ffb6bd';
+const ICICI_AGGREGATOR_ID = process.env.ICICI_AGGREGATOR_ID || 'A100000000007164';
+const ICICI_ENV = process.env.ICICI_ENV || 'uat'; // 'uat' or 'live'
+
+const getIciciBaseUrl = () => {
+    return ICICI_ENV === 'live' 
+        ? 'https://pgpay.icicibank.com/pg/api/v2' 
+        : 'https://pgpayuat.icicibank.com/tsp/pg/api/v2';
 };
 
 // ==========================================
@@ -1064,8 +1077,14 @@ app.post('/api/bookings/cod', async (req, res) => {
             let checkCount = 0;
             let hasConflict = false;
             items.forEach(item => {
-                db.get("SELECT COUNT(*) as count FROM bookings WHERE item_name = ? AND booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH')", 
-                [item.item_name, item.date, item.time], (err, row) => {
+                let query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND item_name = ?";
+                let params = [item.date, item.time, item.item_name];
+                if (item.instructor_id) {
+                    query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
+                    params = [item.date, item.time, item.item_name, item.instructor_id];
+                }
+                
+                db.get(query, params, (err, row) => {
                     if (err) return reject(err);
                     if (row.count > 0) hasConflict = true;
                     checkCount++;
@@ -1152,6 +1171,195 @@ app.post('/api/bookings/cod', async (req, res) => {
 });
 
 // ==========================================
+// ICICI PG DIRECT ROUTES
+// ==========================================
+
+function generateIciciHash(payload) {
+    const sortedKeys = Object.keys(payload).sort();
+    let plainText = "";
+    for (const key of sortedKeys) {
+        if (key !== 'secureHash' && payload[key] !== null && payload[key] !== undefined) {
+            plainText += payload[key];
+        }
+    }
+    const hmac = crypto.createHmac('sha256', ICICI_SECRET_KEY);
+    hmac.update(plainText);
+    return hmac.digest('hex');
+}
+
+app.post('/api/payment/icici/initiate', async (req, res) => {
+    try {
+        const { amount, customer_details, booking_data } = req.body;
+        const items = Array.isArray(booking_data) ? booking_data : [booking_data];
+
+        // Pre-flight concurrency check
+        const checkAvailability = () => {
+            return new Promise((resolve, reject) => {
+                if (!items || items.length === 0) return resolve(false);
+                let checkCount = 0;
+                let hasConflict = false;
+                items.forEach(item => {
+                    let query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND item_name = ?";
+                    let params = [item.date, item.time, item.item_name];
+                    if (item.instructor_id) {
+                        query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
+                        params = [item.date, item.time, item.item_name, item.instructor_id];
+                    }
+                    
+                    db.get(query, params, (err, row) => {
+                        if (err) return reject(err);
+                        if (row.count > 0) hasConflict = true;
+                        checkCount++;
+                        if (checkCount === items.length) resolve(hasConflict);
+                    });
+                });
+            });
+        };
+
+        const hasConflict = await checkAvailability();
+        if (hasConflict) {
+            return res.status(409).json({ error: 'Sorry, one or more of your selected slots was just booked by someone else! Please select different slots.' });
+        }
+        
+        const orderAmount = parseFloat(amount).toFixed(2);
+        const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const baseOrderId = `HV_${shortCode}`; // e.g. HV_A1B2C3
+
+        let insertedCount = 0;
+        
+        items.forEach((item, index) => {
+            const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
+            const itemPrice = (parseFloat(amount) / items.length).toFixed(2);
+            
+            // Save pending booking to DB
+            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null], 
+                function(err) {
+                    if (err) console.error("DB Insert Error:", err);
+                    insertedCount++;
+                    
+                    if (insertedCount === items.length) {
+                        createIciciOrder();
+                    }
+            });
+        });
+
+        async function createIciciOrder() {
+            // Build Request Payload as per Step Wise Doc
+            const now = new Date();
+            const yyyy = now.getFullYear();
+            const MM = String(now.getMonth() + 1).padStart(2, '0');
+            const dd = String(now.getDate()).padStart(2, '0');
+            const HH = String(now.getHours()).padStart(2, '0');
+            const mm = String(now.getMinutes()).padStart(2, '0');
+            const ss = String(now.getSeconds()).padStart(2, '0');
+            const txnDate = `${yyyy}${MM}${dd}${HH}${mm}${ss}`; // YYYYMMDDHHMMSS
+
+            const payload = {
+                "merchantId": ICICI_MERCHANT_ID,
+                "merchantTxnNo": baseOrderId,
+                "amount": orderAmount,
+                "aggregatorID": ICICI_AGGREGATOR_ID,
+                "currencyCode": "356",
+                "payType": "0",
+                "customerEmailID": customer_details.email || "dummy@gmail.com",
+                "transactionType": "SALE",
+                "txnDate": txnDate,
+                "returnURL": `${req.protocol}://${req.get('host')}/api/payment/icici/callback`,
+                "customerMobileNo": customer_details.phone || "9999999999",
+                "customerName": customer_details.name || "Customer"
+            };
+
+            // Generate HMAC Secure Hash
+            payload.secureHash = generateIciciHash(payload);
+
+            try {
+                const response = await fetch(`${getIciciBaseUrl()}/initiateSale`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await response.json();
+                
+                if (data.responseCode !== "R1000") {
+                    console.error('ICICI initiateSale error response:', data);
+                    return res.status(500).json({ error: 'Failed to initiate ICICI PG order' });
+                }
+
+                // Return redirectURI and tranCtx
+                res.json({
+                    redirectURI: data.redirectURI,
+                    tranCtx: data.tranCtx,
+                    order_id: baseOrderId
+                });
+            } catch (err) {
+                console.error('Create ICICI order API error:', err);
+                res.status(500).json({ error: 'Failed to communicate with ICICI Gateway' });
+            }
+        }
+    } catch (err) {
+        console.error('Create ICICI order error:', err);
+        res.status(500).json({ error: 'Failed to create ICICI order' });
+    }
+});
+
+app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), async (req, res) => {
+    try {
+        const body = req.body;
+        console.log('ICICI Callback Body:', body);
+
+        // Verify Secure Hash
+        const receivedHash = body.secureHash;
+        const computedHash = generateIciciHash(body);
+
+        if (receivedHash !== computedHash) {
+            console.error('ICICI Callback Hash Mismatch!', { receivedHash, computedHash });
+            return res.redirect('/checkout.html?error=Payment Verification Failed');
+        }
+
+        const baseOrderId = body.merchantTxnNo;
+
+        if (body.responseCode === "0000") {
+            // Payment success!
+            db.run("UPDATE bookings SET status = 'PAID' WHERE order_id LIKE ?", [`${baseOrderId}%`], () => {
+                // Fetch booking details and send confirmation email
+                db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`], (err, rows) => {
+                    if (!err && rows && rows.length > 0) {
+                        try {
+                            const mailer = require('./mailer');
+                            mailer.sendConfirmationEmail(rows[0]);
+                            
+                            if (rows[0].instructor_id) {
+                                db.get("SELECT * FROM instructors WHERE id = ?", [rows[0].instructor_id], (err, inst) => {
+                                    if (!err && inst && inst.email) {
+                                        mailer.sendInstructorEmail(inst, rows[0]);
+                                    }
+                                });
+                            }
+                        } catch (e) {
+                            console.error("Email send failed:", e);
+                        }
+                    }
+                });
+            });
+            return res.redirect(`/success.html?order_id=${baseOrderId}`);
+        } else {
+            // Payment Failed or Cancelled
+            console.error('ICICI Payment Failed:', body.respDescription);
+            db.run("UPDATE bookings SET status = 'FAILED' WHERE order_id LIKE ?", [`${baseOrderId}%`]);
+            return res.redirect('/checkout.html?error=Payment Failed or Cancelled');
+        }
+    } catch (err) {
+        console.error('ICICI Callback Processing Error:', err);
+        return res.redirect('/checkout.html?error=Error processing payment callback');
+    }
+});
+
+// ==========================================
 // CASHFREE PAYMENT ROUTES
 // ==========================================
 
@@ -1168,8 +1376,14 @@ app.post('/create-order', async (req, res) => {
                 let checkCount = 0;
                 let hasConflict = false;
                 items.forEach(item => {
-                    db.get("SELECT COUNT(*) as count FROM bookings WHERE item_name = ? AND booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH')", 
-                    [item.item_name, item.date, item.time], (err, row) => {
+                    let query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND item_name = ?";
+                    let params = [item.date, item.time, item.item_name];
+                    if (item.instructor_id) {
+                        query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
+                        params = [item.date, item.time, item.item_name, item.instructor_id];
+                    }
+                    
+                    db.get(query, params, (err, row) => {
                         if (err) return reject(err);
                         if (row.count > 0) hasConflict = true;
                         checkCount++;
@@ -1262,57 +1476,50 @@ app.post('/create-order', async (req, res) => {
 });
 
 // ---- POST /verify-payment ----
-app.post('/verify-payment', async (req, res) => {
-    try {
-        const { order_id } = req.body;
+app.post('/verify-payment', (req, res) => {
+    const { order_id } = req.body;
 
-        const response = await fetch(`${getCashfreeBaseUrl()}/orders/${order_id}`, {
-            method: 'GET',
-            headers: {
-                'x-api-version': '2023-08-01',
-                'x-client-id': CASHFREE_APP_ID,
-                'x-client-secret': CASHFREE_SECRET_KEY
-            }
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            console.error('Cashfree verify error:', data);
-            throw new Error(data.message || 'Failed to verify payment');
+    // First check the database. For ICICI, the callback updates the DB before redirecting here.
+    db.get("SELECT status FROM bookings WHERE order_id LIKE ?", [`${order_id}%`], async (err, row) => {
+        if (!err && row && row.status === 'PAID') {
+            return res.json({ success: true, status: 'PAID' });
         }
 
-        if (data.order_status === 'PAID') {
-            console.log(`[${new Date().toISOString()}] Payment verified: ${order_id}`);
-            // Update booking status in DB (using LIKE to match base_id and base_id_0 etc)
-            db.run("UPDATE bookings SET status = 'PAID' WHERE order_id LIKE ?", [`${order_id}%`], () => {
-                // Fetch booking details and send confirmation email
-                db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${order_id}%`], (err, rows) => {
-                    if (!err && rows && rows.length > 0) {
-                        if (rows[0].email) {
-                            sendConfirmationEmail(rows[0]);
-                        }
-                        rows.forEach(row => {
-                            if (row.instructor_id) {
-                                db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
-                                    if (!err && instructor && instructor.email) {
-                                        sendInstructorEmail(instructor, row);
-                                    }
-                                });
-                            }
-                        });
-                    }
-                });
+        // If not paid in DB (or if it's Cashfree which might need active verification), query Cashfree
+        try {
+            const response = await fetch(`${getCashfreeBaseUrl()}/orders/${order_id}`, {
+                method: 'GET',
+                headers: {
+                    'x-api-version': '2023-08-01',
+                    'x-client-id': CASHFREE_APP_ID,
+                    'x-client-secret': CASHFREE_SECRET_KEY
+                }
             });
-            res.json({ success: true, status: data.order_status });
-        } else {
-            console.warn(`[${new Date().toISOString()}] Payment not completed for order: ${order_id}, Status: ${data.order_status}`);
-            res.json({ success: false, status: data.order_status });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                // If it fails on Cashfree, it might just be an ICICI order that genuinely failed/pending.
+                // We shouldn't throw an error, just return the DB status.
+                if (row) {
+                    return res.json({ success: true, status: row.status });
+                }
+                console.error('Cashfree verify error:', data);
+                throw new Error(data.message || 'Failed to verify payment');
+            }
+
+            if (data.order_status === 'PAID') {
+                db.run("UPDATE bookings SET status = 'PAID' WHERE order_id LIKE ?", [`${order_id}%`], () => {
+                    res.json({ success: true, status: 'PAID' });
+                });
+            } else {
+                res.json({ success: true, status: data.order_status });
+            }
+        } catch (err) {
+            console.error('Verify payment error:', err);
+            res.status(500).json({ error: 'Failed to verify payment' });
         }
-    } catch (err) {
-        console.error('Verify payment error:', err);
-        res.status(500).json({ success: false, error: 'Verification failed' });
-    }
+    });
 });
 
 // ---- Health check ----
@@ -1353,8 +1560,14 @@ app.post('/api/upi/collect', async (req, res) => {
                 let checkCount = 0;
                 let hasConflict = false;
                 items.forEach(item => {
-                    db.get("SELECT COUNT(*) as count FROM bookings WHERE item_name = ? AND booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH')", 
-                    [item.item_name, item.date, item.time], (err, row) => {
+                    let query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND item_name = ?";
+                    let params = [item.date, item.time, item.item_name];
+                    if (item.instructor_id) {
+                        query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
+                        params = [item.date, item.time, item.item_name, item.instructor_id];
+                    }
+                    
+                    db.get(query, params, (err, row) => {
                         if (err) return reject(err);
                         if (row.count > 0) hasConflict = true;
                         checkCount++;

@@ -175,6 +175,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // ---- 1.6 Payment Option Selection ----
     const paymentOptions = document.querySelectorAll('.payment-option');
+    const upiOption = document.querySelector('.payment-option[data-method="icici"]');
+    const codOption = document.querySelector('.payment-option[data-method="cod"]');
 
     let firstAvailable = null;
     paymentOptions.forEach(option => {
@@ -186,16 +188,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else {
             if (!firstAvailable) firstAvailable = option;
             
-            option.addEventListener('click', () => {
-                paymentOptions.forEach(opt => opt.classList.remove('selected'));
-                option.classList.add('selected');
-                selectedPaymentMethod = method;
+            option.addEventListener("click", () => {
+                document.querySelectorAll(".payment-option").forEach(opt => {
+                    opt.classList.remove("selected");
+                });
+                option.classList.add("selected");
+                selectedPaymentMethod = option.getAttribute("data-method");
                 updatePricing();
-                
-                const vpaContainer = document.getElementById("vpa-input-container");
-                if (vpaContainer) {
-                    vpaContainer.style.display = selectedPaymentMethod === 'upi' ? 'block' : 'none';
-                }
             });
         }
     });
@@ -223,12 +222,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         const termsCheckbox = document.getElementById("co-terms-checkbox");
         if (!name || !email || !phone) {
             alert("Please fill in all required fields before proceeding.");
-            return;
-        }
-        
-        const vpa = document.getElementById("co-vpa")?.value.trim();
-        if (selectedPaymentMethod === 'upi' && !vpa) {
-            alert("Please enter your UPI ID (VPA) to proceed with UPI Payment.");
             return;
         }
 
@@ -301,13 +294,12 @@ document.addEventListener("DOMContentLoaded", async () => {
                 window.location.href = `/success.html?order_id=${orderData.order_id || ''}`;
 
             } else {
-                // UPI Flow
-                const orderRes = await fetch(BACKEND_URL + "/api/upi/collect", {
+                // ICICI Flow
+                const orderRes = await fetch(BACKEND_URL + "/api/payment/icici/initiate", {
                     method:  "POST",
                     headers: { "Content-Type": "application/json" },
                     body:    JSON.stringify({ 
                         amount, 
-                        vpa,
                         customer_details: { name, email, phone },
                         booking_data
                     })
@@ -315,34 +307,16 @@ document.addEventListener("DOMContentLoaded", async () => {
 
                 if (!orderRes.ok) {
                     const errData = await orderRes.json();
-                    throw new Error(errData.error || "Failed to initiate UPI request");
+                    throw new Error(errData.error || "Failed to initiate payment gateway");
                 }
                 
                 const data = await orderRes.json();
-                if (data.success) {
-                    // Start polling
-                    payBtnLabelEl.innerText = "Check your UPI app...";
-                    const orderId = data.order_id;
-                    
-                    const pollInterval = setInterval(async () => {
-                        try {
-                            const statusRes = await fetch(BACKEND_URL + `/api/upi/status/${orderId}`);
-                            if (statusRes.ok) {
-                                const statusData = await statusRes.json();
-                                if (statusData.status === 'PAID' || statusData.status === 'SUCCESS') {
-                                    clearInterval(pollInterval);
-                                    window.location.href = `/success.html?order_id=${orderId}`;
-                                } else if (statusData.status === 'FAILED' || statusData.status === 'CANCELLED') {
-                                    clearInterval(pollInterval);
-                                    alert("Payment failed or was cancelled. Please try again.");
-                                    payBtn.disabled = false;
-                                    updatePricing();
-                                }
-                            }
-                        } catch (e) {
-                            console.error("Polling error", e);
-                        }
-                    }, 3000);
+                if (data.redirectURI && data.tranCtx) {
+                    payBtnLabelEl.innerText = "Redirecting to Secure Gateway...";
+                    // Redirect to ICICI Gateway
+                    window.location.href = `${data.redirectURI}?tranCtx=${data.tranCtx}`;
+                } else {
+                    throw new Error("Invalid response from payment gateway");
                 }
             }
 
