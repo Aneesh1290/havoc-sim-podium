@@ -1118,9 +1118,8 @@ app.post('/api/bookings/cod', async (req, res) => {
     }
 
     db.get("SELECT COUNT(*) as count FROM bookings WHERE booking_date = ?", [items[0].date], (err, row) => {
-        const count = (row ? row.count : 0) + 1;
-        const orderNo = String(count).padStart(2, '0');
-        const baseOrderId = `PAYDUE_${formattedDate}_${orderNo}`;
+        const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const baseOrderId = `HV_${shortCode}`;
 
         let insertedCount = 0;
         let hasError = false;
@@ -1228,7 +1227,7 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
         
         const orderAmount = parseFloat(amount).toFixed(2);
         const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const baseOrderId = `HV_${shortCode}`; // e.g. HV_A1B2C3
+        const baseOrderId = `PAID_${shortCode}`; // e.g. PAID_A1B2C3
 
         let insertedCount = 0;
         
