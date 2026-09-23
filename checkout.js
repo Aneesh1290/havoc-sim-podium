@@ -258,7 +258,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 time: item.slot,
                 instructor_id: item.instructor ? item.instructor.id : null,
                 instructor_fee: item.instructorFee || 0,
-                base_price: item.itemPrice || 0
+                base_price: parseFloat(String(item.itemPrice).replace(/[^\d.]/g, '')) || 0
             }));
 
             if (selectedPaymentMethod === 'cod') {
