@@ -49,7 +49,7 @@ const showSuccess = (booking, oId) => {
         });
     }
 
-    const priceLabel = oId && oId.startsWith('PAYDUE') ? 'Amount Due (Pay At Desk)' : 'Amount Paid';
+    const priceLabel = booking.paymentMethod === 'cod' ? 'Amount Due (Pay At Desk)' : 'Amount Paid';
     const priceVal = parseFloat(booking.price ? booking.price.toString().replace('₹', '').replace(/,/g, '') : 0);
     const subtotal = (priceVal / 1.18).toFixed(2);
     const gst = (priceVal - parseFloat(subtotal)).toFixed(2);
@@ -66,24 +66,19 @@ const showSuccess = (booking, oId) => {
 };
 
 async function verifyPayment() {
-    // Bypass Cashfree verification for Pay at Desk (COD) orders
-    if (orderId && orderId.startsWith('PAYDUE')) {
-        const rawBooking = localStorage.getItem('havoc_recent_booking');
-        if (rawBooking) {
-            const booking = JSON.parse(rawBooking);
-            if (booking.status === 'confirmed' || booking.paymentMethod === 'cod') {
-                showSuccess(booking, orderId);
-                localStorage.removeItem('havoc_cart');
-                return;
-            }
-        }
+    const rawBooking = localStorage.getItem('havoc_recent_booking');
+    let booking = rawBooking ? JSON.parse(rawBooking) : null;
+
+    // Bypass verification for Pay at Desk (COD) orders
+    if (booking && booking.paymentMethod === 'cod') {
+        showSuccess(booking, orderId || booking.orderId);
+        localStorage.removeItem('havoc_cart');
+        return;
     }
 
     if (!orderId) {
         // If they just navigated directly, check if we have a booked session
-        const rawBooking = localStorage.getItem('havoc_recent_booking');
-        if (rawBooking) {
-            const booking = JSON.parse(rawBooking);
+        if (booking) {
             if (booking.status === 'confirmed') {
                 // COD success case (fallback if no order_id in URL)
                 showSuccess(booking, booking.orderId || 'PAY-AT-DESK');
@@ -107,8 +102,7 @@ async function verifyPayment() {
 
         if (data.success && data.status === 'PAID') {
             // Payment successful!
-            const pendingRaw = localStorage.getItem('havoc_recent_booking');
-            let booking = pendingRaw ? JSON.parse(pendingRaw) : {};
+            if (!booking) booking = {};
             booking.orderId = orderId;
             
             // Save as final booking and clean up
