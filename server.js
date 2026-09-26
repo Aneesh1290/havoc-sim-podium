@@ -1121,7 +1121,7 @@ app.post('/api/bookings/cod', async (req, res) => {
     db.get("SELECT COUNT(*) as count FROM bookings WHERE booking_date = ?", [items[0].date], (err, row) => {
         const count = (row ? row.count : 0) + 1;
         const orderNo = String(count).padStart(2, '0');
-        const baseOrderId = `HV_${formattedDate}_${orderNo}`;
+        const baseOrderId = `PAYDUE_${formattedDate}_${orderNo}`;
 
         let insertedCount = 0;
         let hasError = false;
@@ -1427,24 +1427,11 @@ app.post('/create-order', async (req, res) => {
 
         const orderAmount = parseFloat(amount).toFixed(2);
         
-        const dateParts = items[0].date.split(' ');
-        let formattedDate = 'DATE';
-        if (dateParts.length >= 2) {
-            let year = new Date().getFullYear();
-            const monthIndex = new Date(`${dateParts[0]} 1`).getMonth();
-            if (monthIndex < new Date().getMonth() && monthIndex <= 2) {
-                year += 1;
-            }
-            formattedDate = (dateParts[1] + dateParts[0]).toUpperCase() + String(year).slice(-2);
-        }
+        const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const baseOrderId = `HV_${shortCode}`;
 
-        db.get("SELECT COUNT(*) as count FROM bookings WHERE booking_date = ?", [items[0].date], (err, row) => {
-            const count = (row ? row.count : 0) + 1;
-            const orderNo = String(count).padStart(2, '0');
-            const baseOrderId = `HV_${formattedDate}_${orderNo}`;
-
-            let insertedCount = 0;
-            const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
+        let insertedCount = 0;
+        const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
 
         items.forEach((item, index) => {
             const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
@@ -1514,7 +1501,6 @@ app.post('/create-order', async (req, res) => {
                 res.status(500).json({ error: 'Failed to communicate with Cashfree' });
             }
         }
-        });
     } catch (err) {
         console.error('Create order error:', err);
         res.status(500).json({ error: 'Failed to create Cashfree order' });
