@@ -55,12 +55,12 @@ app.use(helmet({
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
-            scriptSrc: ["'self'", "'unsafe-inline'", "https://sdk.cashfree.com"],
+            scriptSrc: ["'self'", "'unsafe-inline'"],
             scriptSrcAttr: ["'unsafe-inline'"],
             styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
             fontSrc: ["'self'", "https://fonts.gstatic.com"],
-            imgSrc: ["'self'", "data:", "https://www.cashfree.com"],
-            connectSrc: ["'self'", "https://api.cashfree.com", "https://sandbox.cashfree.com"],
+            imgSrc: ["'self'", "data:"],
+            connectSrc: ["'self'"],
             frameAncestors: ["'none'"],
             objectSrc: ["'none'"]
         }
@@ -72,16 +72,6 @@ app.use(express.json());
 // Serve all HTML, CSS, JS, and asset files from the project root
 app.use(express.static(path.join(__dirname), { extensions: ['html'] }));
 
-// Cashfree Credentials & Environment
-const CASHFREE_APP_ID = process.env.CASHFREE_APP_ID;
-const CASHFREE_SECRET_KEY = process.env.CASHFREE_SECRET_KEY;
-const ENVIRONMENT = process.env.CASHFREE_ENV || 'sandbox';
-
-const getCashfreeBaseUrl = () => {
-    return ENVIRONMENT === 'production' 
-        ? 'https://api.cashfree.com/pg' 
-        : 'https://sandbox.cashfree.com/pg';
-};
 
 // ICICI PG Direct UAT Credentials & Environment
 const ICICI_MERCHANT_ID = process.env.ICICI_MERCHANT_ID || '100000000007164';
@@ -1387,125 +1377,6 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
 });
 
 // ==========================================
-// CASHFREE PAYMENT ROUTES
-// ==========================================
-
-// ---- POST /create-order ----
-app.post('/create-order', async (req, res) => {
-    try {
-        const { amount, customer_details, order_meta, booking_data } = req.body;
-        const items = Array.isArray(booking_data) ? booking_data : [booking_data];
-
-        // Pre-flight concurrency check
-        const checkAvailability = () => {
-            return new Promise((resolve, reject) => {
-                if (!items || items.length === 0) return resolve(false);
-                let checkCount = 0;
-                let hasConflict = false;
-                items.forEach(item => {
-                    let query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND item_name = ?";
-                    let params = [item.date, item.time, item.item_name];
-                    if (item.instructor_id) {
-                        query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
-                        params = [item.date, item.time, item.item_name, item.instructor_id];
-                    }
-                    
-                    db.get(query, params, (err, row) => {
-                        if (err) return reject(err);
-                        if (row.count > 0) hasConflict = true;
-                        checkCount++;
-                        if (checkCount === items.length) resolve(hasConflict);
-                    });
-                });
-            });
-        };
-
-        const hasConflict = await checkAvailability();
-        if (hasConflict) {
-            return res.status(409).json({ error: 'Sorry, one or more of your selected slots was just booked by someone else! Please select different slots.' });
-        }
-
-        const orderAmount = parseFloat(amount).toFixed(2);
-        
-        const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const baseOrderId = `HV_${shortCode}`;
-
-        let insertedCount = 0;
-        const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
-
-        items.forEach((item, index) => {
-            const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
-            
-            let itemPrice = (parseFloat(amount) / items.length).toFixed(2);
-            if (totalBaseCost > 0) {
-                const itemRatio = ((Number(item.base_price) || 0) + (Number(item.instructor_fee) || 0)) / totalBaseCost;
-                itemPrice = (parseFloat(amount) * itemRatio).toFixed(2);
-            }
-            
-            // Save pending booking to DB
-            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null], 
-                function(err) {
-                    if (err) console.error("DB Insert Error:", err);
-                    insertedCount++;
-                    
-                    if (insertedCount === items.length) {
-                        createCashfreeOrder();
-                    }
-            });
-        });
-
-        async function createCashfreeOrder() {
-            // Create Cashfree Order
-            const payload = {
-                order_amount: orderAmount,
-                order_currency: "INR",
-                order_id: baseOrderId,
-                customer_details: {
-                    customer_id: `cust_${Date.now()}`,
-                    customer_phone: customer_details.phone,
-                    customer_name: customer_details.name,
-                    customer_email: customer_details.email
-                },
-                order_meta: {
-                    return_url: order_meta.return_url + `?order_id=${baseOrderId}`
-                }
-            };
-
-            try {
-                const response = await fetch(`${getCashfreeBaseUrl()}/orders`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-api-version': '2023-08-01',
-                        'x-client-id': CASHFREE_APP_ID,
-                        'x-client-secret': CASHFREE_SECRET_KEY
-                    },
-                    body: JSON.stringify(payload)
-                });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    console.error('Cashfree order error response:', data);
-                    return res.status(500).json({ error: data.message || 'Failed to create order' });
-                }
-
-                res.json({ 
-                    order_id: data.order_id, 
-                    payment_session_id: data.payment_session_id 
-                });
-            } catch (err) {
-                console.error('Create Cashfree order API error:', err);
-                res.status(500).json({ error: 'Failed to communicate with Cashfree' });
-            }
-        }
-    } catch (err) {
-        console.error('Create order error:', err);
-        res.status(500).json({ error: 'Failed to create Cashfree order' });
-    }
-});
 
 // ---- POST /verify-payment ----
 app.post('/verify-payment', (req, res) => {
@@ -1728,7 +1599,5 @@ app.get('/api/upi/status/:orderId', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`\n Havoc Sim Podium backend running at http://localhost:${PORT}`);
-    console.log(` Cashfree App ID: ${CASHFREE_APP_ID ? 'Configured' : 'NOT SET — check .env'}`);
-    console.log(` Environment: ${ENVIRONMENT}\n`);
+    console.log(`\n Havoc Sim Podium backend running at http://localhost:${PORT}\n`);
 });

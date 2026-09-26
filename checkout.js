@@ -1,5 +1,5 @@
 // =============================================
-// CHECKOUT PAGE LOGIC (CASHFREE)
+// CHECKOUT PAGE LOGIC
 // =============================================
 
 // Backend URL -- Replace with deployed server URL in production
@@ -39,15 +39,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.error("Failed to fetch payment settings:", err);
     }
 
-    // Initialize Payment SDK (Pending ICICI Integration)
-    // let cashfree;
-    // try {
-    //     cashfree = Cashfree({
-    //         mode: "sandbox", 
-    //     });
-    // } catch (e) {
-    //     console.error("Failed to load Payment SDK:", e);
-    // }
+
 
     // ---- 1. Load cart from localStorage ----
     let raw = localStorage.getItem("havoc_cart");
