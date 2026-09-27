@@ -182,7 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="sim-meta">
                             <span>⏱ ${p.description || '30 MINUTES'}</span>
                         </div>
-                        <div class="sim-price">₹${p.price.toFixed(2)}</div>
+                        <div class="sim-price">
+                            ${p.compare_price && p.compare_price > p.price ? `<span style="text-decoration: line-through; color: #888; font-size: 0.85em; margin-right: 6px;">₹${parseFloat(p.compare_price).toFixed(2)}</span>` : ''}₹${parseFloat(p.price).toFixed(2)}
+                        </div>
                         <a href="/book" class="btn btn-card">BOOK NOW</a>
                     </div>
                 </div>
