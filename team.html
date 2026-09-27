@@ -35,89 +35,89 @@
         }
         
         .team-container {
-            max-width: 1200px;
+            max-width: 1000px;
             margin: 0 auto;
             padding: 1rem 1.5rem 4rem;
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
             gap: 3rem;
+            justify-items: center;
         }
 
         .team-member {
             display: flex;
             flex-direction: column;
-            gap: 1.5rem;
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 1.5rem;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-        }
-
-        @media (min-width: 900px) {
-            .team-member {
-                flex-direction: row;
-                align-items: center;
-                gap: 3rem;
-                padding: 3rem;
-            }
-            .team-member:nth-child(even) {
-                flex-direction: row-reverse;
-            }
-        }
-
-        .team-member:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            border-color: rgba(229, 184, 105, 0.3);
+            align-items: center;
+            text-align: center;
+            max-width: 400px;
         }
 
         .member-image {
-            flex-shrink: 0;
-            width: 100%;
-            max-width: 350px;
-            border-radius: 16px;
+            width: 240px;
+            height: 240px;
+            border-radius: 50%;
             overflow: hidden;
-            border: 2px solid var(--primary);
-            box-shadow: 0 0 20px rgba(229, 184, 105, 0.15);
-            margin: 0 auto;
+            border: 4px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 1.5rem;
+            transition: border-color 0.3s ease, transform 0.3s ease;
+        }
+
+        .member-image:hover {
+            border-color: var(--primary);
+            transform: scale(1.05);
         }
 
         .member-image img {
             width: 100%;
-            height: auto;
+            height: 100%;
             display: block;
             object-fit: cover;
-            aspect-ratio: 3/4;
         }
 
         .member-info {
-            flex: 1;
+            width: 100%;
         }
 
         .member-name {
-            font-size: 2.5rem;
+            font-size: 2rem;
             font-weight: 700;
             color: #fff;
             margin-bottom: 0.5rem;
         }
 
         .member-role {
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 500;
             color: var(--primary);
             text-transform: uppercase;
             letter-spacing: 1px;
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .member-bio-toggle {
             display: inline-block;
-            padding-bottom: 0.5rem;
-            border-bottom: 2px solid rgba(229, 184, 105, 0.3);
+            margin-top: 0.5rem;
+            font-size: 0.9rem;
+            color: var(--muted);
+            text-decoration: underline;
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .member-bio-toggle:hover {
+            color: #fff;
         }
 
         .member-bio {
+            display: none;
             color: rgba(255, 255, 255, 0.85);
-            font-size: 1.05rem;
-            line-height: 1.8;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            text-align: left;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
         }
 
         .member-bio p {
@@ -174,7 +174,8 @@
                 </div>
                 <div class="member-info">
                     <h2 class="member-name">Bobby Sabharwal</h2>
-                    <div class="member-role">Founder, Managing Director & CEO — Havoc Group</div>
+                    <div class="member-role">Founder, Managing Director & CEO</div>
+                    <div class="member-bio-toggle" onclick="const bio = this.nextElementSibling; if(bio.style.display === 'block') { bio.style.display = 'none'; this.innerText = 'Read Full Bio'; } else { bio.style.display = 'block'; this.innerText = 'Hide Bio'; }">Read Full Bio</div>
                     <div class="member-bio">
                         <p>Bobby Sabharwal is the Founder, Managing Director and CEO of Havoc Group. His journey in aeromodelling began at the age of 15, driven by a deep passion for radio-controlled model aircraft, including RC planes and helicopters.</p>
                         <p>With decades of hands-on experience in aeromodelling, he transformed his passion into several innovative ventures, including Havoc Hobby, Havoc RC FunZone, Havoc Sim Podium, Havoc Fun School and Havoc Aviation.</p>
@@ -191,7 +192,8 @@
                 </div>
                 <div class="member-info">
                     <h2 class="member-name">Rakhi</h2>
-                    <div class="member-role">Joint Director — Havoc Group</div>
+                    <div class="member-role">Joint Director</div>
+                    <div class="member-bio-toggle" onclick="const bio = this.nextElementSibling; if(bio.style.display === 'block') { bio.style.display = 'none'; this.innerText = 'Read Full Bio'; } else { bio.style.display = 'block'; this.innerText = 'Hide Bio'; }">Read Full Bio</div>
                     <div class="member-bio">
                         <p>Rakhi serves as the Joint Director of Havoc Group, playing an important role in the Group’s leadership, administration and continued expansion. Working alongside Founder, Managing Director and CEO Bobby Sabharwal, she contributes to strategic planning, operational coordination and the development of new business ventures.</p>
                         <p>Since the establishment of Havoc Hobby Center in 2016, the organisation has grown from a specialised hobby destination into a diversified group of innovative ventures. These include Havoc Hobby, Havoc RC FunZone, Havoc Sim Podium, Havoc Fun School and Havoc Aviation.</p>
