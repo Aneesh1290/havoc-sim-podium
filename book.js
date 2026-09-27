@@ -628,16 +628,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 if (available.length > 0) {
                     instructorContainerInPrompt.innerHTML = available.map(inst => `
-                        <div class="pill instructor-pill" style="display:flex; flex-direction:column; gap:0.5rem; padding:1rem; border:1px solid var(--border); border-radius:12px; cursor:pointer; color:#fff; white-space:normal; text-align:left;" data-id="${inst.id}">
-                            <div style="display:flex; align-items:center; gap:1rem; width:100%;">
-                                ${inst.photo_url ? `<img src="${inst.photo_url}" style="width:48px;height:48px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div style="width:48px;height:48px;border-radius:50%;background:#383b4d;flex-shrink:0;"></div>`}
-                                <div style="flex:1;">
-                                    <div style="font-weight:600; font-size:1.05rem;">${inst.name}</div>
-                                    <div style="font-size:0.85rem; color:var(--muted);">${inst.role || 'Instructor'}</div>
-                                </div>
-                                <div style="font-weight:700; color:var(--gold); font-size:1rem;">+ ₹${inst.fee != null ? inst.fee : 500}</div>
+                        <div class="pill instructor-pill" style="display:flex; flex-direction:column; align-items:center; gap:0.5rem; padding:1.2rem 1rem; border:1px solid var(--border); border-radius:12px; cursor:pointer; color:#fff; text-align:center; transition: border-color 0.2s;" data-id="${inst.id}">
+                            ${inst.photo_url ? `<img src="${inst.photo_url}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div style="width:80px;height:80px;border-radius:50%;background:#383b4d;flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.8rem; color:#aaa;">No Photo</div>`}
+                            <div style="flex:1; margin-top:0.5rem;">
+                                <div style="font-weight:600; font-size:1.1rem; line-height:1.2;">${inst.name}</div>
+                                <div style="font-size:0.8rem; color:var(--muted); margin-top:4px;">${inst.role || 'Instructor'}</div>
                             </div>
-                            ${inst.biography ? `<div style="font-size:0.85rem; color:rgba(255,255,255,0.7); line-height:1.4; border-top:1px solid rgba(255,255,255,0.05); padding-top:0.6rem; margin-top:0.4rem; white-space:normal;">${inst.biography}</div>` : ''}
+                            <div style="font-weight:700; color:var(--gold); font-size:1rem; margin-top:0.2rem;">+ ₹${inst.fee != null ? inst.fee : 500}</div>
+                            ${inst.biography ? `<div class="inst-bio-toggle" style="margin-top: 0.8rem; font-size: 0.85rem; color: #aaa; text-decoration: underline; z-index: 2; position: relative;" onclick="event.stopPropagation(); const content = this.nextElementSibling; if(content.style.display === 'none'){content.style.display = 'block'; this.innerText = 'Hide Details';} else {content.style.display = 'none'; this.innerText = 'View Details';}">View Details</div>
+                            <div class="inst-bio-content" style="display:none; font-size:0.85rem; color:rgba(255,255,255,0.8); line-height:1.4; border-top:1px solid rgba(255,255,255,0.1); padding-top:0.8rem; margin-top:0.8rem; white-space:normal; text-align:left; width:100%;">${inst.biography}</div>` : ''}
                         </div>
 
                     `).join("");
