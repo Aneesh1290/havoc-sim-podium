@@ -1108,7 +1108,7 @@ app.post('/api/bookings/cod', async (req, res) => {
         formattedDate = (dateParts[1] + dateParts[0]).toUpperCase() + String(year).slice(-2);
     }
 
-    db.get("SELECT COUNT(*) as count FROM bookings WHERE booking_date = ?", [items[0].date], (err, row) => {
+    db.get("SELECT COUNT(*) as count FROM bookings", [], (err, row) => {
         const count = (row ? row.count : 0) + 1;
         const orderNo = String(count).padStart(2, '0');
         const baseOrderId = `PAYDUE_${formattedDate}_${orderNo}`;
@@ -1230,7 +1230,7 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
             formattedDate = (dateParts[1] + dateParts[0]).toUpperCase() + String(year).slice(-2);
         }
 
-        db.get("SELECT COUNT(*) as count FROM bookings WHERE booking_date = ?", [items[0].date], (err, row) => {
+        db.get("SELECT COUNT(*) as count FROM bookings", [], (err, row) => {
             const count = (row ? row.count : 0) + 1;
             const orderNo = String(count).padStart(2, '0');
             const baseOrderId = `PAID_${formattedDate}_${orderNo}`;
