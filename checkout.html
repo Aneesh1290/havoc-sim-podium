@@ -44,7 +44,17 @@
                     </div>
                     <div class="co-field">
                         <label for="co-phone">Phone Number</label>
-                        <input type="tel" id="co-phone" placeholder="e.g. 98765 43210" required>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <select id="co-country-code" style="width: 140px; flex-shrink: 0;" required>
+                                <option value="+91" selected>🇮🇳 +91 (IND)</option>
+                                <option value="+1">🇺🇸 +1 (USA)</option>
+                                <option value="+44">🇬🇧 +44 (UK)</option>
+                                <option value="+971">🇦🇪 +971 (UAE)</option>
+                                <option value="+61">🇦🇺 +61 (AUS)</option>
+                                <option value="+65">🇸🇬 +65 (SGP)</option>
+                            </select>
+                            <input type="tel" id="co-phone" placeholder="e.g. 98765 43210" style="flex-grow: 1;" required>
+                        </div>
                     </div>
 
                 </div>

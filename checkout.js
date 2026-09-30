@@ -216,7 +216,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     payBtn?.addEventListener("click", async () => {
         const name  = document.getElementById("co-name")?.value.trim();
         const email = document.getElementById("co-email")?.value.trim();
-        const phone = document.getElementById("co-phone")?.value.trim();
+        const countryCode = document.getElementById("co-country-code")?.value.trim() || '+91';
+        const rawPhone = document.getElementById("co-phone")?.value.trim();
+        const phone = rawPhone ? `${countryCode} ${rawPhone}` : '';
 
         const termsCheckbox = document.getElementById("co-terms-checkbox");
         if (!name || !email || !phone) {
