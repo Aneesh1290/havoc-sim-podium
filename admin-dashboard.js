@@ -1511,11 +1511,49 @@ document.getElementById('cpSubmitBtn').addEventListener('click', async () => {
 document.addEventListener('DOMContentLoaded', () => {
     // Export CSV Logic
     const exportBtn = document.getElementById('exportCsvBtn');
+    const confirmExportBtn = document.getElementById('confirmExportBtn');
+    
     if (exportBtn) {
         exportBtn.addEventListener('click', () => {
             let dataToExport = window.currentBookings || window.allBookings;
             if (!dataToExport || dataToExport.length === 0) {
                 alert("No bookings available to export.");
+                return;
+            }
+            document.getElementById('exportModal').style.display = 'flex';
+        });
+    }
+
+    if (confirmExportBtn) {
+        confirmExportBtn.addEventListener('click', () => {
+            document.getElementById('exportModal').style.display = 'none';
+            let dataToExport = window.currentBookings || window.allBookings;
+            
+            const showSn = document.getElementById('exp-col-sn').checked;
+            const showOrder = document.getElementById('exp-col-order').checked;
+            const showName = document.getElementById('exp-col-name').checked;
+            const showPhone = document.getElementById('exp-col-phone').checked;
+            const showEmail = document.getElementById('exp-col-email').checked;
+            const showDate = document.getElementById('exp-col-date').checked;
+            const showTime = document.getElementById('exp-col-time').checked;
+            const showType = document.getElementById('exp-col-type').checked;
+            const showAmount = document.getElementById('exp-col-amount').checked;
+            const showStatus = document.getElementById('exp-col-status').checked;
+
+            let activeCols = 0;
+            if(showSn) activeCols += 2;
+            if(showOrder) activeCols += 1;
+            if(showName) activeCols += 1;
+            if(showPhone) activeCols += 1;
+            if(showEmail) activeCols += 1;
+            if(showDate) activeCols += 1;
+            if(showTime) activeCols += 1;
+            if(showType) activeCols += 2; 
+            if(showAmount) activeCols += 1;
+            if(showStatus) activeCols += 1;
+
+            if (activeCols === 0) {
+                alert("Please select at least one column to export.");
                 return;
             }
 
@@ -1542,7 +1580,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
             <head>
             <meta charset="utf-8">
-            <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Bookings</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
             <style>
                 table { border-collapse: collapse; font-family: Calibri, Arial, sans-serif; }
                 td, th { border: 1px solid #000000; padding: 6px; text-align: center; font-size: 14px; }
@@ -1559,7 +1596,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let totalSlCounter = 1;
 
             Object.keys(grouped).forEach((date, i) => {
-                // Format date string for group header
                 let displayDate = date;
                 try {
                     if (date.includes('-')) {
@@ -1570,25 +1606,20 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } catch (e) {}
 
-                if (i > 0) html += `<tr><td colspan="12" style="border:none;"></td></tr>`; // Gap between groups
-                
-                // Add date group header
-                html += `<tr><td colspan="12" class="group-date">${displayDate}</td></tr>`;
+                if (i > 0) html += `<tr><td colspan="${activeCols}" style="border:none;"></td></tr>`;
+                html += `<tr><td colspan="${activeCols}" class="group-date">${displayDate}</td></tr>`;
 
-                // Add columns header
                 html += `<tr>
-                    <th class="header-green">TOTAL SL</th>
-                    <th class="header-green">SN</th>
-                    <th class="header-pink">ORDER NO</th>
-                    <th class="header-pink">NAME</th>
-                    <th class="header-green">PHONE NO</th>
-                    <th class="header-green">E-MAIL ID</th>
-                    <th class="header-green">DATE</th>
-                    <th class="header-green">TIME/SLOT</th>
-                    <th class="header-green">TYPE OF SIM PODIUM</th>
-                    <th class="header-green">PPT</th>
-                    <th class="header-green">AMOUNT DUE</th>
-                    <th class="header-green">STATUS</th>
+                    ${showSn ? '<th class="header-green">TOTAL SL</th><th class="header-green">SN</th>' : ''}
+                    ${showOrder ? '<th class="header-pink">ORDER NO</th>' : ''}
+                    ${showName ? '<th class="header-pink">NAME</th>' : ''}
+                    ${showPhone ? '<th class="header-green">PHONE NO</th>' : ''}
+                    ${showEmail ? '<th class="header-green">E-MAIL ID</th>' : ''}
+                    ${showDate ? '<th class="header-green">DATE</th>' : ''}
+                    ${showTime ? '<th class="header-green">TIME/SLOT</th>' : ''}
+                    ${showType ? '<th class="header-green">TYPE OF SIM PODIUM</th><th class="header-green">PPT</th>' : ''}
+                    ${showAmount ? '<th class="header-green">AMOUNT DUE</th>' : ''}
+                    ${showStatus ? '<th class="header-green">STATUS</th>' : ''}
                 </tr>`;
 
                 let dateTotalAmount = 0;
@@ -1609,7 +1640,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     } catch (e) {}
 
-                    // Compute human-readable status labels matching the dashboard
                     const rawStatus = (b.status || 'PENDING').toUpperCase();
                     const isPending = rawStatus === 'PENDING';
                     const isCancelled = rawStatus === 'CANCELLED';
@@ -1620,36 +1650,59 @@ document.addEventListener('DOMContentLoaded', () => {
                     const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
 
                     html += `<tr>
-                        <td>${totalSlCounter}</td>
-                        <td>1</td>
-                        <td>${b.order_id || ''}</td>
-                        <td>${b.name || ''}</td>
-                        <td>${b.phone || ''}</td>
-                        <td>${b.email || ''}</td>
-                        <td>${formattedDate}</td>
-                        <td>${b.booking_time || ''}</td>
-                        <td>${b.item_name || ''}</td>
-                        <td>${ppt}</td>
-                        <td>₹${amt.toFixed(2)}</td>
-                        <td>${statusLabel}</td>
+                        ${showSn ? `<td>${totalSlCounter}</td><td>1</td>` : ''}
+                        ${showOrder ? `<td>${b.order_id || ''}</td>` : ''}
+                        ${showName ? `<td>${b.name || ''}</td>` : ''}
+                        ${showPhone ? `<td>${b.phone || ''}</td>` : ''}
+                        ${showEmail ? `<td>${b.email || ''}</td>` : ''}
+                        ${showDate ? `<td>${formattedDate}</td>` : ''}
+                        ${showTime ? `<td>${b.booking_time || ''}</td>` : ''}
+                        ${showType ? `<td>${b.item_name || ''}</td><td>${ppt}</td>` : ''}
+                        ${showAmount ? `<td>₹${amt.toFixed(2)}</td>` : ''}
+                        ${showStatus ? `<td>${statusLabel}</td>` : ''}
                     </tr>`;
                     
                     totalSlCounter++;
                 });
 
-                // Add total row
-                html += `<tr class="total-row">
-                    <td colspan="8" style="border:none;"></td>
-                    <td style="text-align:center;">TOTAL</td>
-                    <td>${dateTotalPpt}</td>
-                    <td>₹${dateTotalAmount.toFixed(2)}</td>
-                    <td style="border:none;"></td>
-                </tr>`;
+                if (showType || showAmount) {
+                    let totalColSpan = 0;
+                    if(showSn) totalColSpan += 2;
+                    if(showOrder) totalColSpan += 1;
+                    if(showName) totalColSpan += 1;
+                    if(showPhone) totalColSpan += 1;
+                    if(showEmail) totalColSpan += 1;
+                    if(showDate) totalColSpan += 1;
+                    if(showTime) totalColSpan += 1;
+
+                    html += `<tr class="total-row">`;
+                    if (totalColSpan > 0) {
+                        html += `<td colspan="${totalColSpan}" style="border:none; text-align:right;">TOTAL</td>`;
+                    } else if (showType) {
+                        // If no previous columns are shown, type is the first column
+                        html += `<td>TOTAL</td>`;
+                        totalColSpan++; // Account for the word TOTAL taking a column
+                    }
+                    
+                    if (showType && totalColSpan > 0) {
+                        html += `<td></td><td>${dateTotalPpt}</td>`;
+                    } else if (showType && totalColSpan === 0) {
+                        html += `<td>${dateTotalPpt}</td>`;
+                    }
+                    
+                    if (showAmount) {
+                        html += `<td>₹${dateTotalAmount.toFixed(2)}</td>`;
+                    }
+                    
+                    if (showStatus) {
+                        html += `<td style="border:none;"></td>`;
+                    }
+                    html += `</tr>`;
+                }
             });
 
             html += `</table></body></html>`;
             
-            // Trigger download as .xls
             const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");

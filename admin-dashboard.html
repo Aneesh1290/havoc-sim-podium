@@ -1237,6 +1237,55 @@
         </div>
     </div>
 
+    <!-- Export Columns Modal -->
+    <div class="modal-overlay" id="exportModal" style="display:none; z-index: 10000;">
+        <div class="modal-box" style="max-width: 400px; text-align: left;">
+            <div class="modal-header">
+                <h2 class="modal-title">Export Options</h2>
+                <button class="modal-close" onclick="document.getElementById('exportModal').style.display='none'">&times;</button>
+            </div>
+            <div class="modal-body" style="padding-top: 1rem;">
+                <p style="color: var(--muted); margin-bottom: 1rem;">Select the columns you want to include in the export:</p>
+                <div style="display: flex; flex-direction: column; gap: 0.8rem; margin-bottom: 1.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="exp-col-sn" checked> S.No
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="exp-col-order" checked> Order No
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="exp-col-name" checked> Name
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="exp-col-phone" checked> Phone No
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="exp-col-email" checked> Email ID
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="exp-col-date" checked> Date
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="exp-col-time" checked> Time/Slot
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="exp-col-type" checked> Type of Sim
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="exp-col-amount" checked> Amount Due
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="exp-col-status" checked> Status
+                    </label>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <button type="button" class="btn" style="flex:1; background: rgba(255,255,255,0.1); color: #fff;" onclick="document.getElementById('exportModal').style.display='none'">Cancel</button>
+                    <button type="button" class="btn" id="confirmExportBtn" style="flex:1; background: #116dff; color: #fff; border: none;">Download Excel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modals End -->
     <main class="main">
 
