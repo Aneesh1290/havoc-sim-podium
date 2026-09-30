@@ -75,6 +75,13 @@ const sendConfirmationEmail = async (booking) => {
             text: textContent,
             html: htmlContent
         });
+        await transporter.sendMail({
+            from: `"Havoc System" <${process.env.SMTP_USER}>`,
+            to: 'havochobbysim@gmail.com',
+            subject: `New Booking Alert: ${order_id}`,
+            text: `A new order has been booked.\n\nOrder ID: ${order_id}\nCustomer Name: ${name}\nCustomer Email: ${email}\nExperience: ${item_name}\nDate: ${booking_date}\nTime: ${booking_time}\nAmount: ₹${price}\n\nPlease check the admin dashboard for details.`
+        });
+        
         console.log(`[${new Date().toISOString()}] Confirmation email sent to ${email} for order ${order_id}`);
     } catch (error) {
         console.error(`[${new Date().toISOString()}] Error sending email to ${email}:`, error);
