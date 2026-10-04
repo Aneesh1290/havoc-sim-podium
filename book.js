@@ -582,6 +582,17 @@ document.addEventListener("DOMContentLoaded", () => {
             instructorFee: instructorFee
         };
         
+        const alreadyInCart = cart.some(item => 
+            item.itemName === pendingProduct.name && 
+            item.date === selectedDate.iso && 
+            item.slot === selectedSlot
+        );
+        
+        if (alreadyInCart) {
+            alert("This specific time slot for this product is already in your cart!");
+            return;
+        }
+        
         cart.push(cartItem);
         localStorage.setItem("havoc_cart", JSON.stringify(cart));
         
@@ -594,6 +605,17 @@ document.addEventListener("DOMContentLoaded", () => {
     // Confirm from modal -> add to cart
     confirmBtn?.addEventListener("click", async () => {
         if (!pendingProduct || !selectedDate || !selectedSlot) return;
+        
+        const alreadyInCart = cart.some(item => 
+            item.itemName === pendingProduct.name && 
+            item.date === selectedDate.iso && 
+            item.slot === selectedSlot
+        );
+        
+        if (alreadyInCart) {
+            alert("This specific time slot for this product is already in your cart!");
+            return;
+        }
 
         selectedInstructor = null;
 

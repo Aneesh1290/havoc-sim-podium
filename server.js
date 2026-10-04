@@ -1065,6 +1065,12 @@ app.post('/api/bookings/cod', async (req, res) => {
         return res.status(400).json({ error: 'Missing required booking details' });
     }
 
+    // Check for duplicates within the request itself
+    const uniqueItems = new Set(items.map(i => `${i.item_name}|${i.date}|${i.time}`));
+    if (uniqueItems.size !== items.length) {
+        return res.status(400).json({ error: 'Duplicate slots detected in booking request' });
+    }
+
     // Pre-flight concurrency check
     const checkAvailability = () => {
         return new Promise((resolve, reject) => {
@@ -1190,6 +1196,12 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
     try {
         const { amount, customer_details, booking_data } = req.body;
         const items = Array.isArray(booking_data) ? booking_data : [booking_data];
+
+        // Check for duplicates within the request itself
+        const uniqueItems = new Set(items.map(i => `${i.item_name}|${i.date}|${i.time}`));
+        if (uniqueItems.size !== items.length) {
+            return res.status(400).json({ error: 'Duplicate slots detected in booking request' });
+        }
 
         // Pre-flight concurrency check
         const checkAvailability = () => {

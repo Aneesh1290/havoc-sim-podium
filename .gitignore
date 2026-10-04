@@ -1,6 +1,7 @@
-node_modules/
+﻿node_modules/
 .env
 .DS_Store
 *.db
 havoc.db
 *.sqlite
+PG Direct integration UAT-ICICI-22.09.26/
