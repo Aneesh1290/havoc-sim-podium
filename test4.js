@@ -1,0 +1,1 @@
+const sqlite3 = require('sqlite3').verbose(); const db = new sqlite3.Database('havoc.db'); db.serialize(() => { db.run("DROP TABLE IF EXISTS settings"); db.run("UPDATE settings SET value = ? WHERE key = 'payment_methods'", ['test'], function(err) { console.log('Err:', err); }); });

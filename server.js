@@ -32,7 +32,7 @@ const upload = multer({ storage: storage, limits: { fileSize: 5 * 1024 * 1024 } 
 const helmet = require('helmet');
 const app = express();
 app.set('trust proxy', 1);
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'havoc-super-secret-key-123';
 
 // Redirect secondary domains to primary domain (havocsim.in)
@@ -681,14 +681,15 @@ app.get('/api/products', (req, res) => {
 });
 
 app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
-    const { name, type, price, compare_price, stock_quantity, description, options } = req.body;
+    const { name, type, price, compare_price, stock_quantity, description, options, hide_suffix } = req.body;
     let image_url = null;
     if (req.file) {
         const base64Data = req.file.buffer.toString('base64');
         image_url = `data:${req.file.mimetype};base64,${base64Data}`;
     }
-    db.run("INSERT INTO products (name, type, price, compare_price, stock_quantity, description, image_url, options) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [name, type, price, compare_price || null, stock_quantity || 10, description, image_url, options || '[]'],
+    const hideSuffixVal = hide_suffix === '1' || hide_suffix === 'true' ? 1 : 0;
+    db.run("INSERT INTO products (name, type, price, compare_price, stock_quantity, description, image_url, options, hide_suffix) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [name, type, price, compare_price || null, stock_quantity || 10, description, image_url, options || '[]', hideSuffixVal],
         function(err) {
             if (err) return res.status(500).json({ error: 'Failed to add product' });
             res.json({ success: true, id: this.lastID });
@@ -697,15 +698,17 @@ app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.single('im
 });
 
 app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
-    const { name, type, price, compare_price, stock_quantity, description, options } = req.body;
-    let query = "UPDATE products SET name=?, type=?, price=?, compare_price=?, stock_quantity=?, description=?, options=? WHERE id=?";
-    let params = [name, type, price, compare_price || null, stock_quantity || 10, description, options || '[]', req.params.id];
+    const { name, type, price, compare_price, stock_quantity, description, options, hide_suffix } = req.body;
+    const hideSuffixVal = hide_suffix === '1' || hide_suffix === 'true' ? 1 : 0;
+    
+    let query = "UPDATE products SET name=?, type=?, price=?, compare_price=?, stock_quantity=?, description=?, options=?, hide_suffix=? WHERE id=?";
+    let params = [name, type, price, compare_price || null, stock_quantity || 10, description, options || '[]', hideSuffixVal, req.params.id];
     
     if (req.file) {
         const base64Data = req.file.buffer.toString('base64');
         const image_url = `data:${req.file.mimetype};base64,${base64Data}`;
-        query = "UPDATE products SET name=?, type=?, price=?, compare_price=?, stock_quantity=?, description=?, options=?, image_url=? WHERE id=?";
-        params = [name, type, price, compare_price || null, stock_quantity || 10, description, options || '[]', image_url, req.params.id];
+        query = "UPDATE products SET name=?, type=?, price=?, compare_price=?, stock_quantity=?, description=?, options=?, hide_suffix=?, image_url=? WHERE id=?";
+        params = [name, type, price, compare_price || null, stock_quantity || 10, description, options || '[]', hideSuffixVal, image_url, req.params.id];
     }
     
     db.run(query, params, (err) => {

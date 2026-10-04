@@ -9,7 +9,8 @@ const initDb = () => {
     db.serialize(() => {
         db.run(`CREATE TABLE IF NOT EXISTS coupons (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE, type TEXT, value REAL, active INTEGER DEFAULT 1)`);
         db.run(`CREATE TABLE IF NOT EXISTS newsletter_subscribers (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, subscribed_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-        db.run(`CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, price REAL, compare_price REAL, stock_quantity INTEGER DEFAULT 0, description TEXT, image_url TEXT, options TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+        db.run(`CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, price REAL, compare_price REAL, stock_quantity INTEGER DEFAULT 0, description TEXT, image_url TEXT, options TEXT, hide_suffix INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+        db.run(`ALTER TABLE products ADD COLUMN hide_suffix INTEGER DEFAULT 0`, (err) => {});
         
         db.get("SELECT COUNT(*) AS count FROM products", (err, row) => {
             if (!err && row.count === 0) {

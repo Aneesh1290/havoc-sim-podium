@@ -1209,9 +1209,7 @@
                             <div class="input-wrap">
                                 <select id="instructorSimulatorType" style="width:100%; padding: 0.9rem 1.1rem; background: transparent !important; border: none !important; outline: none; color: #fff; font-family: 'Outfit', sans-serif; font-size: 0.95rem; appearance: none; -webkit-appearance: none;">
                                     <option value="All" style="color:#000;">All</option>
-                                    <option value="Racing" style="color:#000;">Racing</option>
-                                    <option value="Flying" style="color:#000;">Flying</option>
-                                    <option value="Driving" style="color:#000;">Driving</option>
+                                    <!-- Options injected here -->
                                 </select>
                             </div>
                         </div>
@@ -1979,12 +1977,20 @@
                     <div style="background: #18181b; border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 0;">
                         <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
                             <h3 style="margin: 0; font-size: 1.1rem; font-weight: 600; color: #fff;">Categories</h3>
-                            <button type="button" style="background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; color: #3b82f6; font-size: 0.8rem; font-weight: 500; padding: 0.2rem 0.8rem; cursor: pointer;">+ Assign</button>
                         </div>
                         <div style="padding: 1.5rem;">
                             <div style="margin-bottom: 1rem;">
-                                <input type="text" id="productType" required placeholder="Type or Category" style="width: 100%; padding: 0.6rem 1rem; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+                                <select id="productTypeSelect" style="width: 100%; padding: 0.6rem 1rem; background: #111113; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none; margin-bottom: 0.5rem; cursor: pointer;" onchange="document.getElementById('productTypeContainer').style.display = this.value === '_new_' ? 'block' : 'none'; if(this.value !== '_new_') document.getElementById('productType').value = this.value; else document.getElementById('productType').value = '';">
+                                    <!-- Options injected here -->
+                                </select>
+                                <div id="productTypeContainer" style="display: none;">
+                                    <input type="text" id="productType" placeholder="Type new category" style="width: 100%; padding: 0.6rem 1rem; background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='rgba(255,255,255,0.1)'">
+                                </div>
                             </div>
+                            <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; text-transform: none; color: #e4e4e7; font-weight: 400; font-size: 0.85rem; letter-spacing: normal; margin-top: 0.5rem;">
+                                <input type="checkbox" id="productHideSuffix" style="width: 16px; height: 16px; cursor: pointer; accent-color: #3b82f6;">
+                                Hide "SIMULATORS" suffix on home page for this category
+                            </label>
                         </div>
                     </div>
 

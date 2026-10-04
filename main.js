@@ -155,13 +155,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const products = await response.json();
 
             // Extract unique categories
-            const types = [...new Set(products.map(p => p.type).filter(Boolean))];
+            const categoryMap = {}; products.forEach(p => { if (p.type && categoryMap[p.type] === undefined) { categoryMap[p.type] = p.hide_suffix; } else if (p.type && p.hide_suffix) { categoryMap[p.type] = 1; } }); const types = Object.keys(categoryMap);
             
             // Generate Tabs
             let tabsHtml = '';
             types.forEach((type, index) => {
                 const activeClass = index === 0 ? 'active' : '';
-                tabsHtml += `<button class="tab-btn ${activeClass}" data-category="${type.toLowerCase()}">${type.toUpperCase()} SIMULATORS</button>`;
+                const hideSuffix = categoryMap[type]; const label = hideSuffix ? type.toUpperCase() : `${type.toUpperCase()} SIMULATORS`; tabsHtml += `<button class="tab-btn ${activeClass}" data-category="${type.toLowerCase()}">${label}</button>`;
             });
             dynamicTabsContainer.innerHTML = tabsHtml;
 
@@ -177,7 +177,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${p.compare_price && p.compare_price > p.price ? '<div class="badge">SALE</div>' : ''}
                     <div class="sim-img-wrap">${imgHtml}</div>
                     <div class="sim-info">
-                        <div class="sim-type">${p.type.toUpperCase()} SIM</div>
+                        <div class="sim-type">${p.hide_suffix ? p.type.toUpperCase() : `${p.type.toUpperCase()} SIM`}</div>
                         <h3>${p.name}</h3>
                         <div class="sim-meta">
                             <span>⏱ ${p.description || '30 MINUTES'}</span>

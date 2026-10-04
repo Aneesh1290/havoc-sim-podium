@@ -1363,7 +1363,18 @@ window.editInstructor = function(inst) {
     document.getElementById('instructorName').value = inst.name;
     document.getElementById('instructorEmail').value = inst.email || '';
     document.getElementById('instructorPhone').value = inst.phone || '';
-    document.getElementById('instructorSimulatorType').value = inst.simulator_type || 'All';
+    const instTypeSelect = document.getElementById('instructorSimulatorType');
+    const typeVal = inst.simulator_type || 'All';
+    if (instTypeSelect) {
+        if (!Array.from(instTypeSelect.options).some(opt => opt.value === typeVal)) {
+            const newOpt = document.createElement('option');
+            newOpt.value = typeVal;
+            newOpt.textContent = typeVal;
+            newOpt.style.color = '#000';
+            instTypeSelect.appendChild(newOpt);
+        }
+        instTypeSelect.value = typeVal;
+    }
     document.getElementById('instructorAge').value = inst.age || '';
     document.getElementById('instructorRole').value = inst.role || '';
     document.getElementById('instructorAchievement').value = inst.key_achievement || '';
@@ -2026,6 +2037,37 @@ async function loadInventory() {
                 categoryFilter.appendChild(opt);
             });
         }
+        
+        // Populate category select
+        const typeSelect = document.getElementById('productTypeSelect');
+        if (typeSelect) {
+            const types = [...new Set(inventoryData.map(p => p.type).filter(Boolean))];
+            typeSelect.innerHTML = '<option value="" disabled selected>Select Category</option>';
+            types.forEach(type => {
+                const opt = document.createElement('option');
+                opt.value = type;
+                opt.textContent = type;
+                typeSelect.appendChild(opt);
+            });
+            const newOpt = document.createElement('option');
+            newOpt.value = '_new_';
+            newOpt.textContent = '+ Add New Category';
+            typeSelect.appendChild(newOpt);
+        }
+        
+        // Populate instructor simulator types
+        const instructorTypeSelect = document.getElementById('instructorSimulatorType');
+        if (instructorTypeSelect) {
+            const types = [...new Set(inventoryData.map(p => p.type).filter(Boolean))];
+            instructorTypeSelect.innerHTML = '<option value="All" style="color:#000;">All</option>';
+            types.forEach(type => {
+                const opt = document.createElement('option');
+                opt.value = type;
+                opt.textContent = type;
+                opt.style.color = '#000';
+                instructorTypeSelect.appendChild(opt);
+            });
+        }
 
         renderInventory(inventoryData);
     } catch (err) {
@@ -2127,6 +2169,20 @@ window.openProductModal = (product = null) => {
         document.getElementById('productId').value = product.id;
         document.getElementById('productName').value = product.name;
         document.getElementById('productType').value = product.type;
+        const typeSelect = document.getElementById('productTypeSelect');
+        const typeContainer = document.getElementById('productTypeContainer');
+        if (typeSelect) {
+            const exists = Array.from(typeSelect.options).some(opt => opt.value === product.type);
+            if (exists) {
+                typeSelect.value = product.type;
+                if (typeContainer) typeContainer.style.display = 'none';
+            } else {
+                typeSelect.value = '_new_';
+                if (typeContainer) typeContainer.style.display = 'block';
+            }
+        }
+        const hideSuffixEl = document.getElementById('productHideSuffix');
+        if (hideSuffixEl) hideSuffixEl.checked = !!product.hide_suffix;
         document.getElementById('productDescription').value = product.description || '';
         document.getElementById('productPrice').value = product.price;
         const pvEl = document.getElementById('productPriceVisible');
@@ -2155,6 +2211,13 @@ window.openProductModal = (product = null) => {
         title.textContent = 'Add Product';
         if (breadcrumb) breadcrumb.textContent = 'New Product';
         form.reset();
+        const hideSuffixEl = document.getElementById('productHideSuffix');
+        if (hideSuffixEl) hideSuffixEl.checked = false;
+        
+        const typeSelect = document.getElementById('productTypeSelect');
+        const typeContainer = document.getElementById('productTypeContainer');
+        if (typeSelect) typeSelect.value = '';
+        if (typeContainer) typeContainer.style.display = 'none';
         document.getElementById('productId').value = '';
         document.getElementById('currentProductImage').textContent = '';
         initShopifyOptions('[]');
@@ -2270,6 +2333,8 @@ if (productForm) {
         formData.append('compare_price', document.getElementById('productComparePrice').value || '');
         formData.append('stock_quantity', document.getElementById('productStock').value);
         formData.append('options', document.getElementById('productOptionsData').value);
+        const hideSuffixEl = document.getElementById('productHideSuffix');
+        if (hideSuffixEl) formData.append('hide_suffix', hideSuffixEl.checked ? '1' : '0');
         
         const fileInput = document.getElementById('productImage');
         if (fileInput.files[0]) {
