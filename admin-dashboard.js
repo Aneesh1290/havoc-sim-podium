@@ -134,8 +134,10 @@ function renderBookings(bookingsToRender) {
     
     const groupedMap = new Map();
     bookingsToRender.forEach(b => {
-        const match = b.order_id.match(/^(.*)_(\d+)$/);
-        const baseId = match ? match[1] : b.order_id;
+        // Multi-item bookings have order_id like PREFIX_DATE_ORDERNO_INDEX (4 parts).
+        // Only strip the last item index if there are at least 4 underscore-separated parts.
+        const parts = (b.order_id || '').split('_');
+        const baseId = parts.length >= 4 ? parts.slice(0, 3).join('_') : b.order_id;
         if (!groupedMap.has(baseId)) {
             groupedMap.set(baseId, {
                 order_id: baseId,
@@ -394,8 +396,8 @@ window.closeOrderDetails = () => {
 
 window.openOrderDetails = (baseOrderId) => {
     const items = window.allBookings.filter(b => {
-        const match = b.order_id.match(/^(.*)_(\d+)$/);
-        const base = match ? match[1] : b.order_id;
+        const parts = (b.order_id || '').split('_');
+        const base = parts.length >= 4 ? parts.slice(0, 3).join('_') : b.order_id;
         return base === baseOrderId;
     });
     if(!items.length) return;
