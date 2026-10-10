@@ -771,15 +771,16 @@ a {
 .light-footer {
     background-color: var(--bg-light);
     color: var(--text-dark);
-    padding: 4rem;
+    padding: 4rem 4rem 1.5rem 4rem;
 }
 
 .footer-top {
     max-width: 1600px;
     margin: 0 auto;
     display: grid;
-    grid-template-columns: 1.5fr 1fr 1.5fr 1fr;
+    grid-template-columns: 1.5fr 1fr 2fr;
     gap: 3rem;
+    margin-bottom: 3rem;
 }
 
 .newsletter h3 { font-size: 1rem; margin-bottom: 0.5rem; }
@@ -848,8 +849,25 @@ a {
 .footer-hours h4 { font-size: 0.85rem; margin-bottom: 1.5rem; }
 .footer-hours p { font-size: 0.8rem; color: #555; margin-bottom: 1rem; }
 
-.legal { margin-top: 2rem; display: flex; gap: 1rem; }
-.legal a { font-size: 0.75rem; color: #888; }
+.footer-bottom {
+    max-width: 1600px;
+    margin: 0 auto;
+    border-top: 1px solid rgba(0,0,0,0.1);
+    padding-top: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.footer-bottom .copyright { margin: 0; font-size: 0.8rem; color: #888; }
+.footer-bottom .developed-by { margin: 0; font-size: 0.8rem; color: #888; font-weight: 500; }
+.footer-bottom .developed-by a { color: var(--accent-gold); text-decoration: none; font-weight: 700; transition: color 0.3s; }
+.footer-bottom .developed-by a:hover { color: #b89831; }
+
+.legal { display: flex; gap: 1rem; flex-wrap: wrap; }
+.legal a { font-size: 0.75rem; color: #888; text-decoration: none; transition: color 0.3s; }
+.legal a:hover { color: var(--accent-gold); }
 
 /* Responsive adjustments */
 @media (max-width: 1200px) {
@@ -940,7 +958,8 @@ a {
     .venue-widget { padding: 1rem; }
     .venue-icons { gap: 1rem; }
     .events-grid { grid-template-columns: 1fr; }
-    .footer-top { grid-template-columns: 1fr; }
+    .footer-top { grid-template-columns: 1fr; gap: 2rem; margin-bottom: 2rem; }
+    .footer-bottom { flex-direction: column; align-items: flex-start; justify-content: center; text-align: left; }
     
     .carousel-container { margin: 0; width: 100%; padding: 0; }
     .nav-btn { display: none; /* Hide carousel arrows on mobile, rely on native swipe */ }
