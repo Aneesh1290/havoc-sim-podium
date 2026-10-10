@@ -566,7 +566,10 @@ document.addEventListener("DOMContentLoaded", () => {
                                 ${p.compare_price && p.compare_price > p.price ? `<span style="text-decoration: line-through; color: #888; font-size: 0.85em; margin-right: 6px;">₹${parseFloat(p.compare_price).toFixed(2)}</span>` : ''}
                                 ₹${p.price.toFixed(2)} <span style="font-size: 0.7em; color: #888;">+ GST</span>
                             </div>
-                            ${p.stock_quantity > 0 ? `<button class="btn btn-product add-to-cart" data-id="${p.id}">Add to Cart</button>` : `<button class="btn btn-product" disabled>Sold Out</button>`}
+                            <div class="product-actions" style="display:flex; flex-direction:column; gap:8px; margin-top:15px;">
+                                ${p.description && p.description.trim().length > 0 ? `<button class="btn-specs view-specs-btn" data-id="${p.id}" style="width:100%; border-radius:8px; padding:0.6rem;">View Specs</button>` : ''}
+                                ${p.stock_quantity > 0 ? `<button class="btn btn-product add-to-cart" data-id="${p.id}" style="margin-top:0;">Add to Cart</button>` : `<button class="btn btn-product" disabled style="margin-top:0;">Sold Out</button>`}
+                            </div>
                         </div>
                     </div>
                     `;
@@ -581,6 +584,81 @@ document.addEventListener("DOMContentLoaded", () => {
                         openModal({ name: p.name, type: p.type, price: `₹${parseFloat(p.price).toFixed(2)}`, imgSrc: p.image_url, description: p.description, options: p.options });
                     });
                 });
+
+                // View Specs modal logic
+                const formatSpecsHtml = (text) => {
+                    if (!text) return '';
+                    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+                    let html = '';
+                    let inList = false;
+                    lines.forEach(line => {
+                        if (line.startsWith('- ') || line.startsWith('* ')) {
+                            if (!inList) { html += '<ul>'; inList = true; }
+                            const itemText = line.replace(/^[-*]\s*/, '');
+                            const colonIdx = itemText.indexOf(':');
+                            if (colonIdx > 0 && colonIdx < 30) {
+                                const label = itemText.substring(0, colonIdx);
+                                const val = itemText.substring(colonIdx + 1);
+                                html += `<li><strong style="color:#fff;">${label}:</strong>${val}</li>`;
+                            } else {
+                                html += `<li>${itemText}</li>`;
+                            }
+                        } else {
+                            if (inList) { html += '</ul>'; inList = false; }
+                            if (line.length < 40 && !line.endsWith('.')) {
+                                html += `<h4>${line}</h4>`;
+                            } else {
+                                html += `<p>${line}</p>`;
+                            }
+                        }
+                    });
+                    if (inList) html += '</ul>';
+                    return html;
+                };
+
+                const simModal = document.getElementById('simDetailsModal');
+                const simModalClose = document.getElementById('sdmClose');
+                
+                document.querySelectorAll(".view-specs-btn").forEach(btn => {
+                    btn.addEventListener("click", (e) => {
+                        const id = e.target.getAttribute("data-id");
+                        const p = products.find(prod => prod.id == id);
+                        if (!p || !simModal) return;
+                        
+                        const sdmImg = document.getElementById('sdmImg');
+                        const sdmType = document.getElementById('sdmType');
+                        const sdmTitle = document.getElementById('sdmTitle');
+                        const sdmPrice = document.getElementById('sdmPrice');
+                        const sdmBody = document.getElementById('sdmBody');
+
+                        if (sdmImg) { sdmImg.src = p.image_url || 'havoc_logo.png'; sdmImg.alt = p.name; }
+                        if (sdmType) sdmType.textContent = (p.type || 'SIMULATOR').toUpperCase();
+                        if (sdmTitle) sdmTitle.textContent = p.name;
+                        if (sdmPrice) {
+                            const compStr = p.compare_price && p.compare_price > p.price ? `<span style="text-decoration:line-through; color:#888; font-size:0.85em; margin-right:6px;">₹${parseFloat(p.compare_price).toFixed(2)}</span>` : '';
+                            sdmPrice.innerHTML = `${compStr}₹${parseFloat(p.price).toFixed(2)}`;
+                        }
+                        if (sdmBody) sdmBody.innerHTML = formatSpecsHtml(p.description);
+
+                        simModal.classList.add('open');
+                        document.body.style.overflow = 'hidden';
+                    });
+                });
+
+                if (simModalClose) {
+                    simModalClose.onclick = () => {
+                        simModal.classList.remove('open');
+                        document.body.style.overflow = '';
+                    };
+                }
+                if (simModal) {
+                    simModal.onclick = (e) => {
+                        if (e.target === simModal) {
+                            simModal.classList.remove('open');
+                            document.body.style.overflow = '';
+                        }
+                    };
+                }
 
                 const dynamicCategorySidebar = document.getElementById('dynamicCategorySidebar');
                 if (dynamicCategorySidebar) {

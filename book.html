@@ -162,6 +162,26 @@
         </div>
     </div>
 
+    <!-- Simulator Specifications Modal -->
+    <div id="simDetailsModal" class="sim-details-modal-overlay">
+        <div class="sim-details-modal">
+            <div class="sim-details-header">
+                <div style="display:flex; align-items:center; gap:1rem;">
+                    <img id="sdmImg" src="" alt="Sim" class="sdm-img">
+                    <div>
+                        <div id="sdmType" class="sdm-type">FLYING SIM</div>
+                        <h3 id="sdmTitle" style="margin:0; font-size:1.3rem; font-weight:800; color:#fff;"></h3>
+                        <div id="sdmPrice" style="color:var(--accent-gold); font-weight:700; font-size:1.1rem; margin-top:2px;"></div>
+                    </div>
+                </div>
+                <button class="sdm-close" id="sdmClose">&times;</button>
+            </div>
+            <div class="sdm-body" id="sdmBody">
+                <!-- Formatted specs content injected here -->
+            </div>
+        </div>
+    </div>
+
     <script src="book.js?v=6"></script>
 </body>
 </html>
