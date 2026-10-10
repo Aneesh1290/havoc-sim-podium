@@ -1318,6 +1318,7 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                 
                 if (data.responseCode !== "R1000") {
                     console.error('ICICI initiateSale error response:', data);
+                    db.run("DELETE FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`]);
                     return res.status(500).json({ error: 'Failed to initiate ICICI PG order' });
                 }
 
@@ -1329,6 +1330,7 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                 });
             } catch (err) {
                 console.error('Create ICICI order API error:', err);
+                db.run("DELETE FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`]);
                 res.status(500).json({ error: 'Failed to communicate with ICICI Gateway' });
             }
         }
@@ -1557,10 +1559,12 @@ app.post('/api/upi/collect', async (req, res) => {
                 if (response && response.success === "true") {
                     res.json({ success: true, order_id: orderId, message: 'Please approve the payment in your UPI app.' });
                 } else {
+                    db.run("DELETE FROM bookings WHERE order_id LIKE ?", [`${orderId}%`]);
                     res.status(400).json({ error: response?.errormessage || 'Failed to initiate UPI payment' });
                 }
             } catch (err) {
                 console.error('UPI Collect API error:', err);
+                db.run("DELETE FROM bookings WHERE order_id LIKE ?", [`${orderId}%`]);
                 res.status(500).json({ error: 'Failed to communicate with ICICI Bank' });
             }
         }
