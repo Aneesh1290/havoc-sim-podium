@@ -7,69 +7,280 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <style>
-        body { background: #0a0a0c; color: #fff; font-family: 'Outfit', sans-serif; margin: 0; padding: 0; }
-        .dashboard-header { background: #1a1a1f; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .dashboard-header h1 { margin: 0; font-size: 1.5rem; color: #d4af37; }
-        .dashboard-container { max-width: 900px; margin: 2rem auto; padding: 0 1rem; }
-        .panel { background: #1a1a1f; padding: 2rem; border-radius: 12px; margin-bottom: 2rem; }
-        .panel h2 { margin-top: 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 1rem; }
+        body { 
+            background: #0a0a0c; 
+            color: #fff; 
+            font-family: 'Outfit', sans-serif; 
+            margin: 0; 
+            padding: 0; 
+        }
         
-        .status-toggle { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
-        .switch { position: relative; display: inline-block; width: 60px; height: 34px; }
+        .dashboard-header { 
+            background: rgba(26, 26, 31, 0.8); 
+            padding: 1rem 3rem; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            border-bottom: 1px solid rgba(255,255,255,0.05); 
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-left { display: flex; align-items: center; gap: 1rem; }
+        .header-logo { width: 40px; height: 40px; object-fit: contain; }
+        .dashboard-header h1 { margin: 0; font-size: 1.4rem; color: #fff; font-weight: 600; }
+        
+        .header-right { display: flex; gap: 1.5rem; align-items: center; }
+        #instructorName { font-weight: 500; color: #ccc; }
+        
+        .btn-logout { 
+            background: transparent; 
+            border: 1px solid rgba(255, 77, 77, 0.5); 
+            color: #ff4d4d; 
+            padding: 0.5rem 1.2rem; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: 600; 
+            font-family: 'Outfit', sans-serif;
+            transition: all 0.3s;
+        }
+        .btn-logout:hover {
+            background: rgba(255, 77, 77, 0.1);
+            border-color: #ff4d4d;
+        }
+        
+        .dashboard-container { 
+            max-width: 1000px; 
+            margin: 3rem auto; 
+            padding: 0 1.5rem; 
+        }
+        
+        .panel { 
+            background: #1a1a1f; 
+            padding: 2.5rem; 
+            border-radius: 16px; 
+            margin-bottom: 2rem; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border: 1px solid rgba(255,255,255,0.03);
+        }
+        
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .panel h2 { 
+            margin: 0 0 0.5rem 0; 
+            color: var(--accent-gold);
+            font-size: 1.5rem;
+        }
+        .panel p.desc {
+            margin: 0;
+            color: #888;
+            font-size: 0.95rem;
+        }
+        
+        .status-toggle { display: flex; align-items: center; gap: 1rem; }
+        .switch { position: relative; display: inline-block; width: 64px; height: 34px; }
         .switch input { opacity: 0; width: 0; height: 0; }
         .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 34px; }
         .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: #28a745; }
-        input:checked + .slider:before { transform: translateX(26px); }
+        input:checked + .slider { background-color: var(--accent-gold); }
+        input:checked + .slider:before { transform: translateX(30px); }
         
-        .day-block { margin-bottom: 1.5rem; padding: 1rem; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; }
-        .day-block h3 { margin: 0 0 1rem 0; text-transform: capitalize; color: #d4af37; }
-        .slot-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-        .slot-btn { background: #333; color: #ccc; border: 1px solid #444; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; user-select: none; transition: all 0.2s; }
-        .slot-btn.active { background: #d4af37; color: #000; border-color: #d4af37; font-weight: 600; }
+        .day-block { 
+            margin-bottom: 1.5rem; 
+            padding: 1.5rem; 
+            background: rgba(0,0,0,0.2); 
+            border: 1px solid rgba(255,255,255,0.05); 
+            border-radius: 12px; 
+        }
+        .day-block h3 { 
+            margin: 0 0 1rem 0; 
+            text-transform: capitalize; 
+            color: #fff; 
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .day-block h3::before {
+            content: '';
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: var(--accent-gold);
+            border-radius: 50%;
+        }
         
-        .btn-save { background: #d4af37; color: #000; padding: 0.8rem 2rem; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-family: inherit; font-size: 1rem; }
-        .btn-save:hover { background: #c5a030; }
-        .btn-logout { background: transparent; border: 1px solid #d4af37; color: #d4af37; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; font-weight: 600; }
+        .slot-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); 
+            gap: 0.8rem; 
+        }
+        
+        .slot-btn { 
+            background: #2a2a30; 
+            color: #aaa; 
+            border: 1px solid #333; 
+            padding: 0.6rem 0; 
+            text-align: center;
+            border-radius: 6px; 
+            cursor: pointer; 
+            user-select: none; 
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        .slot-btn:hover {
+            background: #333;
+            border-color: #555;
+            color: #fff;
+        }
+        .slot-btn.active { 
+            background: rgba(212, 175, 55, 0.1); 
+            color: var(--accent-gold); 
+            border-color: var(--accent-gold); 
+            font-weight: 600; 
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.1);
+        }
+        
+        .bottom-actions {
+            margin-top: 3rem; 
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 1.5rem;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .btn-save { 
+            background: var(--accent-gold); 
+            color: #000; 
+            padding: 1rem 2.5rem; 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: 700; 
+            cursor: pointer; 
+            font-family: inherit; 
+            font-size: 1.05rem; 
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .btn-save:hover { 
+            background: #e5b869; 
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(212, 175, 55, 0.2);
+        }
+        .btn-save:active {
+            transform: translateY(0);
+        }
+        
+        .status-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        .status-badge.online { background: rgba(40, 167, 69, 0.2); color: #28a745; }
+        .status-badge.offline { background: rgba(255, 77, 77, 0.2); color: #ff4d4d; }
+        
+        @media (max-width: 768px) {
+            .dashboard-header { padding: 1rem; flex-direction: column; gap: 1rem; }
+            .panel-header { flex-direction: column; gap: 1.5rem; }
+            .slot-grid { grid-template-columns: repeat(3, 1fr); }
+            .bottom-actions { justify-content: center; flex-direction: column; }
+            .btn-save { width: 100%; }
+        }
     </style>
 </head>
 <body>
     <header class="dashboard-header">
-        <h1>Instructor Portal</h1>
-        <div style="display:flex; gap:1rem; align-items:center;">
+        <div class="header-left">
+            <img src="havoc_logo.png" alt="Logo" class="header-logo">
+            <h1>Instructor Portal</h1>
+        </div>
+        <div class="header-right">
             <span id="instructorName">Loading...</span>
             <button class="btn-logout" id="logoutBtn">Logout</button>
         </div>
     </header>
     
     <div class="dashboard-container">
+        
         <div class="panel">
-            <h2>Availability Status</h2>
-            <div class="status-toggle">
-                <span style="font-weight: 600; color: #ccc;">Offline</span>
-                <label class="switch">
-                    <input type="checkbox" id="statusToggle">
-                    <span class="slider"></span>
-                </label>
-                <span style="font-weight: 600; color: #28a745;">Available</span>
+            <div class="panel-header">
+                <div>
+                    <h2>Availability Status</h2>
+                    <p class="desc">Toggle your master availability for bookings.</p>
+                </div>
+                <div class="status-toggle">
+                    <span id="statusLabel" class="status-badge offline">Offline</span>
+                    <label class="switch">
+                        <input type="checkbox" id="statusToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
             </div>
-            <p style="font-size: 0.9rem; color: #888;">If you turn this off, you will not appear on the booking page at all, regardless of your schedule.</p>
+            <p style="font-size: 0.9rem; color: #888; margin: 0; line-height: 1.5;">
+                <strong>Note:</strong> If you turn this off, you will instantly disappear from the booking page, completely overriding your weekly schedule. Use this when you are on leave or unavailable for the day.
+            </p>
         </div>
 
         <div class="panel">
-            <h2>Weekly Schedule</h2>
-            <p style="font-size: 0.9rem; color: #888; margin-bottom: 1.5rem;">Select the time slots you are available for each day of the week.</p>
+            <div class="panel-header" style="border-bottom: none; padding-bottom: 0; margin-bottom: 1.5rem;">
+                <div>
+                    <h2>Weekly Schedule</h2>
+                    <p class="desc">Select all the time slots you are generally available to teach.</p>
+                </div>
+            </div>
             
             <div id="scheduleContainer">
                 <!-- Days will be generated by JS -->
             </div>
             
-            <div style="margin-top: 2rem; text-align: right;">
-                <button class="btn-save" id="saveScheduleBtn">Save Changes</button>
+            <div class="bottom-actions">
+                <span id="saveStatus" style="color: #28a745; display: none; font-weight: 600;">Changes saved successfully!</span>
+                <button class="btn-save" id="saveScheduleBtn">Save Schedule</button>
             </div>
         </div>
     </div>
 
     <script src="instructor-dashboard.js"></script>
+    <script>
+        // Add listener for toggle to update badge text
+        document.getElementById('statusToggle').addEventListener('change', (e) => {
+            const badge = document.getElementById('statusLabel');
+            if (e.target.checked) {
+                badge.textContent = 'Available';
+                badge.className = 'status-badge online';
+            } else {
+                badge.textContent = 'Offline';
+                badge.className = 'status-badge offline';
+            }
+        });
+        
+        // Expose a function to update badge initially
+        window.updateStatusBadge = (isAvailable) => {
+            const badge = document.getElementById('statusLabel');
+            if (isAvailable) {
+                badge.textContent = 'Available';
+                badge.className = 'status-badge online';
+            } else {
+                badge.textContent = 'Offline';
+                badge.className = 'status-badge offline';
+            }
+        };
+    </script>
 </body>
 </html>

@@ -75,8 +75,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         if (data.status === 'Available') {
             statusToggle.checked = true;
+            if (window.updateStatusBadge) window.updateStatusBadge(true);
         } else {
             statusToggle.checked = false;
+            if (window.updateStatusBadge) window.updateStatusBadge(false);
         }
         
         if (data.schedule_json) {
@@ -129,10 +131,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             
             if (res.ok) {
                 btn.textContent = 'Saved!';
+                const saveStatus = document.getElementById('saveStatus');
+                if (saveStatus) saveStatus.style.display = 'block';
                 setTimeout(() => {
                     btn.textContent = originalText;
                     btn.disabled = false;
-                }, 2000);
+                    if (saveStatus) saveStatus.style.display = 'none';
+                }, 3000);
             } else {
                 alert('Failed to save schedule');
                 btn.textContent = originalText;
