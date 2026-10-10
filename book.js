@@ -345,6 +345,43 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
+    const formatSpecsHtml = (text) => {
+        if (!text) return '';
+        const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+        let html = '';
+        let inList = false;
+
+        lines.forEach(line => {
+            if (line.startsWith('- ') || line.startsWith('* ')) {
+                if (!inList) {
+                    html += '<ul style="margin: 0.3rem 0 0.8rem 1.2rem; padding: 0;">';
+                    inList = true;
+                }
+                const itemText = line.replace(/^[-*]\s*/, '');
+                const colonIdx = itemText.indexOf(':');
+                if (colonIdx > 0 && colonIdx < 30) {
+                    const label = itemText.substring(0, colonIdx);
+                    const val = itemText.substring(colonIdx + 1);
+                    html += `<li style="margin-bottom:0.3rem;"><strong style="color:#fff;">${label}:</strong>${val}</li>`;
+                } else {
+                    html += `<li style="margin-bottom:0.3rem;">${itemText}</li>`;
+                }
+            } else {
+                if (inList) {
+                    html += '</ul>';
+                    inList = false;
+                }
+                if (line.length < 40 && !line.endsWith('.')) {
+                    html += `<h4 style="color:var(--accent-gold, #e5b869); font-size:0.95rem; margin:1rem 0 0.4rem 0; font-weight:700;">${line}</h4>`;
+                } else {
+                    html += `<p style="margin-bottom:0.6rem;">${line}</p>`;
+                }
+            }
+        });
+        if (inList) html += '</ul>';
+        return html;
+    };
+
     const openModal = (product) => {
         pendingProduct = product;
         selectedDate   = null;
@@ -354,6 +391,30 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById("modalProductName").innerText  = product.name;
         document.getElementById("modalProductPrice").innerText = product.price;
         document.getElementById("modalProductImg").src         = product.imgSrc;
+
+        // Specs toggle handling
+        const specsBtn = document.getElementById("modalSpecsToggleBtn");
+        const specsSection = document.getElementById("modalSpecsSection");
+        if (specsBtn && specsSection) {
+            if (product.description && product.description.trim().length > 0) {
+                specsBtn.style.display = "inline-block";
+                specsBtn.innerText = "View Specs ▾";
+                specsSection.innerHTML = formatSpecsHtml(product.description);
+                specsSection.style.display = "none";
+                specsBtn.onclick = () => {
+                    if (specsSection.style.display === "none") {
+                        specsSection.style.display = "block";
+                        specsBtn.innerText = "Hide Specs ▴";
+                    } else {
+                        specsSection.style.display = "none";
+                        specsBtn.innerText = "View Specs ▾";
+                    }
+                };
+            } else {
+                specsBtn.style.display = "none";
+                specsSection.style.display = "none";
+            }
+        }
 
         buildDatePills();
         if (timePillsEl) timePillsEl.innerHTML = "<span style='color:#555;font-size:0.82rem;'>Select a date first</span>";
@@ -366,6 +427,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeModal = () => {
         slotModal.classList.remove("open");
         document.body.style.overflow = "";
+        const specsSection = document.getElementById("modalSpecsSection");
+        const specsBtn = document.getElementById("modalSpecsToggleBtn");
+        if (specsSection) specsSection.style.display = "none";
+        if (specsBtn) specsBtn.innerText = "View Specs ▾";
     };
 
     slotModalClose?.addEventListener("click", closeModal);
@@ -496,7 +561,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div class="product-card" data-category="${p.type.toLowerCase()}">
                         ${imgHtml}
                         <div class="product-info">
-                            <h4>${p.name} ${p.description ? `- ${p.description}` : ''}</h4>
+                            <h4>${p.name}</h4>
                             <div class="product-price">
                                 ${p.compare_price && p.compare_price > p.price ? `<span style="text-decoration: line-through; color: #888; font-size: 0.85em; margin-right: 6px;">₹${parseFloat(p.compare_price).toFixed(2)}</span>` : ''}
                                 ₹${p.price.toFixed(2)} <span style="font-size: 0.7em; color: #888;">+ GST</span>
@@ -513,7 +578,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         const id = e.target.getAttribute("data-id");
                         const p = products.find(prod => prod.id == id);
                         if (!p) return;
-                        openModal({ name: p.name, type: p.type, price: `₹${parseFloat(p.price).toFixed(2)}`, imgSrc: p.image_url, options: p.options });
+                        openModal({ name: p.name, type: p.type, price: `₹${parseFloat(p.price).toFixed(2)}`, imgSrc: p.image_url, description: p.description, options: p.options });
                     });
                 });
 

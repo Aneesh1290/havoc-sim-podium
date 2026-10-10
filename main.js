@@ -172,6 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const displayStyle = category === types[0]?.toLowerCase() ? 'block' : 'none';
                 const imgHtml = p.image_url ? `<img src="${p.image_url}" alt="${p.name}">` : `<div style="width:100%; height:180px; background:#222;"></div>`;
                 
+                const hasDetailedDesc = p.description && p.description.trim().length > 0;
+                
                 cardsHtml += `
                 <div class="sim-card" data-category="${category}" style="display: ${displayStyle};">
                     ${p.compare_price && p.compare_price > p.price ? '<div class="badge">SALE</div>' : ''}
@@ -180,17 +182,109 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="sim-type">${p.hide_suffix ? p.type.toUpperCase() : `${p.type.toUpperCase()} SIM`}</div>
                         <h3>${p.name}</h3>
                         <div class="sim-meta">
-                            <span>⏱ ${p.description || '30 MINUTES'}</span>
+                            <span>⏱ 30 MINUTES</span>
                         </div>
                         <div class="sim-price">
                             ${p.compare_price && p.compare_price > p.price ? `<span style="text-decoration: line-through; color: #888; font-size: 0.85em; margin-right: 6px;">₹${parseFloat(p.compare_price).toFixed(2)}</span>` : ''}₹${parseFloat(p.price).toFixed(2)}
                         </div>
-                        <a href="/book" class="btn btn-card">BOOK NOW</a>
+                        <div class="sim-actions">
+                            ${hasDetailedDesc ? `<button class="btn-specs view-specs-btn" data-id="${p.id}">View Specs</button>` : ''}
+                            <a href="/book" class="btn btn-card">BOOK NOW</a>
+                        </div>
                     </div>
                 </div>
                 `;
             });
             carouselContainer.innerHTML = cardsHtml;
+
+            // Wire "View Specs" modal triggers
+            const modal = document.getElementById('simDetailsModal');
+            const modalClose = document.getElementById('sdmClose');
+            const sdmImg = document.getElementById('sdmImg');
+            const sdmType = document.getElementById('sdmType');
+            const sdmTitle = document.getElementById('sdmTitle');
+            const sdmPrice = document.getElementById('sdmPrice');
+            const sdmBody = document.getElementById('sdmBody');
+
+            const formatSpecsHtml = (text) => {
+                if (!text) return '';
+                // Split paragraphs
+                const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+                let html = '';
+                let inList = false;
+
+                lines.forEach(line => {
+                    if (line.startsWith('- ') || line.startsWith('* ')) {
+                        if (!inList) {
+                            html += '<ul>';
+                            inList = true;
+                        }
+                        const itemText = line.replace(/^[-*]\s*/, '');
+                        // Bold the label before ':' if any
+                        const colonIdx = itemText.indexOf(':');
+                        if (colonIdx > 0 && colonIdx < 30) {
+                            const label = itemText.substring(0, colonIdx);
+                            const val = itemText.substring(colonIdx + 1);
+                            html += `<li><strong style="color:#fff;">${label}:</strong>${val}</li>`;
+                        } else {
+                            html += `<li>${itemText}</li>`;
+                        }
+                    } else {
+                        if (inList) {
+                            html += '</ul>';
+                            inList = false;
+                        }
+                        // Check if it's a section title (short line or ends with no period)
+                        if (line.length < 40 && !line.endsWith('.')) {
+                            html += `<h4>${line}</h4>`;
+                        } else {
+                            html += `<p>${line}</p>`;
+                        }
+                    }
+                });
+                if (inList) html += '</ul>';
+                return html;
+            };
+
+            carouselContainer.querySelectorAll('.view-specs-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const id = btn.getAttribute('data-id');
+                    const p = products.find(prod => prod.id == id);
+                    if (!p || !modal) return;
+
+                    if (sdmImg) {
+                        sdmImg.src = p.image_url || 'havoc_logo.png';
+                        sdmImg.alt = p.name;
+                    }
+                    if (sdmType) sdmType.textContent = (p.type || 'SIMULATOR').toUpperCase();
+                    if (sdmTitle) sdmTitle.textContent = p.name;
+                    if (sdmPrice) {
+                        const compStr = p.compare_price && p.compare_price > p.price ? `<span style="text-decoration:line-through; color:#888; font-size:0.85em; margin-right:6px;">₹${parseFloat(p.compare_price).toFixed(2)}</span>` : '';
+                        sdmPrice.innerHTML = `${compStr}₹${parseFloat(p.price).toFixed(2)}`;
+                    }
+                    if (sdmBody) {
+                        sdmBody.innerHTML = formatSpecsHtml(p.description);
+                    }
+
+                    modal.classList.add('open');
+                    document.body.style.overflow = 'hidden';
+                });
+            });
+
+            if (modalClose) {
+                modalClose.onclick = () => {
+                    modal.classList.remove('open');
+                    document.body.style.overflow = '';
+                };
+            }
+            if (modal) {
+                modal.onclick = (e) => {
+                    if (e.target === modal) {
+                        modal.classList.remove('open');
+                        document.body.style.overflow = '';
+                    }
+                };
+            }
 
             // Setup Tab Click Listeners
             const tabBtns = dynamicTabsContainer.querySelectorAll('.tab-btn');
