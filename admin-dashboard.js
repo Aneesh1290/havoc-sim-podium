@@ -276,10 +276,27 @@ function updateAnalyticsSummary(bookings) {
     const currentPeriodStart = days === 'all' ? new Date(0) : new Date(now.getTime() - (days * msInDay));
     const prevPeriodStart = days === 'all' ? new Date(0) : new Date(now.getTime() - (days * 2 * msInDay));
 
+    // Group bookings by baseOrderId so we count actual orders and their total prices
+    const orderMap = new Map();
     bookings.forEach(b => {
-        if (b.status === 'CANCELLED' || b.status === 'REFUNDED') return;
+        const parts = (b.order_id || '').split('_');
+        const baseId = parts.length >= 4 ? parts.slice(0, 3).join('_') : b.order_id;
+        if (!orderMap.has(baseId)) {
+            orderMap.set(baseId, {
+                order_id: baseId,
+                status: b.status,
+                created_at: b.created_at,
+                booking_date: b.booking_date,
+                total_price: 0
+            });
+        }
+        orderMap.get(baseId).total_price += (parseFloat(b.price) || 0);
+    });
+
+    orderMap.forEach(order => {
+        if (order.status === 'CANCELLED' || order.status === 'REFUNDED') return;
         
-        let dateStr = b.created_at || b.booking_date || '';
+        let dateStr = order.created_at || order.booking_date || '';
         if (dateStr.includes(' ')) {
             dateStr = dateStr.replace(' ', 'T');
         }
@@ -289,10 +306,10 @@ function updateAnalyticsSummary(bookings) {
         
         if (d >= currentPeriodStart) {
             currentOrders++;
-            currentSales += (parseFloat(b.price) || 0);
+            currentSales += order.total_price;
         } else if (days !== 'all' && d >= prevPeriodStart && d < currentPeriodStart) {
             prevOrders++;
-            prevSales += (parseFloat(b.price) || 0);
+            prevSales += order.total_price;
         }
     });
 

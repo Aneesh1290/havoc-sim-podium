@@ -1055,6 +1055,30 @@ app.post('/api/admin/bookings', verifyToken, (req, res) => {
     );
 });
 
+// Helper to get next sequential order number based on highest existing order number
+const getNextOrderNumber = () => {
+    return new Promise((resolve) => {
+        db.all("SELECT order_id FROM bookings", [], (err, rows) => {
+            if (err || !rows || rows.length === 0) {
+                return resolve('01');
+            }
+            let maxNum = 0;
+            rows.forEach(r => {
+                const parts = (r.order_id || '').split('_');
+                // Format: PREFIX_DATE_ORDERNO (e.g. PAYDUE_10OCT26_21 or PAYDUE_10OCT26_21_0)
+                if (parts.length >= 3) {
+                    const num = parseInt(parts[2], 10);
+                    if (!isNaN(num) && num > maxNum) {
+                        maxNum = num;
+                    }
+                }
+            });
+            const nextNum = maxNum + 1;
+            resolve(String(nextNum).padStart(2, '0'));
+        });
+    });
+};
+
 // Create a COD / Pay at Desk booking (Public checkout)
 app.post('/api/bookings/cod', async (req, res) => {
     const { amount, customer_details, booking_data } = req.body;
@@ -1117,13 +1141,11 @@ app.post('/api/bookings/cod', async (req, res) => {
         formattedDate = (dateParts[1] + dateParts[0]).toUpperCase() + String(year).slice(-2);
     }
 
-    db.get("SELECT COUNT(*) as count FROM bookings", [], (err, row) => {
-        const count = (row ? row.count : 0) + 1;
-        const orderNo = String(count).padStart(2, '0');
-        const baseOrderId = `PAYDUE_${formattedDate}_${orderNo}`;
+    const orderNo = await getNextOrderNumber();
+    const baseOrderId = `PAYDUE_${formattedDate}_${orderNo}`;
 
-        let insertedCount = 0;
-        let hasError = false;
+    let insertedCount = 0;
+    let hasError = false;
 
         const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
 
@@ -1172,7 +1194,6 @@ app.post('/api/bookings/cod', async (req, res) => {
                 }
             );
         });
-    });
 });
 
 // ==========================================
@@ -1245,13 +1266,11 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
             formattedDate = (dateParts[1] + dateParts[0]).toUpperCase() + String(year).slice(-2);
         }
 
-        db.get("SELECT COUNT(*) as count FROM bookings", [], (err, row) => {
-            const count = (row ? row.count : 0) + 1;
-            const orderNo = String(count).padStart(2, '0');
-            const baseOrderId = `PAID_${formattedDate}_${orderNo}`;
+        const orderNo = await getNextOrderNumber();
+        const baseOrderId = `PAID_${formattedDate}_${orderNo}`;
 
-            let insertedCount = 0;
-            const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
+        let insertedCount = 0;
+        const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
 
         items.forEach((item, index) => {
             const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
@@ -1334,7 +1353,6 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                 res.status(500).json({ error: 'Failed to communicate with ICICI Gateway' });
             }
         }
-        });
     } catch (err) {
         console.error('Create ICICI order error:', err);
         res.status(500).json({ error: 'Failed to create ICICI order' });
