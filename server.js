@@ -582,6 +582,56 @@ app.get('/api/admin/backup', verifyToken, verifySuperAdmin, (req, res) => {
 // CMS ROUTES (Content, Products, Slots, Instructors)
 // ==========================================
 
+
+// Instructor Auth API
+app.post('/api/instructor/login', async (req, res) => {
+    const { email, password } = req.body;
+    db.get("SELECT * FROM instructors WHERE email = ?", [email], async (err, instructor) => {
+        if (err || !instructor) return res.status(401).json({ error: 'Invalid email or password' });
+        
+        // If no password set yet, default is 'havoc123'
+        const match = instructor.password_hash 
+            ? await bcrypt.compare(password, instructor.password_hash)
+            : password === 'havoc123';
+            
+        if (!match) return res.status(401).json({ error: 'Invalid email or password' });
+        
+        // Auto-migrate if they used default
+        if (!instructor.password_hash && password === 'havoc123') {
+            const hash = await bcrypt.hash('havoc123', 10);
+            db.run("UPDATE instructors SET password_hash = ? WHERE id = ?", [hash, instructor.id]);
+        }
+        
+        const token = jwt.sign({ id: instructor.id, role: 'instructor' }, process.env.JWT_SECRET || 'havoc-secret-key', { expiresIn: '7d' });
+        res.json({ token, instructor: { id: instructor.id, name: instructor.name } });
+    });
+});
+
+const verifyInstructorToken = (req, res, next) => {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'Access denied' });
+    jwt.verify(token, process.env.JWT_SECRET || 'havoc-secret-key', (err, decoded) => {
+        if (err || decoded.role !== 'instructor') return res.status(403).json({ error: 'Invalid token' });
+        req.user = decoded;
+        next();
+    });
+};
+
+app.get('/api/instructor/me', verifyInstructorToken, (req, res) => {
+    db.get("SELECT id, name, email, status, schedule_json FROM instructors WHERE id = ?", [req.user.id], (err, row) => {
+        if (err || !row) return res.status(404).json({ error: 'Not found' });
+        res.json(row);
+    });
+});
+
+app.put('/api/instructor/me', verifyInstructorToken, (req, res) => {
+    const { status, schedule_json } = req.body;
+    db.run("UPDATE instructors SET status = ?, schedule_json = ? WHERE id = ?", [status, schedule_json, req.user.id], function(err) {
+        if (err) return res.status(500).json({ error: 'Update failed' });
+        res.json({ success: true });
+    });
+});
+
 // Instructors API
 app.get('/api/instructors', (req, res) => {
     db.all("SELECT * FROM instructors ORDER BY id ASC", [], (err, rows) => {
@@ -591,18 +641,35 @@ app.get('/api/instructors', (req, res) => {
 });
 
 app.get('/api/available-instructors', (req, res) => {
-    const { date, time } = req.query;
-    if (!date || !time) return res.status(400).json({ error: 'Date and time required' });
+    const { date, time } = req.query; // date: YYYY-MM-DD, time: HH:MM
+    if (!date || !time) return res.status(400).json({ error: 'Date and time are required' });
 
     db.all("SELECT instructor_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PAID', 'ATTENDED', 'CASH', 'PENDING') AND instructor_id IS NOT NULL", [date, time], (err, bookedRows) => {
-        if (err) return res.status(500).json({ error: 'Database error' });
-        
+        if (err) return res.status(500).json({ error: 'Database error fetching bookings' });
         const bookedInstructorIds = bookedRows.map(r => r.instructor_id);
         
         db.all("SELECT * FROM instructors WHERE status = 'Available' ORDER BY id ASC", [], (err, instructors) => {
-            if (err) return res.status(500).json({ error: 'Database error' });
+            if (err) return res.status(500).json({ error: 'Database error fetching instructors' });
             
-            const availableInstructors = instructors.filter(i => !bookedInstructorIds.includes(i.id));
+            const availableInstructors = instructors.filter(i => {
+                if (bookedInstructorIds.includes(i.id)) return false;
+                
+                if (i.schedule_json) {
+                    try {
+                        const schedule = JSON.parse(i.schedule_json);
+                        const d = new Date(date);
+                        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                        const dayOfWeek = days[d.getDay()];
+                        
+                        if (!schedule[dayOfWeek] || !schedule[dayOfWeek].includes(time)) {
+                            return false; // Not scheduled for this time
+                        }
+                    } catch(e) {
+                        // ignore parse err
+                    }
+                }
+                return true;
+            });
             res.json(availableInstructors);
         });
     });
