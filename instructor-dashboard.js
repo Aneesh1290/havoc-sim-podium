@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', async () => {
     const token = localStorage.getItem('instructor_token');
     if (!token) {
-        window.location.href = '/instructor-login.html';
+        window.location.href = '/instructor-login';
         return;
     }
 
@@ -819,7 +819,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         if (res.status === 401 || res.status === 403) {
             localStorage.removeItem('instructor_token');
-            window.location.href = '/instructor-login.html';
+            window.location.href = '/instructor-login';
             return;
         }
         
@@ -971,7 +971,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const mobileLogoutBtn = document.getElementById('mobileLogoutBtn');
     const handleLogout = () => {
         localStorage.removeItem('instructor_token');
-        window.location.href = '/instructor-login.html';
+        window.location.href = '/instructor-login';
     };
     if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
     if (mobileLogoutBtn) mobileLogoutBtn.addEventListener('click', handleLogout);

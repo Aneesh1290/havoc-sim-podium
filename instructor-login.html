@@ -354,7 +354,7 @@
 
         <div class="admin-switch-box" id="adminSwitchBox">
             <span>Are you a store admin or staff?</span>
-            <a href="admin-login.html" class="link-admin">
+            <a href="/admin-login" class="link-admin">
                 <span>Go to Admin Portal</span>
                 <span>&rarr;</span>
             </a>
@@ -605,7 +605,7 @@
                     if (data.mustChangePassword) {
                         showView('mandatoryReset');
                     } else {
-                        window.location.href = '/instructor-dashboard.html';
+                        window.location.href = '/instructor-dashboard';
                     }
                 } else {
                     errorMsg.textContent = data.error || 'Invalid credentials';
@@ -768,7 +768,7 @@
                     successMsg.style.display = 'block';
                     verifyOtpBtn.textContent = 'Success!';
                     setTimeout(() => {
-                        window.location.href = '/instructor-dashboard.html';
+                        window.location.href = '/instructor-dashboard';
                     }, 1200);
                 } else {
                     verifyOtpBtn.textContent = originalText;
@@ -810,7 +810,7 @@
                 });
                 const data = await res.json();
                 if (data.success) {
-                    window.location.href = '/instructor-dashboard.html';
+                    window.location.href = '/instructor-dashboard';
                 } else {
                     errorMsg.textContent = data.error || 'Failed to update password.';
                     errorMsg.style.display = 'block';

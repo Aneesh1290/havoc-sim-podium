@@ -300,7 +300,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
 
                 // Redirect to success immediately
-                window.location.href = `/success.html?order_id=${orderData.order_id || ''}`;
+                window.location.href = `/success?order_id=${orderData.order_id || ''}`;
 
             } else {
                 // ICICI Flow
