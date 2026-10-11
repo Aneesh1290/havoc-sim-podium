@@ -269,6 +269,41 @@
             border-color: rgba(229,184,105,0.45);
             color: var(--gold);
         }
+
+        .admin-switch-box {
+            margin-top: 1.6rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .admin-switch-box .link-admin {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--gold);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.88rem;
+            padding: 6px 14px;
+            border-radius: 8px;
+            background: rgba(229, 184, 105, 0.08);
+            border: 1px solid rgba(229, 184, 105, 0.22);
+            transition: all 0.2s ease;
+        }
+
+        .admin-switch-box .link-admin:hover {
+            background: rgba(229, 184, 105, 0.18);
+            border-color: rgba(229, 184, 105, 0.45);
+            color: #fff;
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
@@ -316,6 +351,14 @@
 
             <button type="submit" class="btn btn-gold" id="submitBtn">Login</button>
         </form>
+
+        <div class="admin-switch-box" id="adminSwitchBox">
+            <span>Are you a store admin or staff?</span>
+            <a href="admin-login.html" class="link-admin">
+                <span>Go to Admin Portal</span>
+                <span>&rarr;</span>
+            </a>
+        </div>
 
         <!-- FORGOT PASSWORD STEP 1: REQUEST OTP -->
         <form id="forgotStep1Form" autocomplete="off" style="display:none;">
@@ -485,12 +528,15 @@
             });
         });
 
+        const adminSwitchBox = document.getElementById('adminSwitchBox');
+
         function showView(view) {
             clearAlerts();
             loginForm.style.display = 'none';
             forgotStep1.style.display = 'none';
             forgotStep2.style.display = 'none';
             mandatoryResetForm.style.display = 'none';
+            if (adminSwitchBox) adminSwitchBox.style.display = (view === 'login') ? 'flex' : 'none';
 
             if (view === 'login') {
                 portalTitle.textContent = 'Instructor Portal';

@@ -215,6 +215,41 @@
             opacity: 0.7;
             pointer-events: none;
         }
+
+        .instructor-switch-box {
+            margin-top: 1.6rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .instructor-switch-box .link-instructor {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--gold);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.88rem;
+            padding: 6px 14px;
+            border-radius: 8px;
+            background: rgba(229, 184, 105, 0.08);
+            border: 1px solid rgba(229, 184, 105, 0.22);
+            transition: all 0.2s ease;
+        }
+
+        .instructor-switch-box .link-instructor:hover {
+            background: rgba(229, 184, 105, 0.18);
+            border-color: rgba(229, 184, 105, 0.45);
+            color: #fff;
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
@@ -267,6 +302,14 @@
 
             <button type="submit" class="btn btn-gold" id="submitBtn">Login</button>
         </form>
+
+        <div class="instructor-switch-box">
+            <span>Are you an instructor?</span>
+            <a href="instructor-login.html" class="link-instructor">
+                <span>Go to Instructor Login</span>
+                <span>&rarr;</span>
+            </a>
+        </div>
 
         <form id="resetPasswordForm" autocomplete="off" style="display:none;">
             <p style="color:var(--muted); font-size:0.9rem; margin-bottom: 1.5rem;">For security reasons, you must change your default password before accessing the dashboard.</p>
