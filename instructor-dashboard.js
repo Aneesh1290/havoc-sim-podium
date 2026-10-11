@@ -690,19 +690,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         applyDayOffToAllBtn.addEventListener('click', toggleAllDays);
     }
 
-    // Tab switching
-    const navBtns = document.querySelectorAll('.nav-btn');
+    // Tab switching (both desktop sidebar and mobile bottom nav)
+    const navBtns = document.querySelectorAll('.nav-btn, .mobile-nav-item[data-target]');
     const tabs = document.querySelectorAll('.tab-content');
     const headerHighlight = document.getElementById('headerHighlight');
     const headerSubtitle = document.getElementById('headerSubtitle');
 
     navBtns.forEach(btn => {
         btn.addEventListener('click', () => {
-            navBtns.forEach(b => b.classList.remove('active'));
-            tabs.forEach(t => t.classList.remove('active'));
-            btn.classList.add('active');
-
             const target = btn.dataset.target;
+            if (!target) return;
+
+            // Sync active state on all buttons targeting tabs
+            document.querySelectorAll('.nav-btn, .mobile-nav-item').forEach(b => {
+                if (b.dataset.target === target) {
+                    b.classList.add('active');
+                } else if (b.dataset.target) {
+                    b.classList.remove('active');
+                }
+            });
+
+            tabs.forEach(t => t.classList.remove('active'));
             const targetEl = document.getElementById(target);
             if (targetEl) targetEl.classList.add('active');
 
@@ -791,6 +799,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (data.photo_url) {
             const sAvatar = document.getElementById('sidebarAvatar');
             if (sAvatar) sAvatar.src = data.photo_url;
+            const mAvatar = document.getElementById('mobileAvatar');
+            if (mAvatar) mAvatar.src = data.photo_url;
         }
 
         // Status
@@ -924,10 +934,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Logout
     const logoutBtn = document.getElementById('logoutBtn');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('instructor_token');
-            window.location.href = '/instructor-login.html';
-        });
-    }
+    const mobileLogoutBtn = document.getElementById('mobileLogoutBtn');
+    const handleLogout = () => {
+        localStorage.removeItem('instructor_token');
+        window.location.href = '/instructor-login.html';
+    };
+    if (logoutBtn) logoutBtn.addEventListener('click', handleLogout);
+    if (mobileLogoutBtn) mobileLogoutBtn.addEventListener('click', handleLogout);
 });
