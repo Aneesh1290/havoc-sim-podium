@@ -181,8 +181,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const currentWeekdayName = document.getElementById('currentWeekdayName');
     const activeDaySlotsGrid = document.getElementById('activeDaySlotsGrid');
-    const selectAllForDayBtn = document.getElementById('selectAllForDayBtn');
-    const clearAllForDayBtn = document.getElementById('clearAllForDayBtn');
     const applyToWeekdayBtn = document.getElementById('applyToWeekdayBtn');
     const applyToAllDatesBtn = document.getElementById('applyToAllDatesBtn');
     const markAllDaysOffBtn = document.getElementById('markAllDaysOffBtn');
@@ -495,25 +493,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Select All
-    if (selectAllForDayBtn) {
-        selectAllForDayBtn.addEventListener('click', () => {
-            const iso = formatIsoDate(activeDate);
-            scheduleData.dates[iso] = [...TIME_SLOTS];
-            if (activeDaySlotsGrid) {
-                activeDaySlotsGrid.querySelectorAll('.slot-pill').forEach(pill => pill.classList.add('active'));
-            }
-            onSlotsUpdated();
-            persistSchedule(true, `All slots selected for ${fullMonthNames[activeDate.getMonth()]} ${activeDate.getDate()}`);
-        });
-    }
-
-    // Clear All (Day Off)
-    if (clearAllForDayBtn) {
-        clearAllForDayBtn.addEventListener('click', () => {
-            toggleDayAvailability(activeDate, false);
-        });
-    }
 
     // Apply to All [Weekday]s
     if (applyToWeekdayBtn) {
