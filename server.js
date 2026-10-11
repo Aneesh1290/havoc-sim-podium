@@ -26,7 +26,13 @@ if (!fs.existsSync(uploadDir)){
 
 // Configure multer
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage, limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB limit
+const upload = multer({ 
+    storage: storage, 
+    limits: { 
+        fileSize: 10 * 1024 * 1024,  // 10MB per file
+        fieldSize: 30 * 1024 * 1024   // 30MB per field (for base64 existing images)
+    } 
+});
 
 
 const helmet = require('helmet');
@@ -980,23 +986,41 @@ app.get('/api/products', (req, res) => {
 });
 
 app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.array('images', 20), (req, res) => {
-    const { name, type, price, compare_price, stock_quantity, description, options, hide_suffix, existing_images } = req.body;
+    const { name, type, price, compare_price, stock_quantity, description, options, hide_suffix, existing_images, image_order } = req.body;
     let imagesList = [];
     
-    // Parse any existing image URLs passed in
-    if (existing_images) {
+    // Parse order if provided
+    let orderArray = null;
+    if (image_order) {
         try {
-            const parsed = JSON.parse(existing_images);
-            if (Array.isArray(parsed)) imagesList = parsed;
-        } catch (e) {}
+            orderArray = JSON.parse(image_order);
+        } catch(e) {}
     }
 
-    // Append newly uploaded files
-    if (req.files && req.files.length > 0) {
-        req.files.forEach(f => {
-            const base64Data = f.buffer.toString('base64');
-            imagesList.push(`data:${f.mimetype};base64,${base64Data}`);
+    if (Array.isArray(orderArray) && orderArray.length > 0) {
+        orderArray.forEach(item => {
+            if (item.type === 'existing' && item.url) {
+                imagesList.push(item.url);
+            } else if (item.type === 'new' && typeof item.fileIndex === 'number' && req.files && req.files[item.fileIndex]) {
+                const f = req.files[item.fileIndex];
+                const base64Data = f.buffer.toString('base64');
+                imagesList.push(`data:${f.mimetype};base64,${base64Data}`);
+            }
         });
+    } else {
+        // Fallback: existing images first, then newly uploaded files
+        if (existing_images) {
+            try {
+                const parsed = JSON.parse(existing_images);
+                if (Array.isArray(parsed)) imagesList = parsed;
+            } catch (e) {}
+        }
+        if (req.files && req.files.length > 0) {
+            req.files.forEach(f => {
+                const base64Data = f.buffer.toString('base64');
+                imagesList.push(`data:${f.mimetype};base64,${base64Data}`);
+            });
+        }
     }
 
     // Primary image is first image in array, or null
@@ -1009,7 +1033,7 @@ app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.array('ima
         function(err) {
             if (err) {
                 console.error("SQL INSERT PRODUCT ERROR:", err);
-                return res.status(500).json({ error: 'Failed to add product' });
+                return res.status(500).json({ error: 'Failed to add product: ' + err.message });
             }
             res.json({ success: true, id: this.lastID });
         }
@@ -1017,23 +1041,43 @@ app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.array('ima
 });
 
 app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.array('images', 20), (req, res) => {
-    const { name, type, price, compare_price, stock_quantity, description, options, hide_suffix, existing_images } = req.body;
+    const { name, type, price, compare_price, stock_quantity, description, options, hide_suffix, existing_images, image_order } = req.body;
     const hideSuffixVal = hide_suffix === '1' || hide_suffix === 'true' ? 1 : 0;
     
     let imagesList = [];
-    if (existing_images) {
+    
+    // Parse order if provided
+    let orderArray = null;
+    if (image_order) {
         try {
-            const parsed = JSON.parse(existing_images);
-            if (Array.isArray(parsed)) imagesList = parsed;
-        } catch (e) {}
+            orderArray = JSON.parse(image_order);
+        } catch(e) {}
     }
 
-    // Append newly uploaded files
-    if (req.files && req.files.length > 0) {
-        req.files.forEach(f => {
-            const base64Data = f.buffer.toString('base64');
-            imagesList.push(`data:${f.mimetype};base64,${base64Data}`);
+    if (Array.isArray(orderArray) && orderArray.length > 0) {
+        orderArray.forEach(item => {
+            if (item.type === 'existing' && item.url) {
+                imagesList.push(item.url);
+            } else if (item.type === 'new' && typeof item.fileIndex === 'number' && req.files && req.files[item.fileIndex]) {
+                const f = req.files[item.fileIndex];
+                const base64Data = f.buffer.toString('base64');
+                imagesList.push(`data:${f.mimetype};base64,${base64Data}`);
+            }
         });
+    } else {
+        // Fallback: existing images first, then newly uploaded files
+        if (existing_images) {
+            try {
+                const parsed = JSON.parse(existing_images);
+                if (Array.isArray(parsed)) imagesList = parsed;
+            } catch (e) {}
+        }
+        if (req.files && req.files.length > 0) {
+            req.files.forEach(f => {
+                const base64Data = f.buffer.toString('base64');
+                imagesList.push(`data:${f.mimetype};base64,${base64Data}`);
+            });
+        }
     }
 
     const image_url = imagesList.length > 0 ? imagesList[0] : null;
@@ -1045,7 +1089,7 @@ app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.array('
     db.run(query, params, (err) => {
         if (err) {
             console.error("SQL UPDATE PRODUCT ERROR:", err);
-            return res.status(500).json({ error: 'Failed to update product' });
+            return res.status(500).json({ error: 'Failed to update product: ' + err.message });
         }
         res.json({ success: true });
     });

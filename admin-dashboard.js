@@ -2461,18 +2461,19 @@ if (productForm) {
         const hideSuffixEl = document.getElementById('productHideSuffix');
         if (hideSuffixEl) formData.append('hide_suffix', hideSuffixEl.checked ? '1' : '0');
         
-        // Separate existing images list from newly added files
-        const existingImages = productImagesList
-            .filter(item => item.type === 'existing')
-            .map(item => item.rawUrl || item.src);
-        formData.append('existing_images', JSON.stringify(existingImages));
-
-        // Append new image files in order
+        // Build ordered image list & append files
+        let newFileCounter = 0;
+        const imageOrder = [];
         productImagesList.forEach(item => {
-            if (item.type === 'new' && item.file) {
+            if (item.type === 'existing') {
+                imageOrder.push({ type: 'existing', url: item.rawUrl || item.src });
+            } else if (item.type === 'new' && item.file) {
+                imageOrder.push({ type: 'new', fileIndex: newFileCounter });
                 formData.append('images', item.file);
+                newFileCounter++;
             }
         });
+        formData.append('image_order', JSON.stringify(imageOrder));
         
         try {
             const url = id ? `/api/admin/products/${id}` : '/api/admin/products';
@@ -2488,10 +2489,11 @@ if (productForm) {
                 closeProductModal();
                 loadInventory();
             } else {
-                alert('Failed to save product');
+                const errData = await res.json().catch(() => ({}));
+                alert(errData.error || errData.message || 'Failed to save product');
             }
         } catch (err) {
-            alert('Error connecting to server');
+            alert('Error connecting to server: ' + (err.message || 'Network issue'));
         }
     });
 }
