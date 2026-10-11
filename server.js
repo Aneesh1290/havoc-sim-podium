@@ -613,6 +613,107 @@ app.post('/api/instructor/login', async (req, res) => {
     });
 });
 
+// Instructor Forgot Password - Send OTP
+app.post('/api/instructor/forgot-password/send-otp', async (req, res) => {
+    const { identifier } = req.body;
+    if (!identifier || !identifier.trim()) {
+        return res.status(400).json({ error: 'Please enter your username or registered email.' });
+    }
+    const cleanId = identifier.trim().toLowerCase();
+
+    db.get("SELECT * FROM instructors WHERE LOWER(username) = ? OR LOWER(email) = ?", [cleanId, cleanId], async (err, instructor) => {
+        if (err || !instructor) {
+            return res.status(404).json({ error: 'No instructor account found with that username or email.' });
+        }
+
+        if (!instructor.email || !instructor.email.includes('@')) {
+            return res.status(400).json({ error: 'No valid email address is linked to your instructor account. Please contact admin.' });
+        }
+
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = Date.now() + (10 * 60 * 1000); // 10 minutes
+
+        db.run("UPDATE instructors SET reset_otp = ?, reset_otp_expires_at = ? WHERE id = ?", [otp, expiresAt, instructor.id], async (updateErr) => {
+            if (updateErr) {
+                return res.status(500).json({ error: 'Failed to process request. Please try again.' });
+            }
+
+            try {
+                const mailer = require('./mailer');
+                await mailer.sendInstructorOtpEmail(instructor, otp);
+            } catch (mailErr) {
+                console.error("Failed to send OTP email:", mailErr);
+            }
+
+            // Mask email e.g. "an****@gmail.com"
+            const parts = instructor.email.split('@');
+            const namePart = parts[0];
+            const maskedName = namePart.length <= 2 
+                ? namePart[0] + '***' 
+                : namePart.substring(0, 2) + '*'.repeat(Math.max(3, namePart.length - 2));
+            const maskedEmail = `${maskedName}@${parts[1]}`;
+
+            res.json({ 
+                success: true, 
+                message: `An OTP has been sent to your email (${maskedEmail}).`,
+                maskedEmail
+            });
+        });
+    });
+});
+
+// Instructor Forgot Password - Verify OTP & Reset Password
+app.post('/api/instructor/forgot-password/verify-reset', async (req, res) => {
+    const { identifier, otp, newPassword } = req.body;
+    if (!identifier || !otp || !newPassword) {
+        return res.status(400).json({ error: 'Please fill in all required fields.' });
+    }
+    if (newPassword.trim().length < 6) {
+        return res.status(400).json({ error: 'New password must be at least 6 characters long.' });
+    }
+
+    const cleanId = identifier.trim().toLowerCase();
+    const cleanOtp = otp.toString().trim();
+
+    db.get("SELECT * FROM instructors WHERE LOWER(username) = ? OR LOWER(email) = ?", [cleanId, cleanId], async (err, instructor) => {
+        if (err || !instructor) {
+            return res.status(404).json({ error: 'Instructor account not found.' });
+        }
+
+        if (!instructor.reset_otp || instructor.reset_otp !== cleanOtp) {
+            return res.status(400).json({ error: 'Invalid OTP. Please check the code sent to your email.' });
+        }
+
+        if (!instructor.reset_otp_expires_at || Date.now() > Number(instructor.reset_otp_expires_at)) {
+            return res.status(400).json({ error: 'OTP has expired. Please request a new code.' });
+        }
+
+        const hash = await bcrypt.hash(newPassword.trim(), 10);
+        db.run(
+            "UPDATE instructors SET password_hash = ?, must_change_password = 0, reset_otp = NULL, reset_otp_expires_at = NULL WHERE id = ?",
+            [hash, instructor.id],
+            function(updateErr) {
+                if (updateErr) {
+                    return res.status(500).json({ error: 'Failed to update password.' });
+                }
+
+                const token = jwt.sign(
+                    { id: instructor.id, role: 'instructor' }, 
+                    process.env.JWT_SECRET || 'havoc-secret-key', 
+                    { expiresIn: '7d' }
+                );
+
+                res.json({
+                    success: true,
+                    token,
+                    message: 'Password reset successfully!'
+                });
+            }
+        );
+    });
+});
+
 const verifyInstructorToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'Access denied' });

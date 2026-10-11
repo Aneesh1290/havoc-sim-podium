@@ -174,4 +174,55 @@ const sendInstructorEmail = async (instructor, booking) => {
     }
 };
 
-module.exports = { sendConfirmationEmail, sendBulkEmail, sendInstructorEmail };
+const sendInstructorOtpEmail = async (instructor, otp) => {
+    if (!instructor.email) return { success: false, error: "No email address linked to instructor" };
+
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+        console.warn(`[DEV OTP] SMTP credentials not set. Password Reset OTP for ${instructor.email} (${instructor.name}): ${otp}`);
+        return { success: true, devMode: true };
+    }
+
+    const htmlContent = `
+    <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; background-color: #111114; color: #ffffff; padding: 25px; border-radius: 12px; border: 1px solid rgba(229,184,105,0.25);">
+        <div style="text-align: center; margin-bottom: 25px;">
+            <h2 style="color: #e5b869; margin: 0 0 6px 0; font-size: 24px; letter-spacing: 1px;">HAVOC SIM PODIUM</h2>
+            <p style="color: #888888; margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 2px;">Instructor Portal Security</p>
+        </div>
+        
+        <div style="background-color: #1a1a1f; padding: 25px; border-radius: 10px; border: 1px solid #2a2a30; text-align: center;">
+            <p style="font-size: 15px; margin-top: 0; color: #dddddd; text-align: left;">Hi <strong>${instructor.name || 'Instructor'}</strong>,</p>
+            <p style="font-size: 14px; color: #aaaaaa; text-align: left; line-height: 1.5;">We received a request to reset your Instructor Portal password. Use the verification code below to complete the reset:</p>
+            
+            <div style="margin: 25px auto; padding: 15px 25px; background: #0a0a0c; border: 1px solid #e5b869; border-radius: 8px; display: inline-block;">
+                <span style="font-family: monospace; font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #e5b869; margin-left: 8px;">${otp}</span>
+            </div>
+            
+            <p style="font-size: 13px; color: #888888; margin: 10px 0 0 0;">This OTP is valid for <strong>10 minutes</strong>. Do not share it with anyone.</p>
+        </div>
+        
+        <div style="text-align: center; margin-top: 25px; color: #666666; font-size: 12px; line-height: 1.4;">
+            <p style="margin: 0;">If you didn't request a password reset, you can safely ignore this email.</p>
+            <p style="margin: 6px 0 0 0;">Havoc Sim Podium • <a href="https://havocsimpodium.com" style="color: #e5b869; text-decoration: none;">havocsimpodium.com</a></p>
+        </div>
+    </div>
+    `;
+
+    const mailOptions = {
+        from: `"Havoc Sim Podium Security" <${process.env.SMTP_USER}>`,
+        to: instructor.email,
+        subject: `Your Password Reset OTP: ${otp}`,
+        text: `Hi ${instructor.name || 'Instructor'},\n\nYour OTP to reset your Havoc Sim Podium Instructor Portal password is: ${otp}\n\nThis OTP is valid for 10 minutes.\n\nIf you did not request this, please ignore this email.`,
+        html: htmlContent
+    };
+
+    try {
+        await transporter.sendMail(mailOptions);
+        console.log(`Instructor reset OTP email sent successfully to ${instructor.email}`);
+        return { success: true };
+    } catch (err) {
+        console.error("Error sending instructor OTP email:", err);
+        return { success: false, error: err.message };
+    }
+};
+
+module.exports = { sendConfirmationEmail, sendBulkEmail, sendInstructorEmail, sendInstructorOtpEmail };

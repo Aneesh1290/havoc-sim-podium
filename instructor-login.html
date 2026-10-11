@@ -167,6 +167,19 @@
             border-radius: 8px;
             margin-bottom: 1.25rem;
             display: none;
+            line-height: 1.4;
+        }
+
+        .success-msg {
+            background: rgba(16,185,129,0.1);
+            border: 1px solid rgba(16,185,129,0.3);
+            color: #10B981;
+            font-size: 0.875rem;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.25rem;
+            display: none;
+            line-height: 1.4;
         }
 
         .btn {
@@ -196,6 +209,28 @@
             opacity: 0.7;
             pointer-events: none;
         }
+
+        .link-subtle {
+            color: var(--muted);
+            font-size: 0.85rem;
+            text-decoration: none;
+            transition: color 0.2s;
+        }
+        .link-subtle:hover {
+            color: #fff;
+        }
+
+        .link-gold {
+            color: var(--gold);
+            font-size: 0.85rem;
+            text-decoration: none;
+            font-weight: 500;
+            transition: opacity 0.2s;
+        }
+        .link-gold:hover {
+            opacity: 0.8;
+            text-decoration: underline;
+        }
     </style>
 </head>
 <body>
@@ -211,12 +246,14 @@
                     </div>
                 </div>
             </a>
-            <h2>Instructor Portal</h2>
-            <p class="subtitle">Secure access for instructors only</p>
+            <h2 id="portalTitle">Instructor Portal</h2>
+            <p class="subtitle" id="portalSubtitle">Secure access for instructors only</p>
         </div>
 
         <div id="errorMsg" class="error-msg"></div>
+        <div id="successMsg" class="success-msg"></div>
 
+        <!-- LOGIN FORM -->
         <form id="instructorLoginForm" autocomplete="off">
             <!-- Honeypot to trick browser autocomplete OFF -->
             <input type="text" style="display:none" aria-hidden="true">
@@ -230,7 +267,10 @@
             </div>
 
             <div class="field" id="pass-field">
-                <label>Password</label>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                    <label style="margin-bottom: 0;">Password</label>
+                    <a href="#" id="toForgotBtn" class="link-gold" style="font-size: 0.78rem;">Forgot Password?</a>
+                </div>
                 <div class="input-wrap">
                     <input type="password" id="password" autocomplete="new-password" placeholder="••••••••" required>
                 </div>
@@ -239,6 +279,60 @@
             <button type="submit" class="btn btn-gold" id="submitBtn">Login</button>
         </form>
 
+        <!-- FORGOT PASSWORD STEP 1: REQUEST OTP -->
+        <form id="forgotStep1Form" autocomplete="off" style="display:none;">
+            <p style="color:var(--muted); font-size:0.9rem; margin-bottom: 1.5rem; line-height: 1.5;">Enter your registered username or email. We'll send a 6-digit OTP to your email address to reset your password.</p>
+
+            <div class="field">
+                <label>Username / Email</label>
+                <div class="input-wrap">
+                    <input type="text" id="forgotIdentifier" placeholder="Enter username or email" required>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-gold" id="sendOtpBtn">Send Verification OTP</button>
+
+            <div style="text-align: center; margin-top: 1.4rem;">
+                <a href="#" id="backToLoginBtn1" class="link-subtle">← Back to Login</a>
+            </div>
+        </form>
+
+        <!-- FORGOT PASSWORD STEP 2: VERIFY OTP & RESET -->
+        <form id="forgotStep2Form" autocomplete="off" style="display:none;">
+            <div id="otpNotice" style="background: rgba(229,184,105,0.08); border: 1px solid rgba(229,184,105,0.25); border-radius: 8px; padding: 0.85rem 1rem; margin-bottom: 1.25rem; font-size: 0.85rem; color: #ddd; line-height: 1.4;">
+                OTP sent! Please check your email inbox and enter the 6-digit code.
+            </div>
+
+            <div class="field">
+                <label>6-Digit Verification OTP</label>
+                <div class="input-wrap">
+                    <input type="text" id="verifyOtp" placeholder="123456" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" style="letter-spacing: 6px; font-weight: 700; font-family: monospace; font-size: 1.25rem; text-align: center;" required>
+                </div>
+            </div>
+
+            <div class="field">
+                <label>New Password</label>
+                <div class="input-wrap">
+                    <input type="password" id="forgotNewPassword" placeholder="Minimum 6 characters" required minlength="6">
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Confirm Password</label>
+                <div class="input-wrap">
+                    <input type="password" id="forgotConfirmPassword" placeholder="Confirm new password" required minlength="6">
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-gold" id="verifyOtpBtn">Reset Password & Login</button>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.4rem;">
+                <a href="#" id="backToLoginBtn2" class="link-subtle">← Back to Login</a>
+                <a href="#" id="resendOtpBtn" class="link-gold">Resend OTP</a>
+            </div>
+        </form>
+
+        <!-- MANDATORY FIRST-TIME PASSWORD CHANGE FORM -->
         <form id="resetPasswordForm" autocomplete="off" style="display:none;">
             <p style="color:var(--muted); font-size:0.9rem; margin-bottom: 1.5rem; line-height: 1.5;">For security reasons, you must change your default password before accessing your dashboard.</p>
             <div class="field">
@@ -253,11 +347,81 @@
 
     <script>
         const loginForm = document.getElementById('instructorLoginForm');
-        const resetForm = document.getElementById('resetPasswordForm');
-        const errorMsg = document.getElementById('errorMsg');
-        const submitBtn = document.getElementById('submitBtn');
-        const resetBtn = document.getElementById('resetBtn');
+        const forgotStep1 = document.getElementById('forgotStep1Form');
+        const forgotStep2 = document.getElementById('forgotStep2Form');
+        const mandatoryResetForm = document.getElementById('resetPasswordForm');
 
+        const errorMsg = document.getElementById('errorMsg');
+        const successMsg = document.getElementById('successMsg');
+        const portalTitle = document.getElementById('portalTitle');
+        const portalSubtitle = document.getElementById('portalSubtitle');
+
+        const submitBtn = document.getElementById('submitBtn');
+        const sendOtpBtn = document.getElementById('sendOtpBtn');
+        const verifyOtpBtn = document.getElementById('verifyOtpBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const resendOtpBtn = document.getElementById('resendOtpBtn');
+
+        let activeIdentifier = '';
+        let resendCountdown = 0;
+        let resendTimer = null;
+
+        function clearAlerts() {
+            errorMsg.style.display = 'none';
+            errorMsg.textContent = '';
+            successMsg.style.display = 'none';
+            successMsg.textContent = '';
+        }
+
+        function showView(view) {
+            clearAlerts();
+            loginForm.style.display = 'none';
+            forgotStep1.style.display = 'none';
+            forgotStep2.style.display = 'none';
+            mandatoryResetForm.style.display = 'none';
+
+            if (view === 'login') {
+                portalTitle.textContent = 'Instructor Portal';
+                portalSubtitle.textContent = 'Secure access for instructors only';
+                loginForm.style.display = 'block';
+            } else if (view === 'forgot1') {
+                portalTitle.textContent = 'Forgot Password';
+                portalSubtitle.textContent = 'Verify your registered instructor email';
+                forgotStep1.style.display = 'block';
+                document.getElementById('forgotIdentifier').focus();
+            } else if (view === 'forgot2') {
+                portalTitle.textContent = 'Verify OTP';
+                portalSubtitle.textContent = 'Enter the 6-digit code sent to your email';
+                forgotStep2.style.display = 'block';
+                document.getElementById('verifyOtp').focus();
+            } else if (view === 'mandatoryReset') {
+                portalTitle.textContent = 'Set Password';
+                portalSubtitle.textContent = 'Create your secure account password';
+                mandatoryResetForm.style.display = 'block';
+            }
+        }
+
+        // Navigation between views
+        document.getElementById('toForgotBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            const currentInput = document.getElementById('email').value.trim();
+            if (currentInput) {
+                document.getElementById('forgotIdentifier').value = currentInput;
+            }
+            showView('forgot1');
+        });
+
+        document.getElementById('backToLoginBtn1').addEventListener('click', (e) => {
+            e.preventDefault();
+            showView('login');
+        });
+
+        document.getElementById('backToLoginBtn2').addEventListener('click', (e) => {
+            e.preventDefault();
+            showView('login');
+        });
+
+        // 1. Regular Login
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value.trim();
@@ -266,7 +430,7 @@
             const originalText = submitBtn.textContent;
             submitBtn.textContent = 'Authenticating...';
             submitBtn.classList.add('loading');
-            errorMsg.style.display = 'none';
+            clearAlerts();
             
             try {
                 const res = await fetch('/api/instructor/login', {
@@ -278,8 +442,7 @@
                 if (data.token) {
                     localStorage.setItem('instructor_token', data.token);
                     if (data.mustChangePassword) {
-                        loginForm.style.display = 'none';
-                        resetForm.style.display = 'block';
+                        showView('mandatoryReset');
                     } else {
                         window.location.href = '/instructor-dashboard.html';
                     }
@@ -297,7 +460,171 @@
             }
         });
 
-        resetForm.addEventListener('submit', async (e) => {
+        // 2. Forgot Password - Step 1: Request OTP
+        forgotStep1.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const identifier = document.getElementById('forgotIdentifier').value.trim();
+            if (!identifier) return;
+
+            activeIdentifier = identifier;
+            const originalText = sendOtpBtn.textContent;
+            sendOtpBtn.textContent = 'Sending OTP...';
+            sendOtpBtn.classList.add('loading');
+            clearAlerts();
+
+            try {
+                const res = await fetch('/api/instructor/forgot-password/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identifier })
+                });
+                const data = await res.json();
+                sendOtpBtn.textContent = originalText;
+                sendOtpBtn.classList.remove('loading');
+
+                if (data.success) {
+                    document.getElementById('otpNotice').innerHTML = 
+                        `An OTP has been sent to <strong>${data.maskedEmail || 'your email'}</strong>. Please check your inbox (and spam folder). Valid for 10 minutes.`;
+                    showView('forgot2');
+                    startResendCountdown(60);
+                } else {
+                    errorMsg.textContent = data.error || 'Failed to send OTP';
+                    errorMsg.style.display = 'block';
+                }
+            } catch (err) {
+                sendOtpBtn.textContent = originalText;
+                sendOtpBtn.classList.remove('loading');
+                errorMsg.textContent = 'Network error. Please try again.';
+                errorMsg.style.display = 'block';
+            }
+        });
+
+        // Resend OTP handler
+        resendOtpBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            if (resendCountdown > 0) return;
+            if (!activeIdentifier) {
+                showView('forgot1');
+                return;
+            }
+
+            resendOtpBtn.textContent = 'Sending...';
+            clearAlerts();
+
+            try {
+                const res = await fetch('/api/instructor/forgot-password/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ identifier: activeIdentifier })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    successMsg.textContent = `A fresh OTP was sent to ${data.maskedEmail || 'your email'}.`;
+                    successMsg.style.display = 'block';
+                    startResendCountdown(60);
+                } else {
+                    errorMsg.textContent = data.error || 'Failed to resend OTP';
+                    errorMsg.style.display = 'block';
+                    resendOtpBtn.textContent = 'Resend OTP';
+                }
+            } catch (err) {
+                errorMsg.textContent = 'Network error. Please try again.';
+                errorMsg.style.display = 'block';
+                resendOtpBtn.textContent = 'Resend OTP';
+            }
+        });
+
+        function startResendCountdown(seconds) {
+            resendCountdown = seconds;
+            if (resendTimer) clearInterval(resendTimer);
+            updateResendBtn();
+            resendTimer = setInterval(() => {
+                resendCountdown--;
+                if (resendCountdown <= 0) {
+                    clearInterval(resendTimer);
+                    resendOtpBtn.textContent = 'Resend OTP';
+                    resendOtpBtn.style.pointerEvents = 'auto';
+                    resendOtpBtn.style.opacity = '1';
+                } else {
+                    updateResendBtn();
+                }
+            }, 1000);
+        }
+
+        function updateResendBtn() {
+            resendOtpBtn.textContent = `Resend in ${resendCountdown}s`;
+            resendOtpBtn.style.pointerEvents = 'none';
+            resendOtpBtn.style.opacity = '0.5';
+        }
+
+        // 3. Forgot Password - Step 2: Verify OTP & Reset Password
+        forgotStep2.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const otp = document.getElementById('verifyOtp').value.trim();
+            const newPassword = document.getElementById('forgotNewPassword').value.trim();
+            const confirmPassword = document.getElementById('forgotConfirmPassword').value.trim();
+
+            clearAlerts();
+
+            if (otp.length !== 6) {
+                errorMsg.textContent = 'Please enter a valid 6-digit OTP code.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+            if (newPassword.length < 6) {
+                errorMsg.textContent = 'New password must be at least 6 characters.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+            if (newPassword !== confirmPassword) {
+                errorMsg.textContent = 'Passwords do not match. Please re-enter.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            const originalText = verifyOtpBtn.textContent;
+            verifyOtpBtn.textContent = 'Verifying & Resetting...';
+            verifyOtpBtn.classList.add('loading');
+
+            try {
+                const res = await fetch('/api/instructor/forgot-password/verify-reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        identifier: activeIdentifier, 
+                        otp, 
+                        newPassword 
+                    })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    if (data.token) {
+                        localStorage.setItem('instructor_token', data.token);
+                    }
+                    successMsg.textContent = data.message || 'Password reset successful! Logging you in...';
+                    successMsg.style.display = 'block';
+                    verifyOtpBtn.textContent = 'Success!';
+                    setTimeout(() => {
+                        window.location.href = '/instructor-dashboard.html';
+                    }, 1200);
+                } else {
+                    verifyOtpBtn.textContent = originalText;
+                    verifyOtpBtn.classList.remove('loading');
+                    errorMsg.textContent = data.error || 'Failed to reset password.';
+                    errorMsg.style.display = 'block';
+                }
+            } catch (err) {
+                verifyOtpBtn.textContent = originalText;
+                verifyOtpBtn.classList.remove('loading');
+                errorMsg.textContent = 'Network error. Please try again.';
+                errorMsg.style.display = 'block';
+            }
+        });
+
+        // 4. Mandatory First-Time Default Password Change
+        mandatoryResetForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const newPassword = document.getElementById('newPassword').value.trim();
             const token = localStorage.getItem('instructor_token');
@@ -309,7 +636,7 @@
 
             resetBtn.textContent = 'Updating...';
             resetBtn.classList.add('loading');
-            errorMsg.style.display = 'none';
+            clearAlerts();
 
             try {
                 const res = await fetch('/api/instructor/change-password', {
