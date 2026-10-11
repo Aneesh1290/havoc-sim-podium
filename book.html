@@ -107,6 +107,24 @@
             </div>
 
             <div class="slot-modal-body">
+                <!-- Select Players Section (Shown only if product has two_player_price) -->
+                <div class="slot-section" id="playerCountSection" style="display: none; margin-bottom: 1.25rem;">
+                    <h4>Select Players <span class="slot-required">*</span></h4>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem;" id="playerOptionsGroup">
+                        <button type="button" class="player-toggle-btn active" id="playerBtn1" data-players="1" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 0.75rem 1rem; border-radius: 8px; border: 1.5px solid var(--accent-gold, #e5b869); background: rgba(229,184,105,0.12); color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <span style="font-weight: 700; font-size: 0.95rem;">👤 1 Player</span>
+                            <span id="playerPriceLabel1" style="font-size: 0.85rem; color: var(--accent-gold, #e5b869); font-weight: 600;">₹0.00</span>
+                        </button>
+                        <button type="button" class="player-toggle-btn" id="playerBtn2" data-players="2" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 0.75rem 1rem; border-radius: 8px; border: 1.5px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.03); color: #fff; cursor: pointer; text-align: left; transition: all 0.2s;">
+                            <span style="font-weight: 700; font-size: 0.95rem;">👥 2 Players (Combo)</span>
+                            <span id="playerPriceLabel2" style="font-size: 0.85rem; color: rgba(255,255,255,0.7); font-weight: 600;">₹0.00</span>
+                        </button>
+                    </div>
+                    <div id="playerTwoNameBox" style="display: none; margin-top: 0.75rem;">
+                        <input type="text" id="playerTwoNameInput" placeholder="Friend / Co-player Name (Optional)" style="width: 100%; box-sizing: border-box; padding: 0.65rem 0.9rem; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-family: inherit; font-size: 0.88rem; outline: none;">
+                    </div>
+                </div>
+
                 <div class="slot-section">
                     <h4>Select Date <span class="slot-required">*</span></h4>
                     <div class="date-pills" id="datePills"></div>

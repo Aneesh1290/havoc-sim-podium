@@ -125,6 +125,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let selectedDate   = null;
     let selectedSlot   = null;
     let selectedInstructor = null;
+    let selectedPlayerCount = 1;
+    let playerTwoName = "";
 
     // Build date pills for the active month
     const buildDatePills = () => {
@@ -387,9 +389,71 @@ document.addEventListener("DOMContentLoaded", () => {
         selectedDate   = null;
         selectedSlot   = null;
         selectedInstructor = null;
+        selectedPlayerCount = 1;
+        playerTwoName = "";
+
+        // Reset player UI
+        const playerCountSec = document.getElementById("playerCountSection");
+        const playerBtn1 = document.getElementById("playerBtn1");
+        const playerBtn2 = document.getElementById("playerBtn2");
+        const playerPriceLabel1 = document.getElementById("playerPriceLabel1");
+        const playerPriceLabel2 = document.getElementById("playerPriceLabel2");
+        const playerTwoNameBox = document.getElementById("playerTwoNameBox");
+        const playerTwoNameInput = document.getElementById("playerTwoNameInput");
+
+        if (playerTwoNameInput) playerTwoNameInput.value = "";
+
+        const singlePrice = typeof product.rawPrice === 'number' ? product.rawPrice : parseFloat(String(product.price).replace(/[^\d.]/g, ''));
+        const twoPrice = product.twoPlayerPrice;
+
+        if (twoPrice && twoPrice > 0 && playerCountSec) {
+            playerCountSec.style.display = "block";
+            if (playerPriceLabel1) playerPriceLabel1.textContent = `₹${singlePrice.toFixed(2)}`;
+            if (playerPriceLabel2) playerPriceLabel2.textContent = `₹${twoPrice.toFixed(2)}`;
+
+            const setPlayerCount = (count) => {
+                selectedPlayerCount = count;
+                if (count === 1) {
+                    playerBtn1?.classList.add("active");
+                    playerBtn2?.classList.remove("active");
+                    if (playerBtn1) {
+                        playerBtn1.style.border = "1.5px solid var(--accent-gold, #e5b869)";
+                        playerBtn1.style.background = "rgba(229,184,105,0.12)";
+                    }
+                    if (playerBtn2) {
+                        playerBtn2.style.border = "1.5px solid rgba(255,255,255,0.15)";
+                        playerBtn2.style.background = "rgba(255,255,255,0.03)";
+                    }
+                    if (playerTwoNameBox) playerTwoNameBox.style.display = "none";
+                    document.getElementById("modalProductPrice").innerText = `₹${singlePrice.toFixed(2)}`;
+                    pendingProduct.activePrice = singlePrice;
+                } else {
+                    playerBtn2?.classList.add("active");
+                    playerBtn1?.classList.remove("active");
+                    if (playerBtn2) {
+                        playerBtn2.style.border = "1.5px solid var(--accent-gold, #e5b869)";
+                        playerBtn2.style.background = "rgba(229,184,105,0.12)";
+                    }
+                    if (playerBtn1) {
+                        playerBtn1.style.border = "1.5px solid rgba(255,255,255,0.15)";
+                        playerBtn1.style.background = "rgba(255,255,255,0.03)";
+                    }
+                    if (playerTwoNameBox) playerTwoNameBox.style.display = "block";
+                    document.getElementById("modalProductPrice").innerText = `₹${twoPrice.toFixed(2)}`;
+                    pendingProduct.activePrice = twoPrice;
+                }
+            };
+
+            setPlayerCount(1);
+            if (playerBtn1) playerBtn1.onclick = () => setPlayerCount(1);
+            if (playerBtn2) playerBtn2.onclick = () => setPlayerCount(2);
+        } else {
+            if (playerCountSec) playerCountSec.style.display = "none";
+            document.getElementById("modalProductPrice").innerText = product.price;
+            pendingProduct.activePrice = singlePrice;
+        }
 
         document.getElementById("modalProductName").innerText  = product.name;
-        document.getElementById("modalProductPrice").innerText = product.price;
         document.getElementById("modalProductImg").src         = product.imgSrc;
 
         // Specs toggle handling
@@ -470,6 +534,8 @@ document.addEventListener("DOMContentLoaded", () => {
             thumbStrip.style.display = "none";
             thumbStrip.innerHTML = "";
         }
+        const playerCountSec = document.getElementById("playerCountSection");
+        if (playerCountSec) playerCountSec.style.display = "none";
     };
 
     slotModalClose?.addEventListener("click", closeModal);
@@ -539,6 +605,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         <button class="remove-item-btn" data-index="${index}" aria-label="Remove item" style="background:transparent;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:1.8rem;line-height:0.8;padding:0;transition:0.2s;">&times;</button>
                     </div>
                     <p class="cart-item-slot" style="margin:0.2rem 0; color:#888; font-size:0.85rem;">${item.dateLabel}  •  ${item.slot}</p>
+                    ${item.players === 2 ? `<div style="display:flex; align-items:center; gap:0.4rem; margin:0.3rem 0;"><span style="color:var(--gold); font-size:0.75rem; background:rgba(229,184,105,0.12); border:1px solid rgba(229,184,105,0.3); padding:2px 8px; border-radius:12px; font-weight:600;">👥 2 Players (Combo)</span>${item.playerTwoName ? `<span style="font-size:0.75rem; color:#aaa;">P2: ${item.playerTwoName}</span>` : ''}</div>` : ''}
                     ${item.instructor ? `<div style="display:flex; justify-content:space-between; align-items:center; margin:0.4rem 0;"><span style="color:var(--gold); font-size:0.85rem; font-weight:500; margin:0;">👨‍✈️ Instructor: ${item.instructor.name}</span><span style="color:var(--gold); font-size:0.85rem; font-weight:500;">+₹${instFee.toFixed(2)}</span></div>` : ''}
                     <div class="cart-price" style="margin-top: 0.5rem; font-weight: 600; font-size: 1.1rem; color: #fff;">₹${itemTotal.toFixed(2)}</div>
                 </div>
@@ -755,7 +822,18 @@ document.addEventListener("DOMContentLoaded", () => {
                         const id = e.target.getAttribute("data-id");
                         const p = products.find(prod => prod.id == id);
                         if (!p) return;
-                        openModal({ name: p.name, type: p.type, price: `₹${parseFloat(p.price).toFixed(2)}`, imgSrc: p.image_url, description: p.description, options: p.options, images_json: p.images_json });
+                        openModal({ 
+                            id: p.id,
+                            name: p.name, 
+                            type: p.type, 
+                            price: `₹${parseFloat(p.price).toFixed(2)}`, 
+                            rawPrice: parseFloat(p.price),
+                            twoPlayerPrice: p.two_player_price ? parseFloat(p.two_player_price) : null,
+                            imgSrc: p.image_url, 
+                            description: p.description, 
+                            options: p.options, 
+                            images_json: p.images_json 
+                        });
                     });
                 });
 
@@ -888,10 +966,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const addToCartAndClose = () => {
         const instructorFee = selectedInstructor ? (selectedInstructor.fee != null ? selectedInstructor.fee : 500) : 0;
+        const activeItemPrice = pendingProduct.activePrice ? `₹${pendingProduct.activePrice.toFixed(2)}` : pendingProduct.price;
+        const playerTwoNameVal = document.getElementById("playerTwoNameInput")?.value.trim() || "";
+
         const cartItem = {
             id: Date.now().toString(),
             itemName: pendingProduct.name,
-            itemPrice: pendingProduct.price,
+            itemPrice: activeItemPrice,
+            players: selectedPlayerCount,
+            playerTwoName: selectedPlayerCount === 2 ? playerTwoNameVal : "",
             date: selectedDate.iso,
             dateLabel: selectedDate.label,
             slot: selectedSlot,

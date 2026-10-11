@@ -2267,6 +2267,23 @@ window.openProductModal = (product = null) => {
         if (pvEl) pvEl.value = product.price;
         const cpEl = document.getElementById('productComparePrice');
         if (cpEl) cpEl.value = product.compare_price || '';
+
+        // 2-Player price handling
+        const enableTwoPlayerEl = document.getElementById('productEnableTwoPlayer');
+        const twoPlayerPriceEl = document.getElementById('productTwoPlayerPrice');
+        const twoPlayerContainer = document.getElementById('twoPlayerPriceContainer');
+        if (enableTwoPlayerEl && twoPlayerPriceEl && twoPlayerContainer) {
+            if (product.two_player_price && parseFloat(product.two_player_price) > 0) {
+                enableTwoPlayerEl.checked = true;
+                twoPlayerPriceEl.value = product.two_player_price;
+                twoPlayerContainer.style.display = 'block';
+            } else {
+                enableTwoPlayerEl.checked = false;
+                twoPlayerPriceEl.value = '';
+                twoPlayerContainer.style.display = 'none';
+            }
+        }
+
         document.getElementById('productStock').value = product.stock_quantity;
         document.getElementById('currentProductImage').textContent = product.image_url ? `Current: ${product.image_url}` : 'No current image';
         
@@ -2307,6 +2324,13 @@ window.openProductModal = (product = null) => {
         const hideSuffixEl = document.getElementById('productHideSuffix');
         if (hideSuffixEl) hideSuffixEl.checked = false;
         
+        const enableTwoPlayerEl = document.getElementById('productEnableTwoPlayer');
+        const twoPlayerPriceEl = document.getElementById('productTwoPlayerPrice');
+        const twoPlayerContainer = document.getElementById('twoPlayerPriceContainer');
+        if (enableTwoPlayerEl) enableTwoPlayerEl.checked = false;
+        if (twoPlayerPriceEl) twoPlayerPriceEl.value = '';
+        if (twoPlayerContainer) twoPlayerContainer.style.display = 'none';
+
         const typeSelect = document.getElementById('productTypeSelect');
         const typeContainer = document.getElementById('productTypeContainer');
         if (typeSelect) typeSelect.value = '';
@@ -2456,6 +2480,9 @@ if (productForm) {
         formData.append('description', document.getElementById('productDescription').value);
         formData.append('price', document.getElementById('productPrice').value);
         formData.append('compare_price', document.getElementById('productComparePrice').value || '');
+        const enableTwoPlayer = document.getElementById('productEnableTwoPlayer')?.checked;
+        const twoPlayerPriceVal = enableTwoPlayer ? (document.getElementById('productTwoPlayerPrice')?.value || '') : '';
+        formData.append('two_player_price', twoPlayerPriceVal);
         formData.append('stock_quantity', document.getElementById('productStock').value);
         formData.append('options', document.getElementById('productOptionsData').value);
         const hideSuffixEl = document.getElementById('productHideSuffix');

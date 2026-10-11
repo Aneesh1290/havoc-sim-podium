@@ -986,7 +986,7 @@ app.get('/api/products', (req, res) => {
 });
 
 app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.array('images', 20), (req, res) => {
-    const { name, type, price, compare_price, stock_quantity, description, options, hide_suffix, existing_images, image_order } = req.body;
+    const { name, type, price, compare_price, two_player_price, stock_quantity, description, options, hide_suffix, existing_images, image_order } = req.body;
     let imagesList = [];
     
     // Parse order if provided
@@ -1027,9 +1027,10 @@ app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.array('ima
     const image_url = imagesList.length > 0 ? imagesList[0] : null;
     const images_json = JSON.stringify(imagesList);
     const hideSuffixVal = hide_suffix === '1' || hide_suffix === 'true' ? 1 : 0;
+    const twoPlayerVal = two_player_price ? parseFloat(two_player_price) : null;
 
-    db.run("INSERT INTO products (name, type, price, compare_price, stock_quantity, description, image_url, images_json, options, hide_suffix) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [name, type, price, compare_price || null, stock_quantity || 10, description, image_url, images_json, options || '[]', hideSuffixVal],
+    db.run("INSERT INTO products (name, type, price, compare_price, two_player_price, stock_quantity, description, image_url, images_json, options, hide_suffix) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [name, type, price, compare_price || null, twoPlayerVal, stock_quantity || 10, description, image_url, images_json, options || '[]', hideSuffixVal],
         function(err) {
             if (err) {
                 console.error("SQL INSERT PRODUCT ERROR:", err);
@@ -1041,8 +1042,9 @@ app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.array('ima
 });
 
 app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.array('images', 20), (req, res) => {
-    const { name, type, price, compare_price, stock_quantity, description, options, hide_suffix, existing_images, image_order } = req.body;
+    const { name, type, price, compare_price, two_player_price, stock_quantity, description, options, hide_suffix, existing_images, image_order } = req.body;
     const hideSuffixVal = hide_suffix === '1' || hide_suffix === 'true' ? 1 : 0;
+    const twoPlayerVal = two_player_price ? parseFloat(two_player_price) : null;
     
     let imagesList = [];
     
@@ -1083,8 +1085,8 @@ app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.array('
     const image_url = imagesList.length > 0 ? imagesList[0] : null;
     const images_json = JSON.stringify(imagesList);
 
-    let query = "UPDATE products SET name=?, type=?, price=?, compare_price=?, stock_quantity=?, description=?, options=?, hide_suffix=?, image_url=?, images_json=? WHERE id=?";
-    let params = [name, type, price, compare_price || null, stock_quantity || 10, description, options || '[]', hideSuffixVal, image_url, images_json, req.params.id];
+    let query = "UPDATE products SET name=?, type=?, price=?, compare_price=?, two_player_price=?, stock_quantity=?, description=?, options=?, hide_suffix=?, image_url=?, images_json=? WHERE id=?";
+    let params = [name, type, price, compare_price || null, twoPlayerVal, stock_quantity || 10, description, options || '[]', hideSuffixVal, image_url, images_json, req.params.id];
     
     db.run(query, params, (err) => {
         if (err) {
@@ -1107,13 +1109,13 @@ app.post('/api/admin/products/:id/duplicate', verifyToken, verifySuperAdmin, (re
         if (err || !product) return res.status(404).json({ error: 'Product not found' });
         
         const newName = product.name + ' (Copy)';
-        const query = `INSERT INTO products (name, type, price, compare_price, stock_quantity, description, options, image_url, images_json)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-        const params = [newName, product.type, product.price, product.compare_price, product.stock_quantity, product.description, product.options, product.image_url, product.images_json || '[]'];
+        const query = `INSERT INTO products (name, type, price, compare_price, two_player_price, stock_quantity, description, options, image_url, images_json)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        const params = [newName, product.type, product.price, product.compare_price, product.two_player_price || null, product.stock_quantity, product.description, product.options, product.image_url, product.images_json || '[]'];
         
         db.run(query, params, function(err) {
             if (err) return res.status(500).json({ error: 'Error duplicating product' });
-            res.json({ success: true, newId: this.lastID });
+            res.json({ success: true, id: this.lastID });
         });
     });
 });

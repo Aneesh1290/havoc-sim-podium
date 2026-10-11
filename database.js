@@ -64,6 +64,7 @@ const initDb = () => {
         db.run(`ALTER TABLE products ADD COLUMN images_json TEXT DEFAULT '[]'`, () => {});
         db.run(`ALTER TABLE products ADD COLUMN options TEXT`, () => {});
         db.run(`ALTER TABLE products ADD COLUMN compare_price REAL`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN two_player_price REAL`, () => {});
         db.run(`ALTER TABLE slots ADD COLUMN sort_order INTEGER DEFAULT 0`, () => {});
         db.run(`ALTER TABLE coupons ADD COLUMN expires_at TEXT`, () => {});
         db.run(`ALTER TABLE coupons ADD COLUMN max_uses INTEGER`, () => {});

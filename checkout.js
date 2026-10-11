@@ -83,6 +83,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                     </div>
                     <span id="co-item-date-${index}" class="summary-meta">Date: ${item.dateLabel}</span>
                     <span id="co-item-time-${index}" class="summary-meta">Slot: ${item.slot}</span>
+                    ${item.players === 2 ? `
+                    <div style="display:flex; align-items:center; gap:0.4rem; margin:0.3rem 0;">
+                        <span style="color:var(--gold); font-size:0.75rem; background:rgba(229,184,105,0.12); border:1px solid rgba(229,184,105,0.3); padding:2px 8px; border-radius:12px; font-weight:600;">👥 2 Players (Combo)</span>
+                        ${item.playerTwoName ? `<span style="font-size:0.75rem; color:#aaa;">P2: ${item.playerTwoName}</span>` : ''}
+                    </div>` : ''}
                     ${item.instructor ? `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px dashed rgba(255,255,255,0.1);">
                         <span id="co-item-instructor-${index}" class="summary-meta" style="color: var(--gold); margin: 0;">👨‍✈️ Instructor: ${item.instructor.name}</span>
@@ -252,7 +257,9 @@ document.addEventListener("DOMContentLoaded", async () => {
                 time: item.slot,
                 instructor_id: item.instructor ? item.instructor.id : null,
                 instructor_fee: item.instructorFee || 0,
-                base_price: parseFloat(String(item.itemPrice).replace(/[^\d.]/g, '')) || 0
+                base_price: parseFloat(String(item.itemPrice).replace(/[^\d.]/g, '')) || 0,
+                players: item.players || 1,
+                player_two_name: item.playerTwoName || ''
             }));
 
             if (selectedPaymentMethod === 'cod') {
