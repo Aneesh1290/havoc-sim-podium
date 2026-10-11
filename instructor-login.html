@@ -231,6 +231,44 @@
             opacity: 0.8;
             text-decoration: underline;
         }
+
+        /* 6-box OTP input styling */
+        .otp-boxes-container {
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            margin-bottom: 0.5rem;
+        }
+
+        .otp-box {
+            width: 100%;
+            max-width: 48px;
+            height: 56px;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            color: #fff;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            outline: none;
+            transition: all 0.2s ease;
+            -webkit-appearance: none;
+            caret-color: var(--gold);
+        }
+
+        .otp-box:focus {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px var(--gold-glow);
+            transform: translateY(-2px);
+            background: #202026;
+        }
+
+        .otp-box.filled {
+            border-color: rgba(229,184,105,0.45);
+            color: var(--gold);
+        }
     </style>
 </head>
 <body>
@@ -305,8 +343,13 @@
 
             <div class="field">
                 <label>6-Digit Verification OTP</label>
-                <div class="input-wrap">
-                    <input type="text" id="verifyOtp" placeholder="123456" maxlength="6" pattern="[0-9]{6}" inputmode="numeric" style="letter-spacing: 6px; font-weight: 700; font-family: monospace; font-size: 1.25rem; text-align: center;" required>
+                <div class="otp-boxes-container" id="otpContainer">
+                    <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="0" autocomplete="off">
+                    <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="1" autocomplete="off">
+                    <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="2" autocomplete="off">
+                    <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="3" autocomplete="off">
+                    <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="4" autocomplete="off">
+                    <input type="text" class="otp-box" maxlength="1" inputmode="numeric" pattern="[0-9]" data-index="5" autocomplete="off">
                 </div>
             </div>
 
@@ -361,6 +404,7 @@
         const verifyOtpBtn = document.getElementById('verifyOtpBtn');
         const resetBtn = document.getElementById('resetBtn');
         const resendOtpBtn = document.getElementById('resendOtpBtn');
+        const otpBoxes = document.querySelectorAll('.otp-box');
 
         let activeIdentifier = '';
         let resendCountdown = 0;
@@ -372,6 +416,74 @@
             successMsg.style.display = 'none';
             successMsg.textContent = '';
         }
+
+        function getEnteredOtp() {
+            return Array.from(otpBoxes).map(b => b.value.trim()).join('');
+        }
+
+        function clearOtpBoxes() {
+            otpBoxes.forEach(b => {
+                b.value = '';
+                b.classList.remove('filled');
+            });
+        }
+
+        // Setup 6-Box OTP interaction
+        otpBoxes.forEach((box, index) => {
+            box.addEventListener('input', (e) => {
+                const val = e.target.value.replace(/\D/g, '');
+                if (val) {
+                    box.value = val.slice(-1);
+                    box.classList.add('filled');
+                    if (index < otpBoxes.length - 1) {
+                        otpBoxes[index + 1].focus();
+                        otpBoxes[index + 1].select();
+                    } else {
+                        document.getElementById('forgotNewPassword').focus();
+                    }
+                } else {
+                    box.value = '';
+                    box.classList.remove('filled');
+                }
+            });
+
+            box.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace') {
+                    if (!box.value && index > 0) {
+                        otpBoxes[index - 1].focus();
+                        otpBoxes[index - 1].value = '';
+                        otpBoxes[index - 1].classList.remove('filled');
+                    } else {
+                        box.value = '';
+                        box.classList.remove('filled');
+                    }
+                } else if (e.key === 'ArrowLeft' && index > 0) {
+                    otpBoxes[index - 1].focus();
+                } else if (e.key === 'ArrowRight' && index < otpBoxes.length - 1) {
+                    otpBoxes[index + 1].focus();
+                }
+            });
+
+            box.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pasteData = (e.clipboardData || window.clipboardData).getData('text');
+                const digits = pasteData.replace(/\D/g, '').slice(0, 6);
+                if (digits) {
+                    digits.split('').forEach((digit, i) => {
+                        if (otpBoxes[i]) {
+                            otpBoxes[i].value = digit;
+                            otpBoxes[i].classList.add('filled');
+                        }
+                    });
+                    if (digits.length >= 6) {
+                        document.getElementById('forgotNewPassword').focus();
+                    } else {
+                        const nextIdx = Math.min(digits.length, otpBoxes.length - 1);
+                        otpBoxes[nextIdx].focus();
+                    }
+                }
+            });
+        });
 
         function showView(view) {
             clearAlerts();
@@ -393,7 +505,10 @@
                 portalTitle.textContent = 'Verify OTP';
                 portalSubtitle.textContent = 'Enter the 6-digit code sent to your email';
                 forgotStep2.style.display = 'block';
-                document.getElementById('verifyOtp').focus();
+                clearOtpBoxes();
+                setTimeout(() => {
+                    if (otpBoxes[0]) otpBoxes[0].focus();
+                }, 50);
             } else if (view === 'mandatoryReset') {
                 portalTitle.textContent = 'Set Password';
                 portalSubtitle.textContent = 'Create your secure account password';
@@ -561,14 +676,14 @@
         // 3. Forgot Password - Step 2: Verify OTP & Reset Password
         forgotStep2.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const otp = document.getElementById('verifyOtp').value.trim();
+            const otp = getEnteredOtp();
             const newPassword = document.getElementById('forgotNewPassword').value.trim();
             const confirmPassword = document.getElementById('forgotConfirmPassword').value.trim();
 
             clearAlerts();
 
             if (otp.length !== 6) {
-                errorMsg.textContent = 'Please enter a valid 6-digit OTP code.';
+                errorMsg.textContent = 'Please enter all 6 digits of the OTP code.';
                 errorMsg.style.display = 'block';
                 return;
             }
