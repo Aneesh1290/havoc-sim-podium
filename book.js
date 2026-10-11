@@ -739,10 +739,10 @@ document.addEventListener("DOMContentLoaded", () => {
                         const nextSlide = () => updateSlide(currentIdx + 1);
                         const prevSlide = () => updateSlide(currentIdx - 1);
 
-                        // Auto slideshow every 3.5s
+                        // Auto slideshow every 2s
                         const startAuto = () => {
                             stopAuto();
-                            autoTimer = setInterval(nextSlide, 3500);
+                            autoTimer = setInterval(nextSlide, 2000);
                         };
                         const stopAuto = () => {
                             if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
