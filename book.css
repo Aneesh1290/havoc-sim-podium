@@ -601,11 +601,30 @@ body.booking-page {
     margin-top: 0.2rem;
 }
 
-/* Instructor Modal Responsive View (Fits on one screen on mobile without scrolling) */
+/* Instructor Modal Responsive View (Fits on one screen, dynamically centered for 1 or multiple instructors) */
 #instructorContainer {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 0.75rem !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    align-items: stretch !important;
+    gap: 1rem !important;
+}
+
+#instructorPromptModal .instructor-pill {
+    flex: 1 1 210px !important;
+    max-width: 260px !important;
+    min-width: 180px !important;
+}
+
+/* When only 1 instructor is available, make card neatly sized and centered */
+#instructorContainer.single-instructor #instructorPromptModal,
+#instructorContainer.single-instructor .instructor-pill {
+    flex: 0 1 280px !important;
+    max-width: 280px !important;
+}
+
+#instructorPromptModal.single-mode .slot-modal {
+    max-width: 440px !important;
 }
 
 @media (max-width: 480px) {

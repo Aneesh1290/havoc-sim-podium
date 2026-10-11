@@ -1072,6 +1072,14 @@ document.addEventListener("DOMContentLoaded", () => {
                         });
                     });
 
+                    if (available.length === 1) {
+                        instructorContainerInPrompt.classList.add('single-instructor');
+                        instructorPromptModal.classList.add('single-mode');
+                    } else {
+                        instructorContainerInPrompt.classList.remove('single-instructor');
+                        instructorPromptModal.classList.remove('single-mode');
+                    }
+
                     instructorPromptModal.classList.add("open");
                 } else {
                     addToCartAndClose();
