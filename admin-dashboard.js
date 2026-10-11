@@ -1348,7 +1348,7 @@ async function loadInstructors() {
         tbody.innerHTML = data.map(inst => `
             <tr>
                 <td>${inst.photo_url ? `<img src="${inst.photo_url}" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">` : '<div style="width:40px;height:40px;border-radius:50%;background:#383b4d;"></div>'}</td>
-                <td><strong>${inst.name}</strong></td>
+                <td><strong>${inst.name}</strong>${inst.username ? `<br><small style="color:var(--gold); font-weight:600;">@${inst.username}</small>` : ''}</td>
                 <td>${inst.email || '-'}</td>
                 <td><span class="pill" style="padding:0.25rem 0.5rem; font-size:0.75rem;">${inst.simulator_type || 'All'}</span></td>
                 <td>${inst.role || '-'}</td>
@@ -1369,6 +1369,8 @@ async function loadInstructors() {
 window.showAddInstructorModal = function() {
     document.getElementById('instructorForm').reset();
     document.getElementById('instructorId').value = '';
+    const usernameInput = document.getElementById('instructorUsername');
+    if (usernameInput) usernameInput.value = '';
     const pwInput = document.getElementById('instructorPassword');
     if (pwInput) pwInput.value = '';
     document.getElementById('instructorModalTitle').innerText = 'Add Instructor';
@@ -1384,6 +1386,8 @@ window.closeInstructorModal = function() {
 window.editInstructor = function(inst) {
     document.getElementById('instructorId').value = inst.id;
     document.getElementById('instructorName').value = inst.name;
+    const usernameInput = document.getElementById('instructorUsername');
+    if (usernameInput) usernameInput.value = inst.username || '';
     document.getElementById('instructorEmail').value = inst.email || '';
     document.getElementById('instructorPhone').value = inst.phone || '';
     const pwInput = document.getElementById('instructorPassword');
@@ -1435,6 +1439,8 @@ if (instructorForm) {
         const id = document.getElementById('instructorId').value;
         const formData = new FormData();
         formData.append('name', document.getElementById('instructorName').value);
+        const usernameVal = document.getElementById('instructorUsername')?.value.trim();
+        if (usernameVal) formData.append('username', usernameVal);
         formData.append('email', document.getElementById('instructorEmail').value);
         formData.append('phone', document.getElementById('instructorPhone').value);
         formData.append('simulator_type', document.getElementById('instructorSimulatorType').value);

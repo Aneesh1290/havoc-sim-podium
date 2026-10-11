@@ -1147,28 +1147,43 @@
                         <div class="field">
                             <label>Name *</label>
                             <div class="input-wrap">
-                                <input type="text" id="instructorName" required>
+                                <input type="text" id="instructorName" placeholder="Full name" required>
                             </div>
                         </div>
                         <div class="field">
-                            <label>Age</label>
+                            <label>Username * <span style="font-size: 0.75rem; color: var(--gold); text-transform: none; font-weight: 400;">(For portal login)</span></label>
                             <div class="input-wrap">
-                                <input type="number" id="instructorAge" placeholder="e.g. 18">
+                                <input type="text" id="instructorUsername" placeholder="e.g. saishiva" required spellcheck="false" autocomplete="off">
                             </div>
                         </div>
                     </div>
                     
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                         <div class="field">
-                            <label>Role</label>
+                            <label>Email *</label>
                             <div class="input-wrap">
-                                <input type="text" id="instructorRole" placeholder="e.g. Senior Flight Instructor">
+                                <input type="email" id="instructorEmail" placeholder="email@example.com" required>
                             </div>
                         </div>
                         <div class="field">
-                            <label>Key Achievement</label>
+                            <label>Phone *</label>
                             <div class="input-wrap">
-                                <input type="text" id="instructorAchievement" placeholder="e.g. MRF 1600 National Champion">
+                                <input type="text" id="instructorPhone" placeholder="+91 9876543210" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                        <div class="field">
+                            <label>Role</label>
+                            <div class="input-wrap">
+                                <input type="text" id="instructorRole" placeholder="e.g. GT & F1 Racing Mentor">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label>Age</label>
+                            <div class="input-wrap">
+                                <input type="number" id="instructorAge" placeholder="e.g. 18">
                             </div>
                         </div>
                     </div>
@@ -1193,20 +1208,11 @@
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
                         <div class="field">
-                            <label>Email *</label>
+                            <label>Key Achievement</label>
                             <div class="input-wrap">
-                                <input type="email" id="instructorEmail" placeholder="email@example.com" required>
+                                <input type="text" id="instructorAchievement" placeholder="e.g. MRF 2000 series">
                             </div>
                         </div>
-                        <div class="field">
-                            <label>Phone *</label>
-                            <div class="input-wrap">
-                                <input type="text" id="instructorPhone" placeholder="+91 9876543210" required>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="display: grid; grid-template-columns: 1fr; gap: 1rem; margin-bottom: 1rem;">
                         <div class="field">
                             <label>Simulator Type</label>
                             <div class="input-wrap">

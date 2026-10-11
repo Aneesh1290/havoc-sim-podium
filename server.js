@@ -586,7 +586,7 @@ app.get('/api/admin/backup', verifyToken, verifySuperAdmin, (req, res) => {
 // Instructor Auth API
 app.post('/api/instructor/login', async (req, res) => {
     const { email, password } = req.body;
-    db.get("SELECT * FROM instructors WHERE email = ? OR LOWER(name) = LOWER(?)", [email, email], async (err, instructor) => {
+    db.get("SELECT * FROM instructors WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?)", [email, email, email], async (err, instructor) => {
         if (err || !instructor) return res.status(401).json({ error: 'Invalid email or password' });
         
         // If no password set yet, default is 'havoc123'
@@ -676,7 +676,7 @@ app.get('/api/available-instructors', (req, res) => {
 });
 
 app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single('image'), async (req, res) => {
-    const { name, age, role, key_achievement, status, biography, fee, email, phone, simulator_type, password } = req.body;
+    const { name, username, age, role, key_achievement, status, biography, fee, email, phone, simulator_type, password } = req.body;
     let photo_url = null;
     if (req.file) {
         const base64Data = req.file.buffer.toString('base64');
@@ -684,9 +684,12 @@ app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single(
     }
     const initialPassword = password && password.trim() ? password.trim() : 'havoc123';
     const password_hash = await bcrypt.hash(initialPassword, 10);
+    const finalUsername = username && username.trim() 
+        ? username.trim().toLowerCase() 
+        : (email ? email.split('@')[0].toLowerCase() : name.toLowerCase().replace(/\s+/g, ''));
 
-    db.run("INSERT INTO instructors (name, age, role, key_achievement, status, biography, photo_url, fee, email, phone, simulator_type, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [name, age || null, role, key_achievement, status || 'Available', biography, photo_url, fee != null ? parseFloat(fee) : 500, email, phone, simulator_type || 'All', password_hash],
+    db.run("INSERT INTO instructors (name, username, age, role, key_achievement, status, biography, photo_url, fee, email, phone, simulator_type, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [name, finalUsername, age || null, role, key_achievement, status || 'Available', biography, photo_url, fee != null ? parseFloat(fee) : 500, email, phone, simulator_type || 'All', password_hash],
         function(err) {
             if (err) return res.status(500).json({ error: 'Failed to add instructor' });
             res.json({ success: true, id: this.lastID });
@@ -695,11 +698,13 @@ app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single(
 });
 
 app.put('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, upload.single('image'), async (req, res) => {
-    const { name, age, role, key_achievement, status, biography, fee, email, phone, simulator_type, password } = req.body;
+    const { name, username, age, role, key_achievement, status, biography, fee, email, phone, simulator_type, password } = req.body;
     const feeVal = fee != null ? parseFloat(fee) : 500;
     const simTypeVal = simulator_type || 'All';
-    let query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=?, email=?, phone=?, simulator_type=?";
-    let params = [name, age || null, role, key_achievement, status || 'Available', biography, feeVal, email, phone, simTypeVal];
+    const finalUsername = username && username.trim() ? username.trim().toLowerCase() : null;
+
+    let query = "UPDATE instructors SET name=?, username=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=?, email=?, phone=?, simulator_type=?";
+    let params = [name, finalUsername, age || null, role, key_achievement, status || 'Available', biography, feeVal, email, phone, simTypeVal];
     
     if (password && password.trim()) {
         const hash = await bcrypt.hash(password.trim(), 10);

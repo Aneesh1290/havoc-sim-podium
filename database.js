@@ -79,6 +79,7 @@ const initDb = () => {
         db.run(`ALTER TABLE instructors ADD COLUMN simulator_type TEXT DEFAULT 'All'`, () => {});
         db.run(`ALTER TABLE instructors ADD COLUMN password_hash TEXT`, () => {});
         db.run(`ALTER TABLE instructors ADD COLUMN schedule_json TEXT`, () => {});
+        db.run(`ALTER TABLE instructors ADD COLUMN username TEXT`, () => {});
 
         db.get("SELECT COUNT(*) as count FROM admin_auth", async (err, row) => {
             if (!err && row.count === 0) {
