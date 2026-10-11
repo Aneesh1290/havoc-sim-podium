@@ -600,3 +600,51 @@ body.booking-page {
     color: #e5b869;
     margin-top: 0.2rem;
 }
+
+/* Instructor Modal Responsive View (Fits on one screen on mobile without scrolling) */
+#instructorContainer {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.75rem !important;
+}
+
+@media (max-width: 480px) {
+    #instructorPromptModal .slot-modal {
+        width: 95% !important;
+        max-height: 94vh !important;
+    }
+    #instructorPromptModal .slot-modal-header {
+        padding: 0.85rem 1rem !important;
+    }
+    #instructorPromptModal .slot-modal-body {
+        padding: 0.75rem 0.85rem !important;
+    }
+    #instructorPromptModal .instructor-pill {
+        padding: 0.65rem 0.4rem !important;
+        gap: 0.25rem !important;
+    }
+    #instructorPromptModal .instructor-pill img,
+    #instructorPromptModal .instructor-pill .no-photo {
+        width: 52px !important;
+        height: 52px !important;
+    }
+    #instructorPromptModal .inst-name {
+        font-size: 0.88rem !important;
+        line-height: 1.2 !important;
+    }
+    #instructorPromptModal .inst-role {
+        font-size: 0.7rem !important;
+    }
+    #instructorPromptModal .inst-price {
+        font-size: 0.9rem !important;
+        margin-top: 2px !important;
+    }
+    #instructorPromptModal .inst-badge {
+        font-size: 0.62rem !important;
+        padding: 1px 4px !important;
+    }
+    #instructorPromptModal .inst-bio-toggle {
+        font-size: 0.72rem !important;
+        margin-top: 0.3rem !important;
+    }
+}
