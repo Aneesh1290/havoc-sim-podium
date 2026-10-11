@@ -31,9 +31,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Cache to remember previous slot configurations when turning a day back ON
     const slotsCache = {};
 
-    // By default, initialize all weekdays with all 25 slots active
+    // By default, initialize weekdays with slots active, but Monday is closed by default
     daysOfWeek.forEach(d => {
-        scheduleData.weekly[d] = [...TIME_SLOTS];
+        if (d === 'monday') {
+            scheduleData.weekly[d] = []; // Monday store closed by default
+        } else {
+            scheduleData.weekly[d] = [...TIME_SLOTS];
+        }
     });
 
     // Date state
@@ -70,6 +74,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Fallback to weekly schedule
         if (scheduleData.weekly && scheduleData.weekly[dayKey] !== undefined) {
             return scheduleData.weekly[dayKey];
+        }
+
+        // Monday store closed by default
+        if (d.getDay() === 1) {
+            return [];
         }
 
         return [...TIME_SLOTS];
