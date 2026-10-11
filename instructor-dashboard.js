@@ -547,34 +547,51 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // Apply current active day configuration to ALL dates
+    // Apply current active day configuration to ALL dates (excluding Mondays which are always closed by default)
     function applyCurrentDayToAllDates() {
         const iso = formatIsoDate(activeDate);
         const currentSlots = [...(scheduleData.dates[iso] || [])];
         const isDayOff = currentSlots.length === 0;
 
-        // 1. Update all 7 weekly default schedules
+        // 1. Update weekly default schedules (keep Monday closed unless active day is a custom Monday override)
         daysOfWeek.forEach(d => {
-            scheduleData.weekly[d] = [...currentSlots];
+            if (d === 'monday' && activeDate.getDay() !== 1) {
+                scheduleData.weekly[d] = []; // Monday store closed by default
+            } else {
+                scheduleData.weekly[d] = [...currentSlots];
+            }
         });
 
         // 2. Overwrite all existing date overrides
         Object.keys(scheduleData.dates).forEach(dKey => {
-            scheduleData.dates[dKey] = [...currentSlots];
+            const dt = new Date(dKey);
+            if (dt.getDay() === 1 && activeDate.getDay() !== 1) {
+                scheduleData.dates[dKey] = [];
+            } else {
+                scheduleData.dates[dKey] = [...currentSlots];
+            }
         });
 
         // 3. Overwrite all 7 visible days in current week strip
         for (let i = 0; i < 7; i++) {
             const d = new Date(stripStartDate);
             d.setDate(stripStartDate.getDate() + i);
-            scheduleData.dates[formatIsoDate(d)] = [...currentSlots];
+            if (d.getDay() === 1 && activeDate.getDay() !== 1) {
+                scheduleData.dates[formatIsoDate(d)] = [];
+            } else {
+                scheduleData.dates[formatIsoDate(d)] = [...currentSlots];
+            }
         }
 
-        // 4. Overwrite next 30 days to guarantee availability for bookings
+        // 4. Overwrite next 30 days
         for (let i = 0; i < 30; i++) {
             const d = new Date(today);
             d.setDate(today.getDate() + i);
-            scheduleData.dates[formatIsoDate(d)] = [...currentSlots];
+            if (d.getDay() === 1 && activeDate.getDay() !== 1) {
+                scheduleData.dates[formatIsoDate(d)] = [];
+            } else {
+                scheduleData.dates[formatIsoDate(d)] = [...currentSlots];
+            }
         }
 
         renderWeekStrip();
@@ -582,7 +599,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const toastMsg = isDayOff
             ? 'All dates marked as DAY OFF (Hidden from bookings)'
-            : `Applied ${currentSlots.length} active slots to ALL dates across entire schedule!`;
+            : `Applied ${currentSlots.length} active slots to dates (Mondays remain closed)!`;
         persistSchedule(true, toastMsg);
     }
 
@@ -623,30 +640,47 @@ document.addEventListener('DOMContentLoaded', async () => {
         const currentlyAllOff = areAllDaysOff();
 
         if (currentlyAllOff) {
-            // Turn all days back ON: restore all available venue TIME_SLOTS
+            // Turn all days back ON: restore slots for all open days (Mondays stay closed by default)
             daysOfWeek.forEach(d => {
-                scheduleData.weekly[d] = [...TIME_SLOTS];
+                if (d === 'monday') {
+                    scheduleData.weekly[d] = []; // Monday store closed by default
+                } else {
+                    scheduleData.weekly[d] = [...TIME_SLOTS];
+                }
             });
 
             Object.keys(scheduleData.dates).forEach(dKey => {
-                scheduleData.dates[dKey] = [...TIME_SLOTS];
+                const dt = new Date(dKey);
+                if (dt.getDay() === 1) {
+                    scheduleData.dates[dKey] = [];
+                } else {
+                    scheduleData.dates[dKey] = [...TIME_SLOTS];
+                }
             });
 
             for (let i = 0; i < 7; i++) {
                 const d = new Date(stripStartDate);
                 d.setDate(stripStartDate.getDate() + i);
-                scheduleData.dates[formatIsoDate(d)] = [...TIME_SLOTS];
+                if (d.getDay() === 1) {
+                    scheduleData.dates[formatIsoDate(d)] = [];
+                } else {
+                    scheduleData.dates[formatIsoDate(d)] = [...TIME_SLOTS];
+                }
             }
 
             for (let i = 0; i < 30; i++) {
                 const d = new Date(today);
                 d.setDate(today.getDate() + i);
-                scheduleData.dates[formatIsoDate(d)] = [...TIME_SLOTS];
+                if (d.getDay() === 1) {
+                    scheduleData.dates[formatIsoDate(d)] = [];
+                } else {
+                    scheduleData.dates[formatIsoDate(d)] = [...TIME_SLOTS];
+                }
             }
 
             renderWeekStrip();
             onSlotsUpdated();
-            persistSchedule(true, 'All dates turned ON with full availability!');
+            persistSchedule(true, 'All dates turned ON (Mondays remain closed)!');
         } else {
             // Mark all days OFF
             const iso = formatIsoDate(activeDate);
