@@ -435,9 +435,9 @@
             background: transparent;
             border: 1px solid rgba(255,255,255,0.1);
             color: var(--muted);
-            padding: 0.3rem 0.75rem;
+            padding: 0.35rem 0.85rem;
             border-radius: 6px;
-            font-size: 0.78rem;
+            font-size: 0.8rem;
             font-family: inherit;
             cursor: pointer;
             transition: all 0.2s;
@@ -447,22 +447,175 @@
             border-color: rgba(255,255,255,0.3);
             background: rgba(255,255,255,0.03);
         }
+        .action-link.action-gold {
+            border-color: rgba(229,184,105,0.35);
+            color: var(--gold);
+        }
+        .action-link.action-gold:hover {
+            border-color: var(--gold);
+            background: rgba(229,184,105,0.1);
+        }
+
+        /* Date selector toolbar */
+        .schedule-date-toolbar {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .toolbar-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .toolbar-label {
+            color: var(--muted);
+            font-size: 0.9rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .date-select-wrap {
+            display: flex;
+            align-items: center;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+        .date-select-wrap:focus-within {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 2px var(--gold-glow);
+        }
+        .date-nav-btn {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            padding: 0.6rem 0.8rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.15s;
+        }
+        .date-nav-btn:hover {
+            color: var(--gold);
+            background: rgba(255,255,255,0.04);
+        }
+        .date-select-input {
+            background: transparent;
+            border: none;
+            color: #fff;
+            padding: 0.6rem 0.8rem;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+            min-width: 200px;
+        }
+        .date-select-input option {
+            background: #111114;
+            color: #fff;
+        }
+        .calendar-picker-input {
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            color: #fff;
+            padding: 0.55rem 0.75rem;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            outline: none;
+            cursor: pointer;
+            transition: border-color 0.2s;
+            color-scheme: dark;
+        }
+        .calendar-picker-input:focus {
+            border-color: var(--gold);
+        }
+
+        /* Quick dates horizontal bar */
+        .quick-dates-bar {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1.5rem;
+            scrollbar-width: thin;
+        }
+        .quick-date-chip {
+            flex: 0 0 auto;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 0.5rem 0.9rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+        .quick-date-chip:hover {
+            border-color: rgba(229,184,105,0.3);
+            background: rgba(255,255,255,0.03);
+        }
+        .quick-date-chip.active {
+            border-color: var(--gold);
+            background: rgba(229,184,105,0.12);
+            box-shadow: 0 0 10px rgba(229,184,105,0.15);
+        }
+        .chip-day {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--muted);
+            margin-bottom: 2px;
+        }
+        .quick-date-chip.active .chip-day {
+            color: var(--gold);
+        }
+        .chip-date {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .chip-dots {
+            display: flex;
+            justify-content: center;
+            gap: 3px;
+            margin-top: 4px;
+        }
+        .chip-status-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: var(--gold);
+        }
+        .chip-status-dot.off {
+            background: rgba(255,255,255,0.15);
+        }
 
         .slots-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-            gap: 0.65rem;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 0.75rem;
         }
         .slot-pill {
             background: #17171c;
             color: rgba(255,255,255,0.65);
             border: 1px solid rgba(255,255,255,0.06);
-            padding: 0.65rem 0.5rem;
+            padding: 0.75rem 0.6rem;
             text-align: center;
-            border-radius: 8px;
+            border-radius: 10px;
             cursor: pointer;
             user-select: none;
-            font-size: 0.85rem;
+            font-size: 0.88rem;
             font-weight: 500;
             transition: all 0.2s ease;
         }
@@ -472,7 +625,7 @@
             color: #fff;
         }
         .slot-pill.active {
-            background: rgba(229,184,105,0.12);
+            background: rgba(229,184,105,0.14);
             border-color: var(--gold);
             color: var(--gold);
             font-weight: 700;
@@ -631,7 +784,7 @@
 
         <div class="nav-items">
             <button class="nav-btn active" data-target="tab-schedule" id="nav-schedule">
-                <span class="icon">📅</span> Weekly Schedule
+                <span class="icon">📅</span> My Schedule
             </button>
             <button class="nav-btn" data-target="tab-availability" id="nav-availability">
                 <span class="icon">⚡</span> Availability Status
@@ -665,20 +818,20 @@
         <div class="page-header">
             <div>
                 <h1 class="page-title">Instructor <span id="headerHighlight">Schedule</span></h1>
-                <p class="page-subtitle" id="headerSubtitle">Manage your weekly teaching availability and time slots.</p>
+                <p class="page-subtitle" id="headerSubtitle">Select any date to view and customize your available booking slots.</p>
             </div>
             <button class="btn btn-gold" id="saveScheduleBtn">
                 <span>💾</span> Save Schedule
             </button>
         </div>
 
-        <!-- TAB: WEEKLY SCHEDULE -->
+        <!-- TAB: DATE-BASED SCHEDULE -->
         <div id="tab-schedule" class="tab-content active">
             <!-- Master Status Banner inside schedule -->
             <div class="availability-banner">
                 <div class="banner-left">
                     <h2>Live Booking Availability</h2>
-                    <p>Toggle your online status. When set to <strong>Offline</strong>, you will be hidden from the customer booking page regardless of your schedule.</p>
+                    <p>Toggle your online status. When set to <strong>Offline</strong>, you will be hidden from customer bookings regardless of your schedule.</p>
                 </div>
                 <div class="status-pill-toggle">
                     <span id="bannerStatusBadge" class="status-badge offline">Offline</span>
@@ -689,9 +842,49 @@
                 </div>
             </div>
 
-            <!-- Schedule Days Container -->
-            <div id="scheduleContainer">
-                <!-- Days will be rendered by JS -->
+            <!-- Date Selector Toolbar -->
+            <div class="schedule-date-toolbar">
+                <div class="toolbar-left">
+                    <label class="toolbar-label">Select Date:</label>
+                    <div class="date-select-wrap">
+                        <button type="button" class="date-nav-btn" id="prevDayBtn" title="Previous Day">◀</button>
+                        <select id="scheduleDateSelect" class="date-select-input">
+                            <!-- Populated dynamically with dates -->
+                        </select>
+                        <button type="button" class="date-nav-btn" id="nextDayBtn" title="Next Day">▶</button>
+                    </div>
+                    <input type="date" id="scheduleCalendarPicker" class="calendar-picker-input" title="Pick date from calendar">
+                </div>
+                <div class="toolbar-right">
+                    <span id="selectedDateSlotCountBadge" class="status-badge" style="background: rgba(229,184,105,0.12); color: var(--gold); border: 1px solid rgba(229,184,105,0.3); font-size: 0.85rem; padding: 0.4rem 0.9rem;">
+                        0 Slots Active
+                    </span>
+                </div>
+            </div>
+
+            <!-- Quick Dates Horizontal Scrolling Bar -->
+            <div class="quick-dates-bar" id="quickDatesBar">
+                <!-- Chips injected by JS -->
+            </div>
+
+            <!-- Active Selected Date Slots Customization Card -->
+            <div class="day-card" id="activeDayCard">
+                <div class="day-header">
+                    <div class="day-title-wrap">
+                        <div class="day-dot"></div>
+                        <span class="day-name" id="activeDayDisplayTitle">Loading Date...</span>
+                        <span class="day-count" id="activeDayDisplayCount">0 slots active</span>
+                    </div>
+                    <div class="day-actions">
+                        <button type="button" class="action-link" id="selectAllForDayBtn">Select All</button>
+                        <button type="button" class="action-link" id="clearAllForDayBtn">Clear All (Day Off)</button>
+                        <button type="button" class="action-link action-gold" id="applyToWeekdayBtn">Apply to All <span id="currentWeekdayName">Sunday</span>s</button>
+                    </div>
+                </div>
+
+                <div class="slots-grid" id="activeDaySlotsGrid">
+                    <!-- Slot Pills injected by JS -->
+                </div>
             </div>
         </div>
 

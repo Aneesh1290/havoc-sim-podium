@@ -760,28 +760,90 @@ app.get('/api/instructors', (req, res) => {
 });
 
 app.get('/api/available-instructors', (req, res) => {
-    const { date, time } = req.query; // date: YYYY-MM-DD, time: HH:MM
+    const { date, time, isoDate } = req.query; // date: label e.g. "Oct 11 (Sun)" or ISO "2026-10-11", time: e.g. "11AM-11:30AM"
     if (!date || !time) return res.status(400).json({ error: 'Date and time are required' });
 
     db.all("SELECT instructor_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PAID', 'ATTENDED', 'CASH', 'PENDING') AND instructor_id IS NOT NULL", [date, time], (err, bookedRows) => {
         if (err) return res.status(500).json({ error: 'Database error fetching bookings' });
-        const bookedInstructorIds = bookedRows.map(r => r.instructor_id);
+        const bookedInstructorIds = (bookedRows || []).map(r => r.instructor_id);
         
         db.all("SELECT * FROM instructors WHERE status = 'Available' ORDER BY id ASC", [], (err, instructors) => {
             if (err) return res.status(500).json({ error: 'Database error fetching instructors' });
             
+            // Normalize time helper
+            const normTime = t => (t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const targetTime = normTime(time);
+
+            // Extract day of week from date string or Date object
+            let dayOfWeek = '';
+            const dayMatch = date.match(/\(([a-zA-Z]+)\)/);
+            if (dayMatch) {
+                const dayMap = {
+                    'sun': 'sunday', 'mon': 'monday', 'tue': 'tuesday',
+                    'wed': 'wednesday', 'thu': 'thursday', 'fri': 'friday', 'sat': 'saturday'
+                };
+                dayOfWeek = dayMap[dayMatch[1].toLowerCase()] || dayMatch[1].toLowerCase();
+            }
+            if (!dayOfWeek) {
+                const d = new Date(isoDate || date);
+                if (!isNaN(d.getTime())) {
+                    const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                    dayOfWeek = days[d.getDay()];
+                }
+            }
+
             const availableInstructors = instructors.filter(i => {
                 if (bookedInstructorIds.includes(i.id)) return false;
                 
                 if (i.schedule_json) {
                     try {
                         const schedule = JSON.parse(i.schedule_json);
-                        const d = new Date(date);
-                        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-                        const dayOfWeek = days[d.getDay()];
-                        
-                        if (!schedule[dayOfWeek] || !schedule[dayOfWeek].includes(time)) {
-                            return false; // Not scheduled for this time
+                        let allowedSlots = null;
+
+                        // 1. Check exact date overrides in schedule.dates
+                        if (schedule.dates) {
+                            if (isoDate && schedule.dates[isoDate] !== undefined) {
+                                allowedSlots = schedule.dates[isoDate];
+                            } else if (schedule.dates[date] !== undefined) {
+                                allowedSlots = schedule.dates[date];
+                            } else {
+                                for (const [dKey, sList] of Object.entries(schedule.dates)) {
+                                    if (date.includes(dKey) || (isoDate && dKey.includes(isoDate))) {
+                                        allowedSlots = sList;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        // 2. Check direct date overrides in root
+                        if (allowedSlots === null) {
+                            if (schedule[date] !== undefined) {
+                                allowedSlots = schedule[date];
+                            } else if (isoDate && schedule[isoDate] !== undefined) {
+                                allowedSlots = schedule[isoDate];
+                            }
+                        }
+
+                        // 3. Fallback to weekly day-of-week defaults
+                        if (allowedSlots === null && dayOfWeek) {
+                            if (schedule.weekly && schedule.weekly[dayOfWeek] !== undefined) {
+                                allowedSlots = schedule.weekly[dayOfWeek];
+                            } else if (schedule[dayOfWeek] !== undefined) {
+                                allowedSlots = schedule[dayOfWeek];
+                            }
+                        }
+
+                        // If instructor specified slots for this day/date:
+                        if (Array.isArray(allowedSlots)) {
+                            // If empty array, instructor is OFF on this date
+                            if (allowedSlots.length === 0) return false;
+
+                            const isMatch = allowedSlots.some(s => {
+                                const nS = normTime(s);
+                                return nS === targetTime || (nS.length > 3 && targetTime.length > 3 && (nS.includes(targetTime) || targetTime.includes(nS)));
+                            });
+                            if (!isMatch) return false;
                         }
                     } catch(e) {
                         // ignore parse err
