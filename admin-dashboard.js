@@ -1366,16 +1366,16 @@ async function loadInstructors() {
     }
 }
 
-function showAddInstructorModal() {
+window.showAddInstructorModal = function() {
     document.getElementById('instructorForm').reset();
     document.getElementById('instructorId').value = '';
     document.getElementById('instructorModalTitle').innerText = 'Add Instructor';
     document.getElementById('instructorModal').style.display = 'flex';
-}
+};
 
-function closeInstructorModal() {
+window.closeInstructorModal = function() {
     document.getElementById('instructorModal').style.display = 'none';
-}
+};
 
 window.editInstructor = function(inst) {
     document.getElementById('instructorId').value = inst.id;
