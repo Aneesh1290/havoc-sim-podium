@@ -11,10 +11,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-    // Standard 25 venue time slots from 11:00 AM to 11:00 PM (matching original schedule)
+    // Standard venue time slots (excluding 1:00 PM - 2:00 PM break, matching venue booking schedule)
     const TIME_SLOTS = [
         '11:00 AM', '11:30 AM', '12:00 PM', '12:30 PM',
-        '1:00 PM', '1:30 PM', '2:00 PM', '2:30 PM',
+        '2:00 PM', '2:30 PM',
         '3:00 PM', '3:30 PM', '4:00 PM', '4:30 PM',
         '5:00 PM', '5:30 PM', '6:00 PM', '6:30 PM',
         '7:00 PM', '7:30 PM', '8:00 PM', '8:30 PM',
@@ -753,6 +753,22 @@ document.addEventListener('DOMContentLoaded', async () => {
                         }
                     });
                 }
+
+                // Ensure 1:00 PM and 1:30 PM (lunch break) are purged from all date and weekly slots
+                const isExcludedSlot = s => {
+                    const c = (s || '').trim();
+                    return c === '1:00 PM' || c === '1:30 PM' || c === '1:00' || c === '1:30';
+                };
+                Object.keys(scheduleData.dates).forEach(dKey => {
+                    if (Array.isArray(scheduleData.dates[dKey])) {
+                        scheduleData.dates[dKey] = scheduleData.dates[dKey].filter(s => !isExcludedSlot(s));
+                    }
+                });
+                Object.keys(scheduleData.weekly).forEach(wKey => {
+                    if (Array.isArray(scheduleData.weekly[wKey])) {
+                        scheduleData.weekly[wKey] = scheduleData.weekly[wKey].filter(s => !isExcludedSlot(s));
+                    }
+                });
             } catch (e) {
                 console.error('Failed to parse schedule JSON', e);
             }
