@@ -771,7 +771,11 @@ app.get('/api/available-instructors', (req, res) => {
             if (err) return res.status(500).json({ error: 'Database error fetching instructors' });
             
             // Normalize time helper
-            const normTime = t => (t || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const normTime = t => {
+                let s = (t || '').toLowerCase().replace(/[:\s]/g, '');
+                s = s.replace(/00am/g, 'am').replace(/00pm/g, 'pm');
+                return s.replace(/[^a-z0-9]/g, '');
+            };
             const targetTime = normTime(time);
 
             // Extract day of week from date string or Date object

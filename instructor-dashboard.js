@@ -11,134 +11,53 @@ document.addEventListener('DOMContentLoaded', async () => {
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const fullMonthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-    // Standard venue time slots (fallback if API fails)
-    const DEFAULT_SLOTS = [
-        '11AM-11:30AM', '11:30AM-12PM', '12PM-12:30PM', '12:30PM-1PM',
-        '2PM-2:30PM', '2:30PM-3PM', '3PM-3:30PM', '3:30PM-4PM',
-        '4PM-4:30PM', '4:30PM-5PM', '5PM-5:30PM', '5:30PM-6PM',
-        '6PM-6:30PM', '6:30PM-7PM', '7PM-7:30PM', '7:30PM-8PM',
-        '8PM-8:30PM', '8:30PM-9PM', '9PM-9:30PM', '9:30PM-10PM'
+    // Standard 25 venue time slots from 11:00 AM to 11:00 PM (matching original schedule)
+    const TIME_SLOTS = [
+        '11:00 AM', '11:30 AM', '12:00 PM', '12:30 PM',
+        '1:00 PM', '1:30 PM', '2:00 PM', '2:30 PM',
+        '3:00 PM', '3:30 PM', '4:00 PM', '4:30 PM',
+        '5:00 PM', '5:30 PM', '6:00 PM', '6:30 PM',
+        '7:00 PM', '7:30 PM', '8:00 PM', '8:30 PM',
+        '9:00 PM', '9:30 PM', '10:00 PM', '10:30 PM', '11:00 PM'
     ];
 
-    let availableVenueSlots = [...DEFAULT_SLOTS];
-
-    // Try fetching active slots from venue configuration
-    try {
-        const slotsRes = await fetch('/api/slots');
-        if (slotsRes.ok) {
-            const slotsData = await slotsRes.json();
-            if (Array.isArray(slotsData) && slotsData.length > 0) {
-                availableVenueSlots = slotsData.map(s => s.name || s.slot_name).filter(Boolean);
-            }
-        }
-    } catch(e) {
-        console.warn('Using default slots array', e);
-    }
-
-    // Format slot label for friendly UI display
-    function formatSlotDisplay(slot) {
-        if (!slot) return '';
-        // If slot is e.g. "11AM-11:30AM"
-        if (slot.includes('-')) {
-            const parts = slot.split('-');
-            return `${parts[0]} - ${parts[1]}`;
-        }
-        return slot;
-    }
-
-    // Schedule state: supports both specific date overrides and weekday fallbacks
-    // structure: { dates: { 'YYYY-MM-DD': ['slot1', ...] }, weekly: { 'monday': [...], ... } }
+    // Schedule state: supports specific date overrides and weekday fallbacks
+    // structure: { dates: { 'YYYY-MM-DD': ['11:00 AM', ...] }, weekly: { 'monday': [...], ... } }
     let scheduleData = {
         dates: {},
         weekly: {}
     };
 
-    // Initialize weekly fallbacks with all available slots by default
+    // By default, initialize all weekdays with all 25 slots active
     daysOfWeek.forEach(d => {
-        scheduleData.weekly[d] = [...availableVenueSlots];
+        scheduleData.weekly[d] = [...TIME_SLOTS];
     });
 
-    // Generate next 45 days starting from today
-    const dateList = [];
+    // Date state
     const today = new Date();
     today.setHours(0,0,0,0);
 
-    for (let i = 0; i < 45; i++) {
-        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+    let activeDate = new Date(today);
+    let stripStartDate = new Date(today);
+
+    // Helpers for dates
+    function formatIsoDate(d) {
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2, '0');
-        const dayNum = String(d.getDate()).padStart(2, '0');
-        const iso = `${y}-${m}-${dayNum}`;
-        const dayIdx = d.getDay();
-        const dayKey = daysOfWeek[dayIdx];
-        const dayFull = weekdayFullNames[dayIdx];
-        const dayShort = dayFull.substring(0, 3);
-        const monthShort = monthNames[d.getMonth()];
-        const label = `${monthShort} ${d.getDate()} (${dayShort})`;
-        const fullLabel = `${dayFull}, ${fullMonthNames[d.getMonth()]} ${d.getDate()}, ${y}`;
-
-        dateList.push({
-            dateObj: d,
-            iso,
-            dayKey,
-            dayFull,
-            dayShort,
-            monthShort,
-            dayNum: d.getDate(),
-            label,
-            fullLabel,
-            isToday: i === 0
-        });
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
     }
 
-    let activeDateIndex = 0;
-    let activeDate = dateList[0];
-
-    // UI Elements
-    const dateSelectEl = document.getElementById('scheduleDateSelect');
-    const calendarPickerEl = document.getElementById('scheduleCalendarPicker');
-    const prevDayBtn = document.getElementById('prevDayBtn');
-    const nextDayBtn = document.getElementById('nextDayBtn');
-    const quickDatesBar = document.getElementById('quickDatesBar');
-    const activeDayDisplayTitle = document.getElementById('activeDayDisplayTitle');
-    const activeDayDisplayCount = document.getElementById('activeDayDisplayCount');
-    const selectedDateSlotCountBadge = document.getElementById('selectedDateSlotCountBadge');
-    const activeDaySlotsGrid = document.getElementById('activeDaySlotsGrid');
-    const selectAllForDayBtn = document.getElementById('selectAllForDayBtn');
-    const clearAllForDayBtn = document.getElementById('clearAllForDayBtn');
-    const applyToWeekdayBtn = document.getElementById('applyToWeekdayBtn');
-    const currentWeekdayName = document.getElementById('currentWeekdayName');
-
-    const saveBtn = document.getElementById('saveScheduleBtn');
-    const masterToggle = document.getElementById('masterStatusToggle');
-    const bannerBadge = document.getElementById('bannerStatusBadge');
-    const availToggle = document.getElementById('availTabToggle');
-    const availBadge2 = document.getElementById('availStatusBadge2');
-    const availTabText = document.getElementById('availTabText');
-
-    // Populate Date Selector dropdown
-    function populateDateDropdown() {
-        if (!dateSelectEl) return;
-        dateSelectEl.innerHTML = '';
-        dateList.forEach((d, idx) => {
-            const opt = document.createElement('option');
-            opt.value = idx;
-            opt.textContent = `${d.isToday ? 'Today - ' : ''}${d.fullLabel}`;
-            dateSelectEl.appendChild(opt);
-        });
-        dateSelectEl.value = activeDateIndex;
-
-        if (calendarPickerEl) {
-            calendarPickerEl.min = dateList[0].iso;
-            calendarPickerEl.max = dateList[dateList.length - 1].iso;
-            calendarPickerEl.value = activeDate.iso;
-        }
+    function isSameDay(d1, d2) {
+        return d1.getFullYear() === d2.getFullYear() &&
+               d1.getMonth() === d2.getMonth() &&
+               d1.getDate() === d2.getDate();
     }
 
     // Helper: get slot list for a specific date
-    function getSlotsForDate(dateObj) {
-        const iso = dateObj.iso;
-        const dayKey = dateObj.dayKey;
+    function getSlotsForDate(d) {
+        const iso = formatIsoDate(d);
+        const dayKey = daysOfWeek[d.getDay()];
 
         // If explicitly set for this date (including empty array for day off)
         if (scheduleData.dates && scheduleData.dates[iso] !== undefined) {
@@ -150,60 +69,82 @@ document.addEventListener('DOMContentLoaded', async () => {
             return scheduleData.weekly[dayKey];
         }
 
-        return [...availableVenueSlots];
+        return [...TIME_SLOTS];
     }
 
-    // Helper: get active slot count for date
-    function getSlotCountForDate(dateObj) {
-        return getSlotsForDate(dateObj).length;
-    }
+    // UI Elements
+    const prevDayBtn = document.getElementById('prevDayBtn');
+    const nextDayBtn = document.getElementById('nextDayBtn');
+    const activeDayDisplayMain = document.getElementById('activeDayDisplayMain');
+    const todayChipBadge = document.getElementById('todayChipBadge');
+    const calendarPickerEl = document.getElementById('scheduleCalendarPicker');
+    const jumpTodayBtn = document.getElementById('jumpTodayBtn');
+    const jumpTomorrowBtn = document.getElementById('jumpTomorrowBtn');
+    const jumpNextWeekBtn = document.getElementById('jumpNextWeekBtn');
 
-    // Render Quick Dates Chips Bar
-    function renderQuickDateChips() {
-        if (!quickDatesBar) return;
-        quickDatesBar.innerHTML = '';
+    const weekStripContainer = document.getElementById('weekStripContainer');
+    const activeDayDisplayTitle = document.getElementById('activeDayDisplayTitle');
+    const activeDayDisplayCount = document.getElementById('activeDayDisplayCount');
+    const currentWeekdayName = document.getElementById('currentWeekdayName');
+    const activeDaySlotsGrid = document.getElementById('activeDaySlotsGrid');
+    const selectAllForDayBtn = document.getElementById('selectAllForDayBtn');
+    const clearAllForDayBtn = document.getElementById('clearAllForDayBtn');
+    const applyToWeekdayBtn = document.getElementById('applyToWeekdayBtn');
 
-        dateList.forEach((d, idx) => {
+    const saveBtn = document.getElementById('saveScheduleBtn');
+    const masterToggle = document.getElementById('masterStatusToggle');
+    const bannerBadge = document.getElementById('bannerStatusBadge');
+    const availToggle = document.getElementById('availTabToggle');
+    const availBadge2 = document.getElementById('availStatusBadge2');
+    const availTabText = document.getElementById('availTabText');
+
+    // Render the 7-day strip
+    function renderWeekStrip() {
+        if (!weekStripContainer) return;
+        weekStripContainer.innerHTML = '';
+
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(stripStartDate);
+            d.setDate(stripStartDate.getDate() + i);
+
+            const isSelected = isSameDay(d, activeDate);
+            const isTodayDay = isSameDay(d, today);
+            const dayIdx = d.getDay();
+            const dayShort = weekdayFullNames[dayIdx].substring(0, 3).toUpperCase();
+            const slots = getSlotsForDate(d);
+            const count = slots.length;
+
             const chip = document.createElement('div');
-            chip.className = `quick-date-chip ${idx === activeDateIndex ? 'active' : ''}`;
-            chip.id = `chip-${d.iso}`;
+            chip.className = `week-day-chip ${isSelected ? 'active' : ''}`;
+            chip.id = `chip-${formatIsoDate(d)}`;
 
-            const count = getSlotCountForDate(d);
-            const isOff = count === 0;
+            const statusClass = count === 0 ? 'off' : '';
+            const statusLabel = count === 0 ? 'Off' : `${count} slots`;
 
             chip.innerHTML = `
-                <div class="chip-day">${d.isToday ? 'TODAY' : d.dayShort}</div>
-                <div class="chip-date">${d.monthShort} ${d.dayNum}</div>
-                <div class="chip-dots">
-                    <span class="chip-status-dot ${isOff ? 'off' : ''}" title="${isOff ? 'Day Off (0 slots)' : `${count} slots active`}"></span>
-                </div>
+                <div class="week-day-name">${isTodayDay ? 'TODAY' : dayShort}</div>
+                <div class="week-day-num">${d.getDate()}</div>
+                <div class="week-day-status ${statusClass}">${statusLabel}</div>
             `;
 
             chip.addEventListener('click', () => {
-                setActiveDateByIndex(idx);
+                activeDate = new Date(d);
+                syncScheduleView();
             });
 
-            quickDatesBar.appendChild(chip);
-        });
-
-        // Ensure active chip is scrolled into view smoothly
-        scrollActiveChipIntoView();
-    }
-
-    function scrollActiveChipIntoView() {
-        const activeChip = document.getElementById(`chip-${activeDate.iso}`);
-        if (activeChip && quickDatesBar) {
-            activeChip.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+            weekStripContainer.appendChild(chip);
         }
     }
 
-    // Render the Slots for the currently selected Date
-    function renderActiveDateSlots() {
-        activeDate = dateList[activeDateIndex];
-        const iso = activeDate.iso;
-        const dayKey = activeDate.dayKey;
+    // Render active day card & slots grid
+    function renderActiveDaySlots() {
+        const iso = formatIsoDate(activeDate);
+        const dayIdx = activeDate.getDay();
+        const dayKey = daysOfWeek[dayIdx];
+        const dayFull = weekdayFullNames[dayIdx];
+        const isTodayDate = isSameDay(activeDate, today);
 
-        // Ensure date array is initialized in scheduleData.dates if modified
+        // Ensure date array is initialized in scheduleData.dates if not present
         if (!scheduleData.dates[iso]) {
             scheduleData.dates[iso] = [...getSlotsForDate(activeDate)];
         }
@@ -211,33 +152,43 @@ document.addEventListener('DOMContentLoaded', async () => {
         const activeSlots = scheduleData.dates[iso];
         const count = activeSlots.length;
 
-        // Header displays
+        // Update Date Navigator
+        if (activeDayDisplayMain) {
+            activeDayDisplayMain.textContent = `${dayFull}, ${monthNames[activeDate.getMonth()]} ${activeDate.getDate()}, ${activeDate.getFullYear()}`;
+        }
+        if (todayChipBadge) {
+            todayChipBadge.style.display = isTodayDate ? 'inline-block' : 'none';
+        }
+        if (calendarPickerEl) {
+            calendarPickerEl.value = iso;
+        }
+
+        // Update Quick Jump button states
+        const tmrw = new Date(today);
+        tmrw.setDate(today.getDate() + 1);
+
+        if (jumpTodayBtn) jumpTodayBtn.classList.toggle('active', isTodayDate);
+        if (jumpTomorrowBtn) jumpTomorrowBtn.classList.toggle('active', isSameDay(activeDate, tmrw));
+
+        // Update Day Card Header
         if (activeDayDisplayTitle) {
-            activeDayDisplayTitle.textContent = `${activeDate.fullLabel} ${activeDate.isToday ? '(Today)' : ''}`;
+            activeDayDisplayTitle.textContent = `${dayFull}, ${fullMonthNames[activeDate.getMonth()]} ${activeDate.getDate()}${isTodayDate ? ' (Today)' : ''}`;
         }
         if (currentWeekdayName) {
-            currentWeekdayName.textContent = activeDate.dayFull;
+            currentWeekdayName.textContent = dayFull;
         }
 
-        const countText = count === 0 ? 'Day Off (0 slots active)' : `${count} slot${count === 1 ? '' : 's'} active`;
-        if (activeDayDisplayCount) {
-            activeDayDisplayCount.textContent = countText;
-            activeDayDisplayCount.style.color = count === 0 ? '#ff5252' : 'var(--gold)';
-        }
-        if (selectedDateSlotCountBadge) {
-            selectedDateSlotCountBadge.textContent = countText;
-            selectedDateSlotCountBadge.style.color = count === 0 ? '#ff5252' : 'var(--gold)';
-        }
+        updateSlotCounterUI(count);
 
-        // Render slot pills
+        // Render the 25 Slot Pills
         if (!activeDaySlotsGrid) return;
         activeDaySlotsGrid.innerHTML = '';
 
-        availableVenueSlots.forEach(slot => {
+        TIME_SLOTS.forEach(slot => {
             const pill = document.createElement('div');
             const isSelected = activeSlots.includes(slot);
             pill.className = `slot-pill ${isSelected ? 'active' : ''}`;
-            pill.textContent = formatSlotDisplay(slot);
+            pill.textContent = slot;
             pill.dataset.slot = slot;
 
             pill.addEventListener('click', () => {
@@ -249,144 +200,143 @@ document.addEventListener('DOMContentLoaded', async () => {
                     scheduleData.dates[iso].push(slot);
                     pill.classList.add('active');
                 }
-                updateActiveSlotCounts();
+                onSlotsUpdated();
             });
 
             activeDaySlotsGrid.appendChild(pill);
         });
-
-        // Update chips UI
-        updateActiveChipBadge(activeDateIndex);
     }
 
-    function updateActiveSlotCounts() {
-        const iso = activeDate.iso;
-        const count = (scheduleData.dates[iso] || []).length;
-        const countText = count === 0 ? 'Day Off (0 slots active)' : `${count} slot${count === 1 ? '' : 's'} active`;
-
+    function updateSlotCounterUI(count) {
+        const countText = count === 0 ? '0 slots active (Day Off)' : `${count} slot${count === 1 ? '' : 's'} active`;
         if (activeDayDisplayCount) {
             activeDayDisplayCount.textContent = countText;
-            activeDayDisplayCount.style.color = count === 0 ? '#ff5252' : 'var(--gold)';
+            activeDayDisplayCount.style.color = count === 0 ? '#ff5252' : 'var(--muted)';
         }
-        if (selectedDateSlotCountBadge) {
-            selectedDateSlotCountBadge.textContent = countText;
-            selectedDateSlotCountBadge.style.color = count === 0 ? '#ff5252' : 'var(--gold)';
-        }
-
-        updateActiveChipBadge(activeDateIndex);
     }
 
-    function updateActiveChipBadge(idx) {
-        const d = dateList[idx];
-        const chip = document.getElementById(`chip-${d.iso}`);
-        if (!chip) return;
+    function onSlotsUpdated() {
+        const iso = formatIsoDate(activeDate);
+        const count = (scheduleData.dates[iso] || []).length;
+        updateSlotCounterUI(count);
 
-        const count = getSlotCountForDate(d);
-        const isOff = count === 0;
-        const dot = chip.querySelector('.chip-status-dot');
-        if (dot) {
-            if (isOff) {
-                dot.classList.add('off');
-                dot.title = 'Day Off (0 slots)';
-            } else {
-                dot.classList.remove('off');
-                dot.title = `${count} slots active`;
+        // Update strip chip for this day
+        const chip = document.getElementById(`chip-${iso}`);
+        if (chip) {
+            const statusEl = chip.querySelector('.week-day-status');
+            if (statusEl) {
+                statusEl.textContent = count === 0 ? 'Off' : `${count} slots`;
+                statusEl.className = `week-day-status ${count === 0 ? 'off' : ''}`;
             }
         }
     }
 
-    // Set active date by index
-    function setActiveDateByIndex(idx) {
-        if (idx < 0 || idx >= dateList.length) return;
-        activeDateIndex = idx;
-        activeDate = dateList[activeDateIndex];
-
-        // Update dropdown & picker
-        if (dateSelectEl) dateSelectEl.value = idx;
-        if (calendarPickerEl) calendarPickerEl.value = activeDate.iso;
-
-        // Update chip highlights
-        document.querySelectorAll('.quick-date-chip').forEach((c, i) => {
-            c.classList.toggle('active', i === idx);
-        });
-
-        scrollActiveChipIntoView();
-        renderActiveDateSlots();
+    function syncScheduleView() {
+        // If activeDate is before or more than 6 days past stripStartDate, adjust stripStartDate
+        const diffDays = Math.floor((activeDate - stripStartDate) / (1000 * 60 * 60 * 24));
+        if (diffDays < 0 || diffDays >= 7) {
+            stripStartDate = new Date(activeDate);
+        }
+        renderWeekStrip();
+        renderActiveDaySlots();
     }
 
-    // Button event listeners
+    // Date Navigation Listeners
     if (prevDayBtn) {
         prevDayBtn.addEventListener('click', () => {
-            if (activeDateIndex > 0) setActiveDateByIndex(activeDateIndex - 1);
+            activeDate.setDate(activeDate.getDate() - 1);
+            syncScheduleView();
         });
     }
 
     if (nextDayBtn) {
         nextDayBtn.addEventListener('click', () => {
-            if (activeDateIndex < dateList.length - 1) setActiveDateByIndex(activeDateIndex + 1);
-        });
-    }
-
-    if (dateSelectEl) {
-        dateSelectEl.addEventListener('change', (e) => {
-            setActiveDateByIndex(parseInt(e.target.value, 10));
+            activeDate.setDate(activeDate.getDate() + 1);
+            syncScheduleView();
         });
     }
 
     if (calendarPickerEl) {
         calendarPickerEl.addEventListener('change', (e) => {
-            const pickedIso = e.target.value;
-            const foundIdx = dateList.findIndex(d => d.iso === pickedIso);
-            if (foundIdx > -1) {
-                setActiveDateByIndex(foundIdx);
+            if (e.target.value) {
+                const parts = e.target.value.split('-');
+                activeDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                syncScheduleView();
             }
         });
     }
 
-    // Select All Slots for this date
+    if (jumpTodayBtn) {
+        jumpTodayBtn.addEventListener('click', () => {
+            activeDate = new Date(today);
+            stripStartDate = new Date(today);
+            syncScheduleView();
+        });
+    }
+
+    if (jumpTomorrowBtn) {
+        jumpTomorrowBtn.addEventListener('click', () => {
+            activeDate = new Date(today);
+            activeDate.setDate(today.getDate() + 1);
+            stripStartDate = new Date(today);
+            syncScheduleView();
+        });
+    }
+
+    if (jumpNextWeekBtn) {
+        jumpNextWeekBtn.addEventListener('click', () => {
+            activeDate.setDate(activeDate.getDate() + 7);
+            stripStartDate.setDate(stripStartDate.getDate() + 7);
+            syncScheduleView();
+        });
+    }
+
+    // Select All
     if (selectAllForDayBtn) {
         selectAllForDayBtn.addEventListener('click', () => {
-            const iso = activeDate.iso;
-            scheduleData.dates[iso] = [...availableVenueSlots];
+            const iso = formatIsoDate(activeDate);
+            scheduleData.dates[iso] = [...TIME_SLOTS];
             if (activeDaySlotsGrid) {
                 activeDaySlotsGrid.querySelectorAll('.slot-pill').forEach(pill => pill.classList.add('active'));
             }
-            updateActiveSlotCounts();
+            onSlotsUpdated();
         });
     }
 
-    // Clear All Slots (Mark Day Off)
+    // Clear All (Day Off)
     if (clearAllForDayBtn) {
         clearAllForDayBtn.addEventListener('click', () => {
-            const iso = activeDate.iso;
+            const iso = formatIsoDate(activeDate);
             scheduleData.dates[iso] = [];
             if (activeDaySlotsGrid) {
                 activeDaySlotsGrid.querySelectorAll('.slot-pill').forEach(pill => pill.classList.remove('active'));
             }
-            updateActiveSlotCounts();
+            onSlotsUpdated();
         });
     }
 
-    // Propagate active day schedule to all matching weekdays (e.g. all Sundays)
+    // Apply to All [Weekday]s
     if (applyToWeekdayBtn) {
         applyToWeekdayBtn.addEventListener('click', () => {
-            const iso = activeDate.iso;
+            const iso = formatIsoDate(activeDate);
             const currentSlots = [...(scheduleData.dates[iso] || [])];
-            const weekday = activeDate.dayKey;
+            const weekday = daysOfWeek[activeDate.getDay()];
+            const weekdayName = weekdayFullNames[activeDate.getDay()];
 
-            // Set recurring default
             scheduleData.weekly[weekday] = [...currentSlots];
 
-            // Apply to all generated dates matching this weekday
-            dateList.forEach((d, idx) => {
-                if (d.dayKey === weekday) {
-                    scheduleData.dates[d.iso] = [...currentSlots];
-                    updateActiveChipBadge(idx);
+            // Update any visible dates in the current strip that match this weekday
+            for (let i = 0; i < 7; i++) {
+                const d = new Date(stripStartDate);
+                d.setDate(stripStartDate.getDate() + i);
+                if (d.getDay() === activeDate.getDay()) {
+                    scheduleData.dates[formatIsoDate(d)] = [...currentSlots];
                 }
-            });
+            }
 
-            showToast(`Applied ${currentSlots.length} slots to all ${activeDate.dayFull}s!`);
-            updateActiveSlotCounts();
+            renderWeekStrip();
+            showToast(`Applied ${currentSlots.length} slots to all ${weekdayName}s!`);
+            onSlotsUpdated();
         });
     }
 
@@ -528,7 +478,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         scheduleData.weekly = { ...parsed.weekly };
                     }
                 } else {
-                    // Backward-compat: old flat weekday format { monday: [...], tuesday: [...] }
+                    // Legacy flat format: { monday: [...], tuesday: [...] }
                     Object.keys(parsed).forEach(k => {
                         const lowKey = k.toLowerCase();
                         if (daysOfWeek.includes(lowKey) && Array.isArray(parsed[k])) {
@@ -541,10 +491,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
         
-        // Initialize UI components
-        populateDateDropdown();
-        renderQuickDateChips();
-        renderActiveDateSlots();
+        // Render initial view
+        syncScheduleView();
         
     } catch (err) {
         console.error("Error loading dashboard", err);
