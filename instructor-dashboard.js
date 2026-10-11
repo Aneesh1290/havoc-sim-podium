@@ -184,6 +184,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const selectAllForDayBtn = document.getElementById('selectAllForDayBtn');
     const clearAllForDayBtn = document.getElementById('clearAllForDayBtn');
     const applyToWeekdayBtn = document.getElementById('applyToWeekdayBtn');
+    const applyToAllDatesBtn = document.getElementById('applyToAllDatesBtn');
+    const markAllDaysOffBtn = document.getElementById('markAllDaysOffBtn');
+    const applyDayOffToAllBtn = document.getElementById('applyDayOffToAllBtn');
 
     const saveBtn = document.getElementById('saveScheduleBtn');
     const masterToggle = document.getElementById('masterStatusToggle');
@@ -311,6 +314,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
 
+        if (applyToAllDatesBtn) {
+            applyToAllDatesBtn.innerHTML = isDayOff ? '⚡ Apply Day Off to All Dates' : '⚡ Apply to All Dates';
+        }
+
         // Day Off Alert Banner & Grid opacity
         if (dayOffAlert) {
             dayOffAlert.style.display = isDayOff ? 'flex' : 'none';
@@ -385,6 +392,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (toggleDayOffBtn) {
             toggleDayOffBtn.textContent = isDayOff ? 'Turn Day On' : 'Mark Day Off';
             toggleDayOffBtn.className = isDayOff ? 'action-link action-gold' : 'action-link action-danger';
+        }
+        if (applyToAllDatesBtn) {
+            applyToAllDatesBtn.innerHTML = isDayOff ? '⚡ Apply Day Off to All Dates' : '⚡ Apply to All Dates';
         }
         if (dayOffAlert) {
             dayOffAlert.style.display = isDayOff ? 'flex' : 'none';
@@ -528,6 +538,91 @@ document.addEventListener('DOMContentLoaded', async () => {
             onSlotsUpdated();
             persistSchedule(true, `Applied ${currentSlots.length} slots to all ${weekdayName}s!`);
         });
+    }
+
+    // Apply current active day configuration to ALL dates
+    function applyCurrentDayToAllDates() {
+        const iso = formatIsoDate(activeDate);
+        const currentSlots = [...(scheduleData.dates[iso] || [])];
+        const isDayOff = currentSlots.length === 0;
+
+        // 1. Update all 7 weekly default schedules
+        daysOfWeek.forEach(d => {
+            scheduleData.weekly[d] = [...currentSlots];
+        });
+
+        // 2. Overwrite all existing date overrides
+        Object.keys(scheduleData.dates).forEach(dKey => {
+            scheduleData.dates[dKey] = [...currentSlots];
+        });
+
+        // 3. Overwrite all 7 visible days in current week strip
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(stripStartDate);
+            d.setDate(stripStartDate.getDate() + i);
+            scheduleData.dates[formatIsoDate(d)] = [...currentSlots];
+        }
+
+        // 4. Overwrite next 30 days to guarantee availability for bookings
+        for (let i = 0; i < 30; i++) {
+            const d = new Date(today);
+            d.setDate(today.getDate() + i);
+            scheduleData.dates[formatIsoDate(d)] = [...currentSlots];
+        }
+
+        renderWeekStrip();
+        onSlotsUpdated();
+
+        const toastMsg = isDayOff
+            ? 'All dates marked as DAY OFF (Hidden from bookings)'
+            : `Applied ${currentSlots.length} active slots to ALL dates across entire schedule!`;
+        persistSchedule(true, toastMsg);
+    }
+
+    // Directly mark ALL dates as DAY OFF
+    function setAllDatesOff() {
+        const iso = formatIsoDate(activeDate);
+        scheduleData.dates[iso] = [];
+
+        // 1. Update all 7 weekly templates to empty
+        daysOfWeek.forEach(d => {
+            scheduleData.weekly[d] = [];
+        });
+
+        // 2. Clear all existing date overrides
+        Object.keys(scheduleData.dates).forEach(dKey => {
+            scheduleData.dates[dKey] = [];
+        });
+
+        // 3. Overwrite all 7 visible days in week strip
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(stripStartDate);
+            d.setDate(stripStartDate.getDate() + i);
+            scheduleData.dates[formatIsoDate(d)] = [];
+        }
+
+        // 4. Overwrite next 30 days
+        for (let i = 0; i < 30; i++) {
+            const d = new Date(today);
+            d.setDate(today.getDate() + i);
+            scheduleData.dates[formatIsoDate(d)] = [];
+        }
+
+        renderWeekStrip();
+        onSlotsUpdated();
+        persistSchedule(true, 'All dates marked as DAY OFF (Hidden from bookings)');
+    }
+
+    if (applyToAllDatesBtn) {
+        applyToAllDatesBtn.addEventListener('click', applyCurrentDayToAllDates);
+    }
+
+    if (markAllDaysOffBtn) {
+        markAllDaysOffBtn.addEventListener('click', setAllDatesOff);
+    }
+
+    if (applyDayOffToAllBtn) {
+        applyDayOffToAllBtn.addEventListener('click', setAllDatesOff);
     }
 
     // Tab switching

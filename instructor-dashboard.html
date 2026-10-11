@@ -403,6 +403,8 @@
             margin-bottom: 1.25rem;
             padding-bottom: 0.75rem;
             border-bottom: 1px solid rgba(255,255,255,0.05);
+            flex-wrap: wrap;
+            gap: 0.75rem;
         }
         .day-title-wrap {
             display: flex;
@@ -436,6 +438,8 @@
         .day-actions {
             display: flex;
             gap: 0.5rem;
+            flex-wrap: wrap;
+            align-items: center;
         }
         .action-link {
             background: transparent;
@@ -1036,9 +1040,11 @@
                     </div>
                     <div class="day-actions">
                         <button type="button" class="action-link action-danger" id="toggleDayOffBtn">Mark Day Off</button>
+                        <button type="button" class="action-link action-danger" id="markAllDaysOffBtn" title="Mark all dates across schedule as Day Off">Mark All Days Off</button>
                         <button type="button" class="action-link" id="selectAllForDayBtn">Select All</button>
                         <button type="button" class="action-link" id="clearAllForDayBtn">Clear</button>
                         <button type="button" class="action-link action-gold" id="applyToWeekdayBtn">Apply to All <span id="currentWeekdayName">Sunday</span>s</button>
+                        <button type="button" class="action-link action-gold" id="applyToAllDatesBtn" style="border-color: var(--gold); background: rgba(229,184,105,0.14); font-weight: 600;">⚡ Apply to All Dates</button>
                     </div>
                 </div>
 
@@ -1051,9 +1057,14 @@
                             <p class="day-off-alert-desc">You are marked unavailable for bookings on this date. Click below or use the switch to turn it back on.</p>
                         </div>
                     </div>
-                    <button type="button" class="btn btn-gold" id="turnDayBackOnBtn" style="padding: 0.5rem 1.1rem; font-size: 0.85rem;">
-                        <span>✓</span> Turn Day On
-                    </button>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                        <button type="button" class="action-link action-gold" id="applyDayOffToAllBtn" style="border-color: var(--gold); background: rgba(229,184,105,0.14); font-weight: 600; padding: 0.45rem 0.95rem;">
+                            ⚡ Apply Day Off to All Dates
+                        </button>
+                        <button type="button" class="btn btn-gold" id="turnDayBackOnBtn" style="padding: 0.5rem 1.1rem; font-size: 0.85rem;">
+                            <span>✓</span> Turn Day On
+                        </button>
+                    </div>
                 </div>
 
                 <div class="slots-grid" id="activeDaySlotsGrid">
