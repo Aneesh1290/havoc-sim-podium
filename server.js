@@ -586,7 +586,7 @@ app.get('/api/admin/backup', verifyToken, verifySuperAdmin, (req, res) => {
 // Instructor Auth API
 app.post('/api/instructor/login', async (req, res) => {
     const { email, password } = req.body;
-    db.get("SELECT * FROM instructors WHERE email = ?", [email], async (err, instructor) => {
+    db.get("SELECT * FROM instructors WHERE email = ? OR LOWER(name) = LOWER(?)", [email, email], async (err, instructor) => {
         if (err || !instructor) return res.status(401).json({ error: 'Invalid email or password' });
         
         // If no password set yet, default is 'havoc123'

@@ -3,151 +3,254 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instructor Login - Havoc</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <title>Havoc Sim Podium — Instructor Portal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/png" href="havoc_logo.png">
     <style>
-        body { 
-            background: #0a0a0c url('main_background.png') no-repeat center center/cover;
-            color: #fff; 
-            font-family: 'Outfit', sans-serif; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            height: 100vh; 
-            margin: 0; 
-            position: relative;
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --gold: #e5b869;
+            --gold-glow: rgba(229,184,105,0.25);
+            --bg: #0a0a0c;
+            --card: #111114;
+            --border: rgba(255,255,255,0.08);
+            --muted: rgba(255,255,255,0.45);
+            --input-bg: #1a1a1f;
         }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Ambient glow effects */
         body::before {
             content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(10, 10, 12, 0.85); /* Dark overlay */
-            backdrop-filter: blur(8px);
-            z-index: 0;
+            position: fixed;
+            top: -20%;
+            left: -10%;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(229,184,105,0.06) 0%, transparent 70%);
+            pointer-events: none;
         }
-        
-        .login-box { 
+        body::after {
+            content: '';
+            position: fixed;
+            bottom: -20%;
+            right: -10%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(229,184,105,0.04) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 3rem 2.5rem;
+            width: 100%;
+            max-width: 420px;
             position: relative;
-            z-index: 1;
-            background: rgba(255, 255, 255, 0.03); 
-            padding: 3rem 2.5rem; 
-            border-radius: 20px; 
-            width: 100%; 
-            max-width: 420px; 
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5), inset 0 0 0 1px rgba(255,255,255,0.1); 
-            backdrop-filter: blur(15px);
+            box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.03) inset;
+        }
+
+        .card-header {
             text-align: center;
+            margin-bottom: 2.5rem;
         }
-        
-        .login-logo {
-            width: 80px;
-            margin-bottom: 1rem;
+
+        .brand {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 1.5rem;
         }
-        
-        .login-box h2 { 
-            margin: 0 0 0.5rem 0; 
-            color: #fff; 
-            font-weight: 700;
-            font-size: 1.8rem;
+        .brand-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 12px;
+            overflow: hidden;
+            flex-shrink: 0;
         }
-        .login-box p.subtitle {
-            color: var(--accent-gold);
-            font-size: 0.95rem;
-            margin: 0 0 2rem 0;
+        .brand-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .brand-name {
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: 3px;
+            color: var(--gold);
+            line-height: 1.1;
+        }
+        .brand-sub {
+            font-size: 0.65rem;
             letter-spacing: 2px;
+            color: var(--muted);
             text-transform: uppercase;
+        }
+
+        h2 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.4rem;
+        }
+        .subtitle {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        .field {
+            margin-bottom: 1.25rem;
+        }
+        .field label {
+            display: block;
+            font-size: 0.78rem;
             font-weight: 600;
-        }
-        
-        .input-group { margin-bottom: 1.5rem; text-align: left; }
-        .input-group label { display: block; margin-bottom: 0.5rem; font-size: 0.85rem; color: #aaa; font-weight: 500; }
-        .input-group input { 
-            width: 100%; 
-            padding: 0.9rem 1rem; 
-            background: rgba(0,0,0,0.3); 
-            border: 1px solid rgba(255,255,255,0.1); 
-            border-radius: 8px; 
-            color: #fff; 
-            font-family: inherit; 
-            font-size: 1rem;
-            transition: all 0.3s ease;
-            box-sizing: border-box;
-        }
-        .input-group input:focus {
-            outline: none;
-            border-color: var(--accent-gold);
-            background: rgba(0,0,0,0.5);
-            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.2);
-        }
-        
-        .btn-login { 
-            width: 100%; 
-            padding: 1rem; 
-            background: var(--accent-gold); 
-            color: #000; 
-            font-weight: 700; 
-            font-size: 1rem;
-            border: none; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            transition: all 0.3s ease; 
-            margin-top: 1rem;
+            letter-spacing: 1.5px;
             text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 0.6rem;
+        }
+        
+        .input-wrap {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            transition: border-color 0.25s;
+            background: var(--input-bg);
+        }
+        .input-wrap:focus-within {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px var(--gold-glow);
+        }
+        .input-wrap input {
+            width: 100%;
+            padding: 0.9rem 1.1rem;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            display: block;
+            -webkit-text-fill-color: #fff;
+            transition: background-color 999999s ease-in-out 0s;
+        }
+        .input-wrap input:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 9999px var(--input-bg) inset !important;
+            box-shadow: 0 0 0 9999px var(--input-bg) inset !important;
+            -webkit-text-fill-color: #fff !important;
+            caret-color: #fff;
+        }
+
+        .error-msg {
+            background: rgba(248,113,113,0.1);
+            border: 1px solid rgba(248,113,113,0.3);
+            color: #f87171;
+            font-size: 0.875rem;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.25rem;
+            display: none;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 1rem;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s;
+            margin-top: 0.75rem;
             letter-spacing: 1px;
         }
-        .btn-login:hover { 
-            background: #e5b869; 
+        .btn-gold {
+            background: linear-gradient(135deg, var(--gold), #c59b4c);
+            color: #000;
+        }
+        .btn-gold:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(212, 175, 55, 0.3);
+            box-shadow: 0 8px 25px rgba(229,184,105,0.35);
         }
-        .btn-login:active {
-            transform: translateY(0);
-        }
-        
-        .error-msg { 
-            color: #ff4d4d; 
-            font-size: 0.85rem; 
-            text-align: center; 
-            margin-top: 1rem; 
-            padding: 0.8rem;
-            background: rgba(255, 77, 77, 0.1);
-            border-radius: 6px;
-            display: none; 
+        .btn-gold:active { transform: translateY(0); }
+
+        .btn.loading {
+            opacity: 0.7;
+            pointer-events: none;
         }
     </style>
 </head>
 <body>
-    <div class="login-box">
-        <img src="havoc_logo.png" alt="Havoc Logo" class="login-logo">
-        <h2>Welcome Back</h2>
-        <p class="subtitle">Instructor Portal</p>
-        
-        <form id="instructorLoginForm">
-            <div class="input-group">
-                <label>Email Address</label>
-                <input type="email" id="email" placeholder="instructor@havoc.com" required>
+
+    <div class="card">
+        <div class="card-header">
+            <a href="/" style="text-decoration: none; display: contents;">
+                <div class="brand" style="cursor: pointer;">
+                    <div class="brand-icon"><img src="havoc_logo.png" alt="Havoc Logo"></div>
+                    <div>
+                        <div class="brand-name">HAVOC</div>
+                        <div class="brand-sub">Sim Podium</div>
+                    </div>
+                </div>
+            </a>
+            <h2>Instructor Portal</h2>
+            <p class="subtitle">Secure access for instructors only</p>
+        </div>
+
+        <div id="errorMsg" class="error-msg"></div>
+
+        <form id="instructorLoginForm" autocomplete="off">
+            <!-- Honeypot to trick browser autocomplete OFF -->
+            <input type="text" style="display:none" aria-hidden="true">
+            <input type="password" style="display:none" aria-hidden="true">
+
+            <div class="field" id="user-field">
+                <label>Username / Email</label>
+                <div class="input-wrap">
+                    <input type="text" id="email" autocomplete="new-password" spellcheck="false" placeholder="Enter username or email" required>
+                </div>
             </div>
-            <div class="input-group">
+
+            <div class="field" id="pass-field">
                 <label>Password</label>
-                <input type="password" id="password" placeholder="••••••••" required>
+                <div class="input-wrap">
+                    <input type="password" id="password" autocomplete="new-password" placeholder="••••••••" required>
+                </div>
             </div>
-            <button type="submit" class="btn-login">Login Securely</button>
-            <div id="errorMsg" class="error-msg"></div>
+
+            <button type="submit" class="btn btn-gold" id="submitBtn">Login</button>
         </form>
     </div>
+
     <script>
         document.getElementById('instructorLoginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email').value;
+            const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
             const errorMsg = document.getElementById('errorMsg');
-            const btn = document.querySelector('.btn-login');
+            const submitBtn = document.getElementById('submitBtn');
             
-            const originalText = btn.textContent;
-            btn.textContent = 'Authenticating...';
-            btn.disabled = true;
+            const originalText = submitBtn.textContent;
+            submitBtn.textContent = 'Authenticating...';
+            submitBtn.classList.add('loading');
             errorMsg.style.display = 'none';
             
             try {
@@ -161,16 +264,16 @@
                     localStorage.setItem('instructor_token', data.token);
                     window.location.href = '/instructor-dashboard.html';
                 } else {
-                    errorMsg.textContent = data.error || 'Login failed';
+                    errorMsg.textContent = data.error || 'Invalid credentials';
                     errorMsg.style.display = 'block';
-                    btn.textContent = originalText;
-                    btn.disabled = false;
+                    submitBtn.textContent = originalText;
+                    submitBtn.classList.remove('loading');
                 }
             } catch (err) {
                 errorMsg.textContent = 'Network error. Please try again.';
                 errorMsg.style.display = 'block';
-                btn.textContent = originalText;
-                btn.disabled = false;
+                submitBtn.textContent = originalText;
+                submitBtn.classList.remove('loading');
             }
         });
     </script>
