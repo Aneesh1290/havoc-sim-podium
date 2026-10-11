@@ -252,6 +252,87 @@ body.booking-page {
     object-fit: cover;
 }
 
+/* Multi-image slideshow for product cards */
+.card-slider-wrap {
+    position: relative;
+    width: 100%;
+    height: 250px;
+    overflow: hidden;
+    user-select: none;
+    touch-action: pan-y;
+}
+.card-slider-track {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.card-slider-slide {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 100%;
+}
+.card-slider-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
+}
+.card-slider-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity 0.2s, background 0.2s, transform 0.2s;
+}
+.card-slider-wrap:hover .card-slider-btn {
+    opacity: 1;
+}
+.card-slider-btn:hover {
+    background: rgba(229, 184, 105, 0.85);
+    color: #000;
+}
+.card-slider-btn.prev { left: 8px; }
+.card-slider-btn.next { right: 8px; }
+
+.card-slider-dots {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 5px;
+    z-index: 5;
+    background: rgba(0,0,0,0.4);
+    padding: 3px 6px;
+    border-radius: 10px;
+}
+.card-slider-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.45);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+}
+.card-slider-dot.active {
+    background: var(--accent-gold, #e5b869);
+    transform: scale(1.25);
+}
+
 .product-info {
     padding: 1.5rem;
 }

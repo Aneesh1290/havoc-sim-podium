@@ -595,7 +595,41 @@ document.addEventListener("DOMContentLoaded", () => {
             const productGrid = document.getElementById('publicProductGrid');
             if (productGrid) {
                 productGrid.innerHTML = products.map(p => {
-                    const imgHtml = p.image_url ? `<img src="${p.image_url}" alt="${p.name}">` : `<div style="width:100%; height:180px; background:#222;"></div>`;
+                    let images = [];
+                    try {
+                        if (p.images_json) {
+                            const parsed = typeof p.images_json === 'string' ? JSON.parse(p.images_json) : p.images_json;
+                            if (Array.isArray(parsed) && parsed.length > 0) images = parsed;
+                        }
+                    } catch(e) {}
+                    if (images.length === 0 && p.image_url) {
+                        images = [p.image_url];
+                    }
+
+                    let imgHtml = '';
+                    if (images.length > 1) {
+                        const slidesHtml = images.map((src, idx) => `
+                            <div class="card-slider-slide">
+                                <img src="${src}" alt="${p.name} - Angle ${idx + 1}" loading="lazy">
+                            </div>
+                        `).join('');
+                        const dotsHtml = images.map((_, idx) => `
+                            <span class="card-slider-dot ${idx === 0 ? 'active' : ''}" data-index="${idx}"></span>
+                        `).join('');
+                        imgHtml = `
+                        <div class="card-slider-wrap" data-card-id="${p.id}">
+                            <div class="card-slider-track">${slidesHtml}</div>
+                            <button type="button" class="card-slider-btn prev" aria-label="Previous image">&#10094;</button>
+                            <button type="button" class="card-slider-btn next" aria-label="Next image">&#10095;</button>
+                            <div class="card-slider-dots">${dotsHtml}</div>
+                        </div>
+                        `;
+                    } else if (images.length === 1) {
+                        imgHtml = `<img src="${images[0]}" alt="${p.name}">`;
+                    } else {
+                        imgHtml = `<div style="width:100%; height:250px; background:#222;"></div>`;
+                    }
+
                     return `
                     <div class="product-card" data-category="${p.type.toLowerCase()}">
                         ${imgHtml}
@@ -613,6 +647,107 @@ document.addEventListener("DOMContentLoaded", () => {
                     </div>
                     `;
                 }).join('');
+
+                // Function to set up sliders with arrows, dots, swipe & auto-slideshow
+                function initProductCardSliders(container) {
+                    const sliders = container.querySelectorAll('.card-slider-wrap');
+                    sliders.forEach(slider => {
+                        const track = slider.querySelector('.card-slider-track');
+                        const slides = slider.querySelectorAll('.card-slider-slide');
+                        const dots = slider.querySelectorAll('.card-slider-dot');
+                        const prevBtn = slider.querySelector('.card-slider-btn.prev');
+                        const nextBtn = slider.querySelector('.card-slider-btn.next');
+                        const count = slides.length;
+                        if (count <= 1) return;
+
+                        let currentIdx = 0;
+                        let autoTimer = null;
+
+                        const updateSlide = (idx) => {
+                            currentIdx = (idx + count) % count;
+                            track.style.transform = `translateX(-${currentIdx * 100}%)`;
+                            dots.forEach((d, i) => d.classList.toggle('active', i === currentIdx));
+                        };
+
+                        const nextSlide = () => updateSlide(currentIdx + 1);
+                        const prevSlide = () => updateSlide(currentIdx - 1);
+
+                        // Auto slideshow every 3.5s
+                        const startAuto = () => {
+                            stopAuto();
+                            autoTimer = setInterval(nextSlide, 3500);
+                        };
+                        const stopAuto = () => {
+                            if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+                        };
+
+                        startAuto();
+                        slider.addEventListener('mouseenter', stopAuto);
+                        slider.addEventListener('mouseleave', startAuto);
+
+                        // Arrow buttons
+                        if (prevBtn) {
+                            prevBtn.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                prevSlide();
+                                startAuto();
+                            });
+                        }
+                        if (nextBtn) {
+                            nextBtn.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                nextSlide();
+                                startAuto();
+                            });
+                        }
+
+                        // Dot indicators
+                        dots.forEach((dot, dotIdx) => {
+                            dot.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                updateSlide(dotIdx);
+                                startAuto();
+                            });
+                        });
+
+                        // Touch swipe support
+                        let startX = 0;
+                        let startY = 0;
+                        let isSwiping = false;
+
+                        slider.addEventListener('touchstart', (e) => {
+                            stopAuto();
+                            const touch = e.touches[0];
+                            startX = touch.clientX;
+                            startY = touch.clientY;
+                            isSwiping = true;
+                        }, { passive: true });
+
+                        slider.addEventListener('touchend', (e) => {
+                            if (!isSwiping) return;
+                            isSwiping = false;
+                            const touch = e.changedTouches[0];
+                            const diffX = touch.clientX - startX;
+                            const diffY = touch.clientY - startY;
+
+                            // Only trigger horizontal swipe if horizontal movement is greater than vertical
+                            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 30) {
+                                if (diffX > 0) {
+                                    prevSlide();
+                                } else {
+                                    nextSlide();
+                                }
+                            }
+                            startAuto();
+                        }, { passive: true });
+                    });
+                }
+
+                // Initialize interactive slideshows on cards
+                initProductCardSliders(productGrid);
 
                 // Intercept Add to Cart -> open modal first
                 document.querySelectorAll(".add-to-cart").forEach(btn => {

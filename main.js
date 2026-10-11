@@ -170,14 +170,48 @@ document.addEventListener('DOMContentLoaded', () => {
             products.forEach(p => {
                 const category = p.type.toLowerCase();
                 const displayStyle = category === types[0]?.toLowerCase() ? 'block' : 'none';
-                const imgHtml = p.image_url ? `<img src="${p.image_url}" alt="${p.name}">` : `<div style="width:100%; height:180px; background:#222;"></div>`;
+                
+                let images = [];
+                try {
+                    if (p.images_json) {
+                        const parsed = typeof p.images_json === 'string' ? JSON.parse(p.images_json) : p.images_json;
+                        if (Array.isArray(parsed) && parsed.length > 0) images = parsed;
+                    }
+                } catch(e) {}
+                if (images.length === 0 && p.image_url) {
+                    images = [p.image_url];
+                }
+
+                let imgWrapHtml = '';
+                if (images.length > 1) {
+                    const slidesHtml = images.map((src, idx) => `
+                        <div class="sim-slider-slide">
+                            <img src="${src}" alt="${p.name} - Angle ${idx + 1}" loading="lazy">
+                        </div>
+                    `).join('');
+                    const dotsHtml = images.map((_, idx) => `
+                        <span class="sim-slider-dot ${idx === 0 ? 'active' : ''}" data-index="${idx}"></span>
+                    `).join('');
+                    imgWrapHtml = `
+                    <div class="sim-img-wrap sim-slider-wrap" data-sim-id="${p.id}">
+                        <div class="sim-slider-track">${slidesHtml}</div>
+                        <button type="button" class="sim-slider-btn prev" aria-label="Previous angle">&#10094;</button>
+                        <button type="button" class="sim-slider-btn next" aria-label="Next angle">&#10095;</button>
+                        <div class="sim-slider-dots">${dotsHtml}</div>
+                    </div>
+                    `;
+                } else if (images.length === 1) {
+                    imgWrapHtml = `<div class="sim-img-wrap"><img src="${images[0]}" alt="${p.name}"></div>`;
+                } else {
+                    imgWrapHtml = `<div class="sim-img-wrap" style="background:#222;"></div>`;
+                }
                 
                 const hasDetailedDesc = p.description && p.description.trim().length > 0;
                 
                 cardsHtml += `
                 <div class="sim-card" data-category="${category}" style="display: ${displayStyle};">
                     ${p.compare_price && p.compare_price > p.price ? '<div class="badge">SALE</div>' : ''}
-                    <div class="sim-img-wrap">${imgHtml}</div>
+                    ${imgWrapHtml}
                     <div class="sim-info">
                         <div class="sim-type">${p.hide_suffix ? p.type.toUpperCase() : `${p.type.toUpperCase()} SIM`}</div>
                         <h3>${p.name}</h3>
@@ -196,6 +230,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             });
             carouselContainer.innerHTML = cardsHtml;
+
+            // Initialize sliders on home screen cards
+            initSimCardSliders(carouselContainer);
 
             // Wire "View Specs" modal triggers
             const modal = document.getElementById('simDetailsModal');
@@ -311,6 +348,100 @@ document.addEventListener('DOMContentLoaded', () => {
                     carouselContainer.scrollLeft = 0;
                 });
             });
+
+            // Function to set up multi-angle slider per simulator card
+            function initSimCardSliders(container) {
+                const sliders = container.querySelectorAll('.sim-slider-wrap');
+                sliders.forEach(slider => {
+                    const track = slider.querySelector('.sim-slider-track');
+                    const slides = slider.querySelectorAll('.sim-slider-slide');
+                    const dots = slider.querySelectorAll('.sim-slider-dot');
+                    const prevBtn = slider.querySelector('.sim-slider-btn.prev');
+                    const nextBtn = slider.querySelector('.sim-slider-btn.next');
+                    const count = slides.length;
+                    if (count <= 1) return;
+
+                    let currentIdx = 0;
+                    let autoTimer = null;
+
+                    const updateSlide = (idx) => {
+                        currentIdx = (idx + count) % count;
+                        track.style.transform = `translateX(-${currentIdx * 100}%)`;
+                        dots.forEach((d, i) => d.classList.toggle('active', i === currentIdx));
+                    };
+
+                    const nextSlide = () => updateSlide(currentIdx + 1);
+                    const prevSlide = () => updateSlide(currentIdx - 1);
+
+                    const startAuto = () => {
+                        stopAuto();
+                        autoTimer = setInterval(nextSlide, 3500);
+                    };
+                    const stopAuto = () => {
+                        if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+                    };
+
+                    startAuto();
+                    slider.addEventListener('mouseenter', stopAuto);
+                    slider.addEventListener('mouseleave', startAuto);
+
+                    if (prevBtn) {
+                        prevBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            prevSlide();
+                            startAuto();
+                        });
+                    }
+                    if (nextBtn) {
+                        nextBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            nextSlide();
+                            startAuto();
+                        });
+                    }
+
+                    dots.forEach((dot, dotIdx) => {
+                        dot.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            updateSlide(dotIdx);
+                            startAuto();
+                        });
+                    });
+
+                    // Touch swipe support for mobile
+                    let startX = 0;
+                    let startY = 0;
+                    let isSwiping = false;
+
+                    slider.addEventListener('touchstart', (e) => {
+                        stopAuto();
+                        const touch = e.touches[0];
+                        startX = touch.clientX;
+                        startY = touch.clientY;
+                        isSwiping = true;
+                    }, { passive: true });
+
+                    slider.addEventListener('touchend', (e) => {
+                        if (!isSwiping) return;
+                        isSwiping = false;
+                        const touch = e.changedTouches[0];
+                        const diffX = touch.clientX - startX;
+                        const diffY = touch.clientY - startY;
+
+                        if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > 25) {
+                            if (diffX > 0) {
+                                prevSlide();
+                            } else {
+                                nextSlide();
+                            }
+                        }
+                        startAuto();
+                    }, { passive: true });
+                });
+            }
 
         } catch (err) {
             console.error('Error fetching products for home page:', err);
