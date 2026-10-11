@@ -623,6 +623,23 @@
             display: block;
             margin-top: 0 !important;
         }
+        .field .input-wrap select {
+            width: 100%;
+            padding: 0.9rem 1.1rem;
+            background: #1a1a24 !important;
+            border: none !important;
+            outline: none;
+            color: #ffffff !important;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            display: block;
+            cursor: pointer;
+        }
+        .field .input-wrap select option {
+            background-color: #1a1a24 !important;
+            color: #ffffff !important;
+            padding: 0.6rem 1rem;
+        }
         /* AUTOFILL FIX - Chrome overrides background on autofill, this forces dark bg */
         @keyframes autofillFix {
             from { background-color: #1a1a1f; }
@@ -1192,9 +1209,9 @@
                         <div class="field">
                             <label>Status</label>
                             <div class="input-wrap">
-                                <select id="instructorStatus" style="width:100%; padding: 0.9rem 1.1rem; background: transparent !important; border: none !important; outline: none; color: #fff; font-family: 'Outfit', sans-serif; font-size: 0.95rem; appearance: none; -webkit-appearance: none;">
-                                    <option value="Available" style="color:#000;">Available</option>
-                                    <option value="Unavailable" style="color:#000;">Unavailable</option>
+                                <select id="instructorStatus" style="width:100%; padding: 0.9rem 1.1rem; background: #1a1a24 !important; border: none !important; outline: none; color: #ffffff !important; font-family: 'Outfit', sans-serif; font-size: 0.95rem; cursor: pointer;">
+                                    <option value="Available" style="background:#1a1a24; color:#fff;">Available</option>
+                                    <option value="Unavailable" style="background:#1a1a24; color:#fff;">Unavailable</option>
                                 </select>
                             </div>
                         </div>
@@ -1216,8 +1233,8 @@
                         <div class="field">
                             <label>Simulator Type</label>
                             <div class="input-wrap">
-                                <select id="instructorSimulatorType" style="width:100%; padding: 0.9rem 1.1rem; background: transparent !important; border: none !important; outline: none; color: #fff; font-family: 'Outfit', sans-serif; font-size: 0.95rem; appearance: none; -webkit-appearance: none;">
-                                    <option value="All" style="color:#000;">All</option>
+                                <select id="instructorSimulatorType" style="width:100%; padding: 0.9rem 1.1rem; background: #1a1a24 !important; border: none !important; outline: none; color: #ffffff !important; font-family: 'Outfit', sans-serif; font-size: 0.95rem; cursor: pointer;">
+                                    <option value="All" style="background:#1a1a24; color:#fff;">All</option>
                                     <!-- Options injected here -->
                                 </select>
                             </div>
@@ -1230,14 +1247,14 @@
                             <span style="font-size: 0.75rem; color: var(--gold); font-weight: 500;">Set 0 for immediate / walk-in booking</span>
                         </div>
                         <div class="input-wrap">
-                            <select id="instructorNoticeHours" style="width:100%; padding: 0.9rem 1.1rem; background: transparent !important; border: none !important; outline: none; color: #fff; font-family: 'Outfit', sans-serif; font-size: 0.95rem; appearance: none; -webkit-appearance: none;">
-                                <option value="0" style="color:#000;">No prior notice (Always available instantly)</option>
-                                <option value="12" style="color:#000;">12 Hours prior notice</option>
-                                <option value="24" style="color:#000;">24 Hours prior notice (1 Day)</option>
-                                <option value="48" style="color:#000;">48 Hours prior notice (2 Days - On Invite)</option>
-                                <option value="72" style="color:#000;">72 Hours prior notice (3 Days)</option>
-                                <option value="96" style="color:#000;">96 Hours prior notice (4 Days)</option>
-                                <option value="168" style="color:#000;">1 Week (168 Hours) prior notice</option>
+                            <select id="instructorNoticeHours" style="width:100%; padding: 0.9rem 1.1rem; background: #1a1a24 !important; border: none !important; outline: none; color: #ffffff !important; font-family: 'Outfit', sans-serif; font-size: 0.95rem; cursor: pointer;">
+                                <option value="0" style="background:#1a1a24; color:#fff;">No prior notice (Always available instantly)</option>
+                                <option value="12" style="background:#1a1a24; color:#fff;">12 Hours prior notice</option>
+                                <option value="24" style="background:#1a1a24; color:#fff;">24 Hours prior notice (1 Day)</option>
+                                <option value="48" style="background:#1a1a24; color:#fff;">48 Hours prior notice (2 Days - On Invite)</option>
+                                <option value="72" style="background:#1a1a24; color:#fff;">72 Hours prior notice (3 Days)</option>
+                                <option value="96" style="background:#1a1a24; color:#fff;">96 Hours prior notice (4 Days)</option>
+                                <option value="168" style="background:#1a1a24; color:#fff;">1 Week (168 Hours) prior notice</option>
                             </select>
                         </div>
                         <p style="font-size: 0.75rem; color: var(--muted); margin: 0.35rem 0 0 0.2rem;">
