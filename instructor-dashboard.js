@@ -649,10 +649,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 headerHighlight.textContent = 'Availability';
                 headerSubtitle.textContent = 'Set your live online or offline booking status.';
                 if (saveBtn) saveBtn.style.display = 'inline-flex';
-            } else if (target === 'tab-profile') {
-                headerHighlight.textContent = 'Profile';
-                headerSubtitle.textContent = 'Review your instructor details, fee, and simulator assignment.';
-                if (saveBtn) saveBtn.style.display = 'none';
             }
         });
     });
@@ -729,32 +725,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (sidebarUser) sidebarUser.textContent = data.username ? `@${data.username}` : (data.email || '');
         if (data.photo_url) {
             const sAvatar = document.getElementById('sidebarAvatar');
-            const pAvatar = document.getElementById('profilePhotoLarge');
             if (sAvatar) sAvatar.src = data.photo_url;
-            if (pAvatar) pAvatar.src = data.photo_url;
         }
-        
-        // Profile tab
-        const pName = document.getElementById('profileNameLarge');
-        if (pName) pName.textContent = data.name || 'Instructor';
-        const pUser = document.getElementById('profileUserLarge');
-        if (pUser) pUser.textContent = data.username ? `@${data.username}` : '';
-        const pRoleBadge = document.getElementById('profileRoleBadge');
-        if (pRoleBadge) pRoleBadge.textContent = data.role || 'Simulator Instructor';
-        const pEmail = document.getElementById('profileEmail');
-        if (pEmail) pEmail.textContent = data.email || '-';
-        const pPhone = document.getElementById('profilePhone');
-        if (pPhone) pPhone.textContent = data.phone || '-';
-        const pRole = document.getElementById('profileRole');
-        if (pRole) pRole.textContent = data.role || '-';
-        const pSim = document.getElementById('profileSimType');
-        if (pSim) pSim.textContent = data.simulator_type || 'All';
-        const pFee = document.getElementById('profileFee');
-        if (pFee) pFee.textContent = `₹${data.fee != null ? data.fee : 500}`;
-        const pAch = document.getElementById('profileAchievement');
-        if (pAch) pAch.textContent = data.key_achievement || '-';
-        const pBio = document.getElementById('profileBio');
-        if (pBio) pBio.textContent = data.biography || 'No biography added yet.';
 
         // Status
         const isAvailable = data.status === 'Available';
