@@ -72,6 +72,8 @@ const initDb = () => {
         
         db.run(`ALTER TABLE bookings ADD COLUMN instructor_id INTEGER`, () => {});
         db.run(`ALTER TABLE bookings ADD COLUMN instructor_fee REAL DEFAULT 0`, () => {});
+        db.run(`ALTER TABLE bookings ADD COLUMN players INTEGER DEFAULT 1`, () => {});
+        db.run(`ALTER TABLE bookings ADD COLUMN player_two_name TEXT`, () => {});
         db.run(`CREATE TABLE IF NOT EXISTS inventory_overrides (id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER, date_str TEXT, time_range TEXT, override_quantity INTEGER, UNIQUE(product_id, date_str, time_range))`);
         
         db.run(`CREATE TABLE IF NOT EXISTS instructors (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, age INTEGER, role TEXT, key_achievement TEXT, status TEXT DEFAULT 'Available', photo_url TEXT, biography TEXT, fee REAL DEFAULT 500, email TEXT, phone TEXT, simulator_type TEXT DEFAULT 'All')`);
