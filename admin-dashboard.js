@@ -473,7 +473,7 @@ window.openOrderDetails = (baseOrderId) => {
                     <div>
                         <div style="font-weight: 600; display:flex; align-items:center; gap:0.5rem; flex-wrap: wrap;">
                             ${item.item_name || 'Simulator'}
-                            ${(item.players === 2 || item.price >= 300) ? `<span style="background:rgba(229,184,105,0.15); color:var(--gold); border:1px solid rgba(229,184,105,0.35); font-size:0.65rem; padding:0.15rem 0.5rem; border-radius:12px; font-weight:600; display:inline-flex; align-items:center; gap:3px;">👥 2 Players (Combo)</span>` : ''}
+                            ${Number(item.players) === 2 ? `<span style="background:rgba(229,184,105,0.15); color:var(--gold); border:1px solid rgba(229,184,105,0.35); font-size:0.65rem; padding:0.15rem 0.5rem; border-radius:12px; font-weight:600; display:inline-flex; align-items:center; gap:3px;">👥 2 Players (Combo)</span>` : ''}
                             <span class="od-badge ${getBadgeClass(paymentBadge)}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem; margin-left: 0;">${paymentBadge}</span>
                             <span class="od-badge ${getBadgeClass(fulfillBadge)}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem; margin-left: 0;">${fulfillBadge}</span>
                         </div>
@@ -553,7 +553,7 @@ window.openOrderDetails = (baseOrderId) => {
                 </div>
                 <div class="od-info-value">${order.email}</div>
                 <div class="od-info-value">${order.phone}</div>
-                ${items.some(i => i.players === 2 || i.player_two_name || i.price >= 300) ? `
+                ${items.some(i => Number(i.players) === 2 || i.player_two_name) ? `
                 <div style="margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1);">
                     <div class="od-info-label" style="color: var(--gold); display: flex; align-items: center; gap: 4px;">👥 2-Player Pass (Multiplayer)</div>
                     ${items.find(i => i.player_two_name) ? `<div style="font-size:0.85rem; color:#fff; margin-top:0.2rem;">Player 2: <strong>${items.find(i => i.player_two_name).player_two_name}</strong></div>` : `<div style="font-size:0.8rem; color:#aaa; margin-top:0.2rem;">Duo entry permitted (2 participants)</div>`}

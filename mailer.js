@@ -16,7 +16,7 @@ const sendConfirmationEmail = async (booking) => {
     }
 
     const { order_id, name, email, item_name, price, booking_date, booking_time, players, player_two_name } = booking;
-    const isTwoPlayer = (players === 2 || price >= 300);
+    const isTwoPlayer = (Number(players) === 2);
 
     const amountLabel = booking.status === 'CASH' ? 'Amount Due (Pay At Desk)' : 'Amount Paid';
 
