@@ -3,284 +3,797 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Instructor Dashboard - Havoc</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <title>Havoc Sim Podium — Instructor Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="havoc_logo.png">
     <style>
-        body { 
-            background: #0a0a0c; 
-            color: #fff; 
-            font-family: 'Outfit', sans-serif; 
-            margin: 0; 
-            padding: 0; 
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --gold: #e5b869;
+            --gold-glow: rgba(229,184,105,0.25);
+            --bg: #0a0a0c;
+            --card: #111114;
+            --card2: #16161c;
+            --border: rgba(255,255,255,0.08);
+            --border-hover: rgba(255,255,255,0.18);
+            --muted: rgba(255,255,255,0.45);
+            --green: #4ade80;
+            --red: #f87171;
+            --input-bg: #1a1a1f;
         }
-        
-        .dashboard-header { 
-            background: rgba(26, 26, 31, 0.8); 
-            padding: 1rem 3rem; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
-            border-bottom: 1px solid rgba(255,255,255,0.05); 
-            backdrop-filter: blur(10px);
-            position: sticky;
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            position: relative;
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            width: 260px;
+            background: var(--card);
+            border-right: 1px solid var(--border);
+            padding: 2rem 1.25rem;
+            display: flex;
+            flex-direction: column;
+            position: fixed;
             top: 0;
+            bottom: 0;
+            left: 0;
             z-index: 100;
         }
-        
-        .header-left { display: flex; align-items: center; gap: 1rem; }
-        .header-logo { width: 40px; height: 40px; object-fit: contain; }
-        .dashboard-header h1 { margin: 0; font-size: 1.4rem; color: #fff; font-weight: 600; }
-        
-        .header-right { display: flex; gap: 1.5rem; align-items: center; }
-        #instructorName { font-weight: 500; color: #ccc; }
-        
-        .btn-logout { 
-            background: transparent; 
-            border: 1px solid rgba(255, 77, 77, 0.5); 
-            color: #ff4d4d; 
-            padding: 0.5rem 1.2rem; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            font-weight: 600; 
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 2.5rem;
+            padding: 0 0.5rem;
+            text-decoration: none;
+        }
+        .brand-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .brand-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+        }
+        .brand-name {
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: 3px;
+            color: var(--gold);
+            line-height: 1.1;
+        }
+        .brand-sub {
+            font-size: 0.75rem;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .nav-section {
+            font-size: 0.68rem;
+            font-weight: 600;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--muted);
+            padding: 0 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .nav-items {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+            flex: 1;
+        }
+
+        .nav-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            text-align: left;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
             font-family: 'Outfit', sans-serif;
-            transition: all 0.3s;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.2s;
+            width: 100%;
         }
-        .btn-logout:hover {
-            background: rgba(255, 77, 77, 0.1);
-            border-color: #ff4d4d;
+        .nav-btn .icon { font-size: 1.15rem; width: 22px; text-align: center; }
+        .nav-btn:hover {
+            background: rgba(229,184,105,0.07);
+            color: rgba(255,255,255,0.85);
         }
-        
-        .dashboard-container { 
-            max-width: 1000px; 
-            margin: 3rem auto; 
-            padding: 0 1.5rem; 
+        .nav-btn.active {
+            background: rgba(229,184,105,0.12);
+            color: var(--gold);
+            font-weight: 600;
         }
-        
-        .panel { 
-            background: #1a1a1f; 
-            padding: 2.5rem; 
-            border-radius: 16px; 
-            margin-bottom: 2rem; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            border: 1px solid rgba(255,255,255,0.03);
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
         }
-        
-        .panel-header {
+
+        .instructor-card-mini {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0.6rem 0.75rem;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+        }
+        .instructor-avatar-mini {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #25252c;
+            flex-shrink: 0;
+        }
+        .instructor-info-mini {
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .instructor-name-mini {
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .instructor-user-mini {
+            font-size: 0.75rem;
+            color: var(--gold);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .footer-action-btn {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            width: 100%;
+            background: transparent;
+            border: 1px solid var(--border);
+            color: var(--muted);
+            padding: 0.65rem 1rem;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.2s;
+        }
+        .footer-action-btn:hover {
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            border-color: rgba(255,255,255,0.2);
+        }
+        .logout-btn {
+            border-color: rgba(248,113,113,0.25);
+            color: var(--red);
+        }
+        .logout-btn:hover {
+            background: rgba(248,113,113,0.1);
+            color: #fca5a5;
+            border-color: var(--red);
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        .main {
+            margin-left: 260px;
+            flex: 1;
+            padding: 2.5rem 3.5rem;
+            min-height: 100vh;
+        }
+
+        .page-header {
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1.5rem;
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
-            padding-bottom: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        
-        .panel h2 { 
-            margin: 0 0 0.5rem 0; 
-            color: var(--accent-gold);
-            font-size: 1.5rem;
-        }
-        .panel p.desc {
-            margin: 0;
-            color: #888;
-            font-size: 0.95rem;
-        }
-        
-        .status-toggle { display: flex; align-items: center; gap: 1rem; }
-        .switch { position: relative; display: inline-block; width: 64px; height: 34px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #333; transition: .4s; border-radius: 34px; }
-        .slider:before { position: absolute; content: ""; height: 26px; width: 26px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--accent-gold); }
-        input:checked + .slider:before { transform: translateX(30px); }
-        
-        .day-block { 
-            margin-bottom: 1.5rem; 
-            padding: 1.5rem; 
-            background: rgba(0,0,0,0.2); 
-            border: 1px solid rgba(255,255,255,0.05); 
-            border-radius: 12px; 
-        }
-        .day-block h3 { 
-            margin: 0 0 1rem 0; 
-            text-transform: capitalize; 
-            color: #fff; 
-            font-size: 1.1rem;
-            display: flex;
             align-items: center;
-            gap: 0.5rem;
         }
-        .day-block h3::before {
-            content: '';
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            background: var(--accent-gold);
-            border-radius: 50%;
+        .page-title {
+            font-size: 1.7rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
         }
-        
-        .slot-grid { 
-            display: grid; 
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); 
-            gap: 0.8rem; 
+        .page-title span {
+            color: var(--gold);
         }
-        
-        .slot-btn { 
-            background: #2a2a30; 
-            color: #aaa; 
-            border: 1px solid #333; 
-            padding: 0.6rem 0; 
-            text-align: center;
-            border-radius: 6px; 
-            cursor: pointer; 
-            user-select: none; 
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
-            font-size: 0.9rem;
-            font-weight: 500;
+        .page-subtitle {
+            color: var(--muted);
+            font-size: 0.88rem;
+            margin-top: 0.3rem;
         }
-        .slot-btn:hover {
-            background: #333;
-            border-color: #555;
+
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.25s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-gold {
+            background: linear-gradient(135deg, var(--gold), #c59b4c);
+            color: #000;
+            box-shadow: 0 4px 15px rgba(229,184,105,0.25);
+        }
+        .btn-gold:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(229,184,105,0.4);
+        }
+        .btn-gold:active { transform: translateY(0); }
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border);
             color: #fff;
         }
-        .slot-btn.active { 
-            background: rgba(212, 175, 55, 0.1); 
-            color: var(--accent-gold); 
-            border-color: var(--accent-gold); 
-            font-weight: 600; 
-            box-shadow: 0 0 10px rgba(212, 175, 55, 0.1);
+        .btn-outline:hover {
+            border-color: var(--gold);
+            color: var(--gold);
         }
-        
-        .bottom-actions {
-            margin-top: 3rem; 
+
+        /* ===== CARDS & PANELS ===== */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.75rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+        .card-header {
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
             align-items: center;
-            gap: 1.5rem;
-            padding-top: 2rem;
-            border-top: 1px solid rgba(255,255,255,0.05);
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
         }
-        
-        .btn-save { 
-            background: var(--accent-gold); 
-            color: #000; 
-            padding: 1rem 2.5rem; 
-            border: none; 
-            border-radius: 8px; 
-            font-weight: 700; 
-            cursor: pointer; 
-            font-family: inherit; 
-            font-size: 1.05rem; 
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .btn-save:hover { 
-            background: #e5b869; 
-            transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(212, 175, 55, 0.2);
-        }
-        .btn-save:active {
-            transform: translateY(0);
-        }
-        
-        .status-badge {
-            padding: 0.3rem 0.8rem;
-            border-radius: 20px;
-            font-size: 0.8rem;
+        .card-title {
+            font-size: 1.2rem;
             font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            color: #fff;
         }
-        .status-badge.online { background: rgba(40, 167, 69, 0.2); color: #28a745; }
-        .status-badge.offline { background: rgba(255, 77, 77, 0.2); color: #ff4d4d; }
-        
-        @media (max-width: 768px) {
-            .dashboard-header { padding: 1rem; flex-direction: column; gap: 1rem; }
-            .panel-header { flex-direction: column; gap: 1.5rem; }
-            .slot-grid { grid-template-columns: repeat(3, 1fr); }
-            .bottom-actions { justify-content: center; flex-direction: column; }
-            .btn-save { width: 100%; }
+
+        /* ===== MASTER AVAILABILITY BANNER ===== */
+        .availability-banner {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(180deg, rgba(22,22,28,0.9) 0%, rgba(17,17,20,0.95) 100%);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 1.75rem 2rem;
+            margin-bottom: 2rem;
+        }
+        .banner-left h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.3rem;
+        }
+        .banner-left p {
+            font-size: 0.88rem;
+            color: var(--muted);
+            max-width: 650px;
+            line-height: 1.4;
+        }
+        .status-pill-toggle {
+            display: flex;
+            align-items: center;
+            gap: 1.2rem;
+        }
+        .status-badge {
+            padding: 0.35rem 0.9rem;
+            border-radius: 20px;
+            font-size: 0.82rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .status-badge.online {
+            background: rgba(74,222,128,0.15);
+            color: var(--green);
+            border: 1px solid rgba(74,222,128,0.3);
+        }
+        .status-badge.offline {
+            background: rgba(248,113,113,0.15);
+            color: var(--red);
+            border: 1px solid rgba(248,113,113,0.3);
+        }
+
+        /* Toggle switch */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 58px;
+            height: 32px;
+        }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #27272f;
+            transition: .3s;
+            border-radius: 34px;
+            border: 1px solid var(--border);
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 24px;
+            width: 24px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background: linear-gradient(135deg, var(--gold), #c59b4c);
+            border-color: var(--gold);
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+            background-color: #000;
+        }
+
+        /* ===== SCHEDULE DAYS & SLOTS ===== */
+        .day-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: border-color 0.2s;
+        }
+        .day-card:hover {
+            border-color: var(--border-hover);
+        }
+        .day-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .day-title-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .day-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--gold);
+            box-shadow: 0 0 8px var(--gold-glow);
+        }
+        .day-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            text-transform: capitalize;
+            color: #fff;
+        }
+        .day-count {
+            font-size: 0.8rem;
+            color: var(--muted);
+            margin-left: 6px;
+        }
+        .day-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .action-link {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--muted);
+            padding: 0.3rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-family: inherit;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .action-link:hover {
+            color: #fff;
+            border-color: rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.03);
+        }
+
+        .slots-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 0.65rem;
+        }
+        .slot-pill {
+            background: #17171c;
+            color: rgba(255,255,255,0.65);
+            border: 1px solid rgba(255,255,255,0.06);
+            padding: 0.65rem 0.5rem;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .slot-pill:hover {
+            background: #202028;
+            border-color: rgba(229,184,105,0.4);
+            color: #fff;
+        }
+        .slot-pill.active {
+            background: rgba(229,184,105,0.12);
+            border-color: var(--gold);
+            color: var(--gold);
+            font-weight: 700;
+            box-shadow: 0 0 12px rgba(229,184,105,0.18);
+        }
+
+        /* ===== PROFILE TAB ===== */
+        .profile-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 2rem;
+            align-items: start;
+        }
+        .profile-avatar-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+        }
+        .profile-avatar-img {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--gold);
+            margin-bottom: 1.25rem;
+            box-shadow: 0 0 25px rgba(229,184,105,0.2);
+        }
+        .profile-details-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 2rem;
+        }
+        .info-row {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            padding: 0.9rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.92rem;
+        }
+        .info-row:last-child { border-bottom: none; }
+        .info-label { color: var(--muted); font-weight: 500; }
+        .info-val { color: #fff; font-weight: 600; }
+
+        /* ===== CHANGE PASSWORD MODAL ===== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 440px;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.6);
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        .modal-title { font-size: 1.3rem; font-weight: 700; color: #fff; }
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            font-size: 1.6rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .modal-close:hover { color: #fff; }
+
+        .field { margin-bottom: 1.25rem; }
+        .field label {
+            display: block;
+            font-size: 0.78rem;
+            font-weight: 600;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--muted);
+            margin-bottom: 0.5rem;
+        }
+        .input-wrap {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: var(--input-bg);
+            transition: border-color 0.2s;
+        }
+        .input-wrap:focus-within {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px var(--gold-glow);
+        }
+        .input-wrap input {
+            width: 100%;
+            padding: 0.85rem 1rem;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #fff;
+            font-family: inherit;
+            font-size: 0.95rem;
+        }
+
+        .toast-banner {
+            position: fixed;
+            bottom: 2rem;
+            right: 2.5rem;
+            background: #111114;
+            border: 1px solid var(--gold);
+            color: var(--gold);
+            padding: 0.9rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: none;
+            z-index: 9999;
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+        @media (max-width: 1024px) {
+            .sidebar { width: 80px; padding: 1.5rem 0.5rem; }
+            .brand-text, .nav-section, .brand-sub, .instructor-info-mini { display: none; }
+            .nav-btn { justify-content: center; padding: 0.75rem; }
+            .main { margin-left: 80px; padding: 2rem 1.5rem; }
+            .profile-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
-    <header class="dashboard-header">
-        <div class="header-left">
-            <img src="havoc_logo.png" alt="Logo" class="header-logo">
-            <h1>Instructor Portal</h1>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <a href="/" class="brand">
+            <div class="brand-icon"><img src="havoc_logo.png" alt="Havoc Logo"></div>
+            <div class="brand-text">
+                <span class="brand-name">HAVOC</span>
+                <span class="brand-sub">Sim Podium</span>
+            </div>
+        </a>
+
+        <div class="nav-section">INSTRUCTOR PORTAL</div>
+
+        <div class="nav-items">
+            <button class="nav-btn active" data-target="tab-schedule" id="nav-schedule">
+                <span class="icon">📅</span> Weekly Schedule
+            </button>
+            <button class="nav-btn" data-target="tab-availability" id="nav-availability">
+                <span class="icon">⚡</span> Availability Status
+            </button>
+            <button class="nav-btn" data-target="tab-profile" id="nav-profile">
+                <span class="icon">👤</span> My Profile
+            </button>
         </div>
-        <div class="header-right">
-            <span id="instructorName">Loading...</span>
-            <button class="btn-logout" id="logoutBtn">Logout</button>
-        </div>
-    </header>
-    
-    <div class="dashboard-container">
-        
-        <div class="panel">
-            <div class="panel-header">
-                <div>
-                    <h2>Availability Status</h2>
-                    <p class="desc">Toggle your master availability for bookings.</p>
+
+        <div class="sidebar-footer">
+            <div class="instructor-card-mini">
+                <img id="sidebarAvatar" class="instructor-avatar-mini" src="havoc_logo.png" alt="Instructor">
+                <div class="instructor-info-mini">
+                    <span class="instructor-name-mini" id="sidebarInstructorName">Loading...</span>
+                    <span class="instructor-user-mini" id="sidebarInstructorUsername">@instructor</span>
                 </div>
-                <div class="status-toggle">
-                    <span id="statusLabel" class="status-badge offline">Offline</span>
+            </div>
+
+            <button class="footer-action-btn" onclick="openChangePwModal()">
+                <span>🔑</span> Change Password
+            </button>
+
+            <button class="footer-action-btn logout-btn" id="logoutBtn">
+                <span>🚪</span> Logout
+            </button>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main">
+        <div class="page-header">
+            <div>
+                <h1 class="page-title">Instructor <span id="headerHighlight">Schedule</span></h1>
+                <p class="page-subtitle" id="headerSubtitle">Manage your weekly teaching availability and time slots.</p>
+            </div>
+            <button class="btn btn-gold" id="saveScheduleBtn">
+                <span>💾</span> Save Schedule
+            </button>
+        </div>
+
+        <!-- TAB: WEEKLY SCHEDULE -->
+        <div id="tab-schedule" class="tab-content active">
+            <!-- Master Status Banner inside schedule -->
+            <div class="availability-banner">
+                <div class="banner-left">
+                    <h2>Live Booking Availability</h2>
+                    <p>Toggle your online status. When set to <strong>Offline</strong>, you will be hidden from the customer booking page regardless of your schedule.</p>
+                </div>
+                <div class="status-pill-toggle">
+                    <span id="bannerStatusBadge" class="status-badge offline">Offline</span>
                     <label class="switch">
-                        <input type="checkbox" id="statusToggle">
+                        <input type="checkbox" id="masterStatusToggle">
                         <span class="slider"></span>
                     </label>
                 </div>
             </div>
-            <p style="font-size: 0.9rem; color: #888; margin: 0; line-height: 1.5;">
-                <strong>Note:</strong> If you turn this off, you will instantly disappear from the booking page, completely overriding your weekly schedule. Use this when you are on leave or unavailable for the day.
-            </p>
+
+            <!-- Schedule Days Container -->
+            <div id="scheduleContainer">
+                <!-- Days will be rendered by JS -->
+            </div>
         </div>
 
-        <div class="panel">
-            <div class="panel-header" style="border-bottom: none; padding-bottom: 0; margin-bottom: 1.5rem;">
-                <div>
-                    <h2>Weekly Schedule</h2>
-                    <p class="desc">Select all the time slots you are generally available to teach.</p>
+        <!-- TAB: AVAILABILITY STATUS ONLY -->
+        <div id="tab-availability" class="tab-content">
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-title">Master Availability Switch</span>
+                    <span id="availStatusBadge2" class="status-badge offline">Offline</span>
+                </div>
+                <p style="color: var(--muted); font-size: 0.95rem; line-height: 1.6; margin-bottom: 2rem;">
+                    When you are on leave, traveling, or not taking simulator bookings for the day, toggle this switch to <strong>Offline</strong>. Customers will not be able to select you as an instructor on the booking page.
+                </p>
+                <div style="display: flex; align-items: center; gap: 1.5rem; background: var(--input-bg); padding: 1.5rem; border-radius: 12px; border: 1px solid var(--border);">
+                    <label class="switch" style="transform: scale(1.15);">
+                        <input type="checkbox" id="availTabToggle">
+                        <span class="slider"></span>
+                    </label>
+                    <div>
+                        <strong style="font-size: 1.05rem;" id="availTabText">Currently Offline</strong>
+                        <p style="color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem;">Flip switch to become available for bookings.</p>
+                    </div>
                 </div>
             </div>
-            
-            <div id="scheduleContainer">
-                <!-- Days will be generated by JS -->
+        </div>
+
+        <!-- TAB: MY PROFILE -->
+        <div id="tab-profile" class="tab-content">
+            <div class="profile-grid">
+                <div class="profile-avatar-box">
+                    <img id="profilePhotoLarge" class="profile-avatar-img" src="havoc_logo.png" alt="Profile">
+                    <h2 id="profileNameLarge" style="font-size: 1.3rem; margin-bottom: 0.3rem;">Instructor Name</h2>
+                    <p id="profileUserLarge" style="color: var(--gold); font-size: 0.9rem; font-weight: 600; margin-bottom: 1rem;">@username</p>
+                    <span id="profileRoleBadge" class="status-badge online" style="font-size: 0.75rem;">Mentor</span>
+                </div>
+
+                <div class="profile-details-card">
+                    <h3 style="font-size: 1.2rem; margin-bottom: 1.5rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--border);">Profile Information</h3>
+                    <div class="info-row">
+                        <span class="info-label">Email</span>
+                        <span class="info-val" id="profileEmail">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Phone</span>
+                        <span class="info-val" id="profilePhone">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Role</span>
+                        <span class="info-val" id="profileRole">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Simulator Type</span>
+                        <span class="info-val" id="profileSimType">All</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Session Fee</span>
+                        <span class="info-val" style="color: var(--gold);" id="profileFee">₹500</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Key Achievement</span>
+                        <span class="info-val" id="profileAchievement">-</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">Biography</span>
+                        <span class="info-val" style="font-weight: 400; color: #ddd; line-height: 1.5;" id="profileBio">-</span>
+                    </div>
+                </div>
             </div>
-            
-            <div class="bottom-actions">
-                <span id="saveStatus" style="color: #28a745; display: none; font-weight: 600;">Changes saved successfully!</span>
-                <button class="btn-save" id="saveScheduleBtn">Save Schedule</button>
+        </div>
+    </main>
+
+    <!-- CHANGE PASSWORD MODAL -->
+    <div class="modal-overlay" id="changePwModal">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 class="modal-title">Change Password</h3>
+                <button class="modal-close" onclick="closeChangePwModal()">&times;</button>
             </div>
+            <form id="changePwForm">
+                <div class="field">
+                    <label>New Password</label>
+                    <div class="input-wrap">
+                        <input type="password" id="modalNewPw" placeholder="••••••••" required minlength="6">
+                    </div>
+                </div>
+                <div class="field">
+                    <label>Confirm Password</label>
+                    <div class="input-wrap">
+                        <input type="password" id="modalConfirmPw" placeholder="••••••••" required minlength="6">
+                    </div>
+                </div>
+                <div id="modalPwError" style="color: var(--red); font-size: 0.85rem; margin-bottom: 1rem; display: none;"></div>
+                <button type="submit" class="btn btn-gold" id="modalPwSubmitBtn" style="width: 100%;">Update Password</button>
+            </form>
         </div>
     </div>
 
+    <!-- TOAST NOTIFICATION -->
+    <div id="toastNotification" class="toast-banner">
+        Schedule saved successfully!
+    </div>
+
     <script src="instructor-dashboard.js"></script>
-    <script>
-        // Add listener for toggle to update badge text
-        document.getElementById('statusToggle').addEventListener('change', (e) => {
-            const badge = document.getElementById('statusLabel');
-            if (e.target.checked) {
-                badge.textContent = 'Available';
-                badge.className = 'status-badge online';
-            } else {
-                badge.textContent = 'Offline';
-                badge.className = 'status-badge offline';
-            }
-        });
-        
-        // Expose a function to update badge initially
-        window.updateStatusBadge = (isAvailable) => {
-            const badge = document.getElementById('statusLabel');
-            if (isAvailable) {
-                badge.textContent = 'Available';
-                badge.className = 'status-badge online';
-            } else {
-                badge.textContent = 'Offline';
-                badge.className = 'status-badge offline';
-            }
-        };
-    </script>
 </body>
 </html>

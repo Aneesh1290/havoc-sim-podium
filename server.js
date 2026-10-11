@@ -636,7 +636,7 @@ app.post('/api/instructor/change-password', verifyInstructorToken, async (req, r
 });
 
 app.get('/api/instructor/me', verifyInstructorToken, (req, res) => {
-    db.get("SELECT id, name, email, status, schedule_json FROM instructors WHERE id = ?", [req.user.id], (err, row) => {
+    db.get("SELECT id, name, username, email, phone, role, age, fee, simulator_type, status, photo_url, biography, schedule_json FROM instructors WHERE id = ?", [req.user.id], (err, row) => {
         if (err || !row) return res.status(404).json({ error: 'Not found' });
         res.json(row);
     });
