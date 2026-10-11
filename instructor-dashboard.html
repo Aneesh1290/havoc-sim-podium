@@ -423,9 +423,15 @@
             color: #fff;
         }
         .day-count {
-            font-size: 0.8rem;
+            font-size: 0.82rem;
+            font-weight: 500;
             color: var(--muted);
-            margin-left: 6px;
+            background: rgba(255,255,255,0.03);
+            padding: 0.25rem 0.65rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.06);
+            display: inline-flex;
+            align-items: center;
         }
         .day-actions {
             display: flex;
@@ -468,30 +474,55 @@
         .day-status-toggle-wrap {
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            background: rgba(255,255,255,0.03);
-            border: 1px solid var(--border);
-            padding: 0.35rem 0.75rem;
-            border-radius: 8px;
+            gap: 10px;
+            background: rgba(229,184,105,0.08);
+            border: 1px solid rgba(229,184,105,0.25);
+            padding: 0.3rem 0.75rem;
+            border-radius: 20px;
+            margin-left: 6px;
+            transition: all 0.25s ease;
+        }
+        .day-status-toggle-wrap.offline {
+            background: rgba(248,113,113,0.08);
+            border-color: rgba(248,113,113,0.3);
         }
         .day-status-pill {
             font-size: 0.75rem;
             font-weight: 700;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.8px;
             text-transform: uppercase;
+            color: var(--gold);
+            user-select: none;
+            line-height: 1;
         }
-        .day-status-pill.online { color: var(--gold); }
         .day-status-pill.offline { color: #f87171; }
 
         .switch-sm {
-            width: 42px;
-            height: 22px;
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+            flex-shrink: 0;
+            margin: 0;
+        }
+        .switch-sm .slider {
+            border-radius: 20px;
         }
         .switch-sm .slider:before {
-            height: 16px;
-            width: 16px;
-            left: 2px;
+            height: 14px;
+            width: 14px;
+            left: 3px;
             bottom: 2px;
+            background-color: #ffffff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        }
+        .switch-sm input:checked + .slider {
+            background: linear-gradient(135deg, var(--gold), #c59b4c);
+            border-color: var(--gold);
+        }
+        .switch-sm input:checked + .slider:before {
+            transform: translateX(16px);
+            background-color: #111115;
         }
 
         .chip-toggle-btn {

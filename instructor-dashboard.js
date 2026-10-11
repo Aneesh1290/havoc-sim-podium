@@ -292,6 +292,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             dayStatusBadge.textContent = isDayOff ? 'DAY OFF' : 'ACTIVE';
             dayStatusBadge.className = `day-status-pill ${isDayOff ? 'offline' : 'online'}`;
         }
+        const dayStatusWrap = document.querySelector('.day-status-toggle-wrap');
+        if (dayStatusWrap) {
+            dayStatusWrap.classList.toggle('offline', isDayOff);
+        }
         if (activeDayDot) {
             activeDayDot.style.background = isDayOff ? '#f87171' : 'var(--gold)';
             activeDayDot.style.boxShadow = isDayOff ? '0 0 8px rgba(248,113,113,0.4)' : '0 0 8px var(--gold-glow)';
@@ -370,6 +374,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (dayStatusBadge) {
             dayStatusBadge.textContent = isDayOff ? 'DAY OFF' : 'ACTIVE';
             dayStatusBadge.className = `day-status-pill ${isDayOff ? 'offline' : 'online'}`;
+        }
+        const dayStatusWrap = document.querySelector('.day-status-toggle-wrap');
+        if (dayStatusWrap) {
+            dayStatusWrap.classList.toggle('offline', isDayOff);
         }
         if (activeDayDot) {
             activeDayDot.style.background = isDayOff ? '#f87171' : 'var(--gold)';
