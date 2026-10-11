@@ -61,6 +61,7 @@ const initDb = () => {
 
         db.run(`ALTER TABLE products ADD COLUMN description TEXT`, () => {});
         db.run(`ALTER TABLE products ADD COLUMN image_url TEXT`, () => {});
+        db.run(`ALTER TABLE products ADD COLUMN images_json TEXT DEFAULT '[]'`, () => {});
         db.run(`ALTER TABLE products ADD COLUMN options TEXT`, () => {});
         db.run(`ALTER TABLE products ADD COLUMN compare_price REAL`, () => {});
         db.run(`ALTER TABLE slots ADD COLUMN sort_order INTEGER DEFAULT 0`, () => {});

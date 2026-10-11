@@ -1831,7 +1831,7 @@
                 <!-- Keep other inputs hidden so we don't break JS submission -->
                 <input type="hidden" id="productPrice" value="0" style="display:none;">
                 <input type="hidden" id="productStock" value="0">
-                <input type="file" id="productImage" accept="image/*" style="display: none;" onchange="handleProductImageChange(this)">
+                <input type="file" id="productImage" accept="image/*" multiple style="display: none;" onchange="handleProductImageChange(this)">
                 <small id="currentProductImage" style="display: none;"></small>
                 
                 <!-- Left Column -->
@@ -1842,19 +1842,23 @@
                         <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center;">
                             <div>
                                 <span style="font-size: 1.05rem; font-weight: 600; color: #fff;">Images and videos</span>
+                                <span id="imgCountLabel" style="margin-left: 0.5rem; font-size: 0.8rem; color: #71717a;">(0 images)</span>
                             </div>
+                            <button type="button" onclick="document.getElementById('productImage').click()" style="background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.4rem 0.85rem; border-radius: 6px; font-size: 0.82rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-weight: 500;">
+                                <span>+</span> Add Media
+                            </button>
                         </div>
                         <div style="padding: 1.5rem;">
                             <!-- Drop Zone -->
                             <div id="imageDropZone"
-                                style="border: 2px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 2.5rem 1rem; text-align: center; cursor: pointer; transition: border-color 0.2s; margin-bottom: 1rem;"
+                                style="border: 2px dashed rgba(255,255,255,0.15); border-radius: 8px; padding: 2rem 1rem; text-align: center; cursor: pointer; transition: border-color 0.2s; margin-bottom: 1rem;"
                                 onclick="document.getElementById('productImage').click()"
                                 ondragover="event.preventDefault(); this.style.borderColor='#3b82f6';"
                                 ondragleave="this.style.borderColor='rgba(255,255,255,0.15)';"
                                 ondrop="event.preventDefault(); this.style.borderColor='rgba(255,255,255,0.15)'; handleProductImageDrop(event);">
-                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 0.75rem;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                                <div style="font-size: 0.95rem; color: #a1a1aa; margin-bottom: 0.25rem;">Drag & drop or <span style="color: #3b82f6; text-decoration: underline;">click to upload</span></div>
-                                <div style="font-size: 0.8rem; color: #52525b;">PNG, JPG, GIF, WEBP accepted</div>
+                                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#71717a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 0.5rem;"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                <div style="font-size: 0.95rem; color: #a1a1aa; margin-bottom: 0.25rem;">Drag & drop multiple images or <span style="color: #3b82f6; text-decoration: underline;">click to upload</span></div>
+                                <div style="font-size: 0.8rem; color: #52525b;">PNG, JPG, GIF, WEBP accepted (first image will be Main / Cover)</div>
                             </div>
 
                             <!-- Image Preview Grid -->

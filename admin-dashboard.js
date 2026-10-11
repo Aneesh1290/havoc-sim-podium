@@ -2275,16 +2275,31 @@ window.openProductModal = (product = null) => {
         document.getElementById('productOptionsData').value = opts;
         
         initShopifyOptions(opts);
-        // Show existing image in preview
-        const dz = document.getElementById('imageDropZone');
-        if (product.image_url) {
-            const previewUrl = product.image_url.startsWith('data:') ? product.image_url : `/${product.image_url}`;
-            renderImagePreview(previewUrl, true);
-        } else {
-            const grid = document.getElementById('imagePreviewGrid');
-            if (grid) grid.innerHTML = '';
-            if (dz) dz.style.display = '';
+        
+        // Populate existing images into productImagesList
+        productImagesList = [];
+        let existingImgUrls = [];
+        if (product.images_json) {
+            try {
+                const parsed = JSON.parse(product.images_json);
+                if (Array.isArray(parsed)) existingImgUrls = parsed;
+            } catch(e) {}
         }
+        if (existingImgUrls.length === 0 && product.image_url) {
+            existingImgUrls = [product.image_url];
+        }
+
+        existingImgUrls.forEach((imgUrl, idx) => {
+            const previewUrl = imgUrl.startsWith('data:') ? imgUrl : `/${imgUrl}`;
+            productImagesList.push({
+                id: 'exist_' + idx + '_' + Math.random().toString(36).substring(2, 6),
+                type: 'existing',
+                src: previewUrl,
+                rawUrl: imgUrl
+            });
+        });
+
+        updateProductImagePreviews();
     } else {
         title.textContent = 'Add Product';
         if (breadcrumb) breadcrumb.textContent = 'New Product';
@@ -2299,74 +2314,106 @@ window.openProductModal = (product = null) => {
         document.getElementById('productId').value = '';
         document.getElementById('currentProductImage').textContent = '';
         initShopifyOptions('[]');
+        
         // Reset image preview
-        const grid = document.getElementById('imagePreviewGrid');
-        if (grid) grid.innerHTML = '';
-        const dz = document.getElementById('imageDropZone');
-        if (dz) dz.style.display = '';
-        const countLabel = document.getElementById('imgCountLabel');
-        if (countLabel) countLabel.textContent = '0 / 50';
+        productImagesList = [];
+        updateProductImagePreviews();
     }
     
     modal.style.display = 'block';
 };
 
-window.closeProductModal = () => {
-    document.getElementById('productModal').style.display = 'none';
-    // Reset preview grid
-    const grid = document.getElementById('imagePreviewGrid');
-    if (grid) grid.innerHTML = '';
-    const countLabel = document.getElementById('imgCountLabel');
-    if (countLabel) countLabel.textContent = '0 / 50';
-};
+// --- Multi-Image State & Helpers ---
+let productImagesList = []; // Array of { id, type: 'existing' | 'new', src: string, file?: File }
 
-// --- Image Preview Helpers ---
-function renderImagePreview(src, isExisting = false) {
+function updateProductImagePreviews() {
     const grid = document.getElementById('imagePreviewGrid');
-    if (!grid) return;
-    grid.innerHTML = ''; // Only 1 main image for now
-    const wrapper = document.createElement('div');
-    wrapper.style.cssText = 'position:relative; width:130px; height:130px; border-radius:8px; overflow:hidden; border:1px solid rgba(255,255,255,0.1);';
-    wrapper.innerHTML = `
-        <img src="${src}" style="width:100%;height:100%;object-fit:cover;" alt="Product image">
-        <span style="position:absolute;top:6px;left:6px;background:rgba(0,0,0,0.7);color:#fff;font-size:0.65rem;font-weight:700;padding:2px 6px;border-radius:4px;letter-spacing:0.5px;">MAIN</span>
-        <button type="button" onclick="removeProductImagePreview()" style="position:absolute;top:4px;right:4px;background:rgba(0,0,0,0.7);border:none;color:#fff;width:20px;height:20px;border-radius:50%;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
-    `;
-    grid.appendChild(wrapper);
     const countLabel = document.getElementById('imgCountLabel');
-    if (countLabel) countLabel.textContent = '1 / 50';
-    // Hide drop zone when image present
+    if (!grid) return;
+    
+    grid.innerHTML = '';
+    
+    if (countLabel) {
+        countLabel.textContent = `(${productImagesList.length} image${productImagesList.length === 1 ? '' : 's'})`;
+    }
+
+    productImagesList.forEach((item, index) => {
+        const isMain = index === 0;
+        const wrapper = document.createElement('div');
+        wrapper.style.cssText = `position:relative; width:130px; height:130px; border-radius:8px; overflow:hidden; border:2px solid ${isMain ? '#e5b869' : 'rgba(255,255,255,0.1)'}; background:#111; display:flex; align-items:center; justify-content:center;`;
+        
+        wrapper.innerHTML = `
+            <img src="${item.src}" style="width:100%; height:100%; object-fit:cover;" alt="Product preview">
+            <span style="position:absolute; top:6px; left:6px; background:${isMain ? 'rgba(229,184,105,0.9)' : 'rgba(0,0,0,0.7)'}; color:${isMain ? '#000' : '#fff'}; font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:4px; letter-spacing:0.5px;">${isMain ? 'MAIN' : `#${index + 1}`}</span>
+            ${!isMain ? `<button type="button" onclick="setProductMainImage(${index})" title="Make Main Cover" style="position:absolute; bottom:6px; left:6px; background:rgba(0,0,0,0.75); border:1px solid rgba(255,255,255,0.2); color:#e5b869; font-size:0.65rem; font-weight:600; padding:2px 6px; border-radius:4px; cursor:pointer;">Set Main</button>` : ''}
+            <button type="button" onclick="removeProductImageAt(${index})" title="Remove image" style="position:absolute; top:4px; right:4px; background:rgba(0,0,0,0.75); border:none; color:#f87171; width:22px; height:22px; border-radius:50%; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; line-height:1;">✕</button>
+        `;
+        grid.appendChild(wrapper);
+    });
+
     const dz = document.getElementById('imageDropZone');
-    if (dz) dz.style.display = 'none';
+    if (dz) {
+        dz.style.display = productImagesList.length >= 20 ? 'none' : '';
+    }
 }
 
-window.removeProductImagePreview = () => {
-    const grid = document.getElementById('imagePreviewGrid');
-    if (grid) grid.innerHTML = '';
-    const countLabel = document.getElementById('imgCountLabel');
-    if (countLabel) countLabel.textContent = '0 / 50';
-    const dz = document.getElementById('imageDropZone');
-    if (dz) dz.style.display = '';
-    document.getElementById('productImage').value = '';
+window.setProductMainImage = (index) => {
+    if (index > 0 && index < productImagesList.length) {
+        const item = productImagesList.splice(index, 1)[0];
+        productImagesList.unshift(item);
+        updateProductImagePreviews();
+    }
+};
+
+window.removeProductImageAt = (index) => {
+    if (index >= 0 && index < productImagesList.length) {
+        productImagesList.splice(index, 1);
+        updateProductImagePreviews();
+    }
+};
+
+window.closeProductModal = () => {
+    document.getElementById('productModal').style.display = 'none';
+    productImagesList = [];
+    updateProductImagePreviews();
 };
 
 window.handleProductImageChange = (input) => {
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        reader.onload = (e) => renderImagePreview(e.target.result, false);
-        reader.readAsDataURL(input.files[0]);
+    if (input.files && input.files.length > 0) {
+        Array.from(input.files).forEach(file => {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                productImagesList.push({
+                    id: 'new_' + Math.random().toString(36).substring(2, 9),
+                    type: 'new',
+                    src: e.target.result,
+                    file: file
+                });
+                updateProductImagePreviews();
+            };
+            reader.readAsDataURL(file);
+        });
+        input.value = ''; // Reset input so same file can be re-selected if needed
     }
 };
 
 window.handleProductImageDrop = (event) => {
     const files = event.dataTransfer.files;
-    if (files && files[0]) {
-        const dt = new DataTransfer();
-        dt.items.add(files[0]);
-        document.getElementById('productImage').files = dt.files;
-        const reader = new FileReader();
-        reader.onload = (e) => renderImagePreview(e.target.result, false);
-        reader.readAsDataURL(files[0]);
+    if (files && files.length > 0) {
+        Array.from(files).forEach(file => {
+            if (!file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                productImagesList.push({
+                    id: 'new_' + Math.random().toString(36).substring(2, 9),
+                    type: 'new',
+                    src: e.target.result,
+                    file: file
+                });
+                updateProductImagePreviews();
+            };
+            reader.readAsDataURL(file);
+        });
     }
 };
 
@@ -2414,10 +2461,18 @@ if (productForm) {
         const hideSuffixEl = document.getElementById('productHideSuffix');
         if (hideSuffixEl) formData.append('hide_suffix', hideSuffixEl.checked ? '1' : '0');
         
-        const fileInput = document.getElementById('productImage');
-        if (fileInput.files[0]) {
-            formData.append('image', fileInput.files[0]);
-        }
+        // Separate existing images list from newly added files
+        const existingImages = productImagesList
+            .filter(item => item.type === 'existing')
+            .map(item => item.rawUrl || item.src);
+        formData.append('existing_images', JSON.stringify(existingImages));
+
+        // Append new image files in order
+        productImagesList.forEach(item => {
+            if (item.type === 'new' && item.file) {
+                formData.append('images', item.file);
+            }
+        });
         
         try {
             const url = id ? `/api/admin/products/${id}` : '/api/admin/products';

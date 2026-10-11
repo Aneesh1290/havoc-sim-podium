@@ -416,6 +416,40 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
+        // Multi-angle thumbnail gallery strip
+        let galleryImages = [];
+        try {
+            if (product.images_json) {
+                galleryImages = typeof product.images_json === 'string' ? JSON.parse(product.images_json) : product.images_json;
+            }
+        } catch(e) {}
+        if (!Array.isArray(galleryImages) || galleryImages.length === 0) {
+            if (product.imgSrc) galleryImages = [product.imgSrc];
+        }
+
+        const thumbStrip = document.getElementById("modalThumbnailsStrip");
+        if (thumbStrip) {
+            if (galleryImages.length > 1) {
+                thumbStrip.style.display = "flex";
+                thumbStrip.innerHTML = galleryImages.map((src, idx) => `
+                    <img src="${src}" alt="Angle ${idx + 1}" style="width:44px; height:44px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid ${idx === 0 ? 'var(--accent-gold, #e5b869)' : 'rgba(255,255,255,0.15)'}; transition:border-color 0.2s;" data-idx="${idx}">
+                `).join('');
+
+                const thumbs = thumbStrip.querySelectorAll("img");
+                thumbs.forEach(t => {
+                    t.addEventListener("click", () => {
+                        const idx = parseInt(t.getAttribute("data-idx"), 10);
+                        document.getElementById("modalProductImg").src = galleryImages[idx];
+                        thumbs.forEach(other => other.style.borderColor = "rgba(255,255,255,0.15)");
+                        t.style.borderColor = "var(--accent-gold, #e5b869)";
+                    });
+                });
+            } else {
+                thumbStrip.style.display = "none";
+                thumbStrip.innerHTML = "";
+            }
+        }
+
         buildDatePills();
         if (timePillsEl) timePillsEl.innerHTML = "<span style='color:#555;font-size:0.82rem;'>Select a date first</span>";
         updateSummary();
@@ -431,6 +465,11 @@ document.addEventListener("DOMContentLoaded", () => {
         const specsBtn = document.getElementById("modalSpecsToggleBtn");
         if (specsSection) specsSection.style.display = "none";
         if (specsBtn) specsBtn.innerText = "View Specs ▾";
+        const thumbStrip = document.getElementById("modalThumbnailsStrip");
+        if (thumbStrip) {
+            thumbStrip.style.display = "none";
+            thumbStrip.innerHTML = "";
+        }
     };
 
     slotModalClose?.addEventListener("click", closeModal);
@@ -581,7 +620,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         const id = e.target.getAttribute("data-id");
                         const p = products.find(prod => prod.id == id);
                         if (!p) return;
-                        openModal({ name: p.name, type: p.type, price: `₹${parseFloat(p.price).toFixed(2)}`, imgSrc: p.image_url, description: p.description, options: p.options });
+                        openModal({ name: p.name, type: p.type, price: `₹${parseFloat(p.price).toFixed(2)}`, imgSrc: p.image_url, description: p.description, options: p.options, images_json: p.images_json });
                     });
                 });
 

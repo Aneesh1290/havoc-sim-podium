@@ -979,40 +979,72 @@ app.get('/api/products', (req, res) => {
     });
 });
 
-app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
-    const { name, type, price, compare_price, stock_quantity, description, options, hide_suffix } = req.body;
-    let image_url = null;
-    if (req.file) {
-        const base64Data = req.file.buffer.toString('base64');
-        image_url = `data:${req.file.mimetype};base64,${base64Data}`;
+app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.array('images', 20), (req, res) => {
+    const { name, type, price, compare_price, stock_quantity, description, options, hide_suffix, existing_images } = req.body;
+    let imagesList = [];
+    
+    // Parse any existing image URLs passed in
+    if (existing_images) {
+        try {
+            const parsed = JSON.parse(existing_images);
+            if (Array.isArray(parsed)) imagesList = parsed;
+        } catch (e) {}
     }
+
+    // Append newly uploaded files
+    if (req.files && req.files.length > 0) {
+        req.files.forEach(f => {
+            const base64Data = f.buffer.toString('base64');
+            imagesList.push(`data:${f.mimetype};base64,${base64Data}`);
+        });
+    }
+
+    // Primary image is first image in array, or null
+    const image_url = imagesList.length > 0 ? imagesList[0] : null;
+    const images_json = JSON.stringify(imagesList);
     const hideSuffixVal = hide_suffix === '1' || hide_suffix === 'true' ? 1 : 0;
-    db.run("INSERT INTO products (name, type, price, compare_price, stock_quantity, description, image_url, options, hide_suffix) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [name, type, price, compare_price || null, stock_quantity || 10, description, image_url, options || '[]', hideSuffixVal],
+
+    db.run("INSERT INTO products (name, type, price, compare_price, stock_quantity, description, image_url, images_json, options, hide_suffix) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [name, type, price, compare_price || null, stock_quantity || 10, description, image_url, images_json, options || '[]', hideSuffixVal],
         function(err) {
-            if (err) return res.status(500).json({ error: 'Failed to add product' });
+            if (err) {
+                console.error("SQL INSERT PRODUCT ERROR:", err);
+                return res.status(500).json({ error: 'Failed to add product' });
+            }
             res.json({ success: true, id: this.lastID });
         }
     );
 });
 
-app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
-    const { name, type, price, compare_price, stock_quantity, description, options, hide_suffix } = req.body;
+app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.array('images', 20), (req, res) => {
+    const { name, type, price, compare_price, stock_quantity, description, options, hide_suffix, existing_images } = req.body;
     const hideSuffixVal = hide_suffix === '1' || hide_suffix === 'true' ? 1 : 0;
     
-    let query = "UPDATE products SET name=?, type=?, price=?, compare_price=?, stock_quantity=?, description=?, options=?, hide_suffix=? WHERE id=?";
-    let params = [name, type, price, compare_price || null, stock_quantity || 10, description, options || '[]', hideSuffixVal, req.params.id];
-    
-    if (req.file) {
-        const base64Data = req.file.buffer.toString('base64');
-        const image_url = `data:${req.file.mimetype};base64,${base64Data}`;
-        query = "UPDATE products SET name=?, type=?, price=?, compare_price=?, stock_quantity=?, description=?, options=?, hide_suffix=?, image_url=? WHERE id=?";
-        params = [name, type, price, compare_price || null, stock_quantity || 10, description, options || '[]', hideSuffixVal, image_url, req.params.id];
+    let imagesList = [];
+    if (existing_images) {
+        try {
+            const parsed = JSON.parse(existing_images);
+            if (Array.isArray(parsed)) imagesList = parsed;
+        } catch (e) {}
     }
+
+    // Append newly uploaded files
+    if (req.files && req.files.length > 0) {
+        req.files.forEach(f => {
+            const base64Data = f.buffer.toString('base64');
+            imagesList.push(`data:${f.mimetype};base64,${base64Data}`);
+        });
+    }
+
+    const image_url = imagesList.length > 0 ? imagesList[0] : null;
+    const images_json = JSON.stringify(imagesList);
+
+    let query = "UPDATE products SET name=?, type=?, price=?, compare_price=?, stock_quantity=?, description=?, options=?, hide_suffix=?, image_url=?, images_json=? WHERE id=?";
+    let params = [name, type, price, compare_price || null, stock_quantity || 10, description, options || '[]', hideSuffixVal, image_url, images_json, req.params.id];
     
     db.run(query, params, (err) => {
         if (err) {
-            console.error("SQL UPDATE ERROR:", err);
+            console.error("SQL UPDATE PRODUCT ERROR:", err);
             return res.status(500).json({ error: 'Failed to update product' });
         }
         res.json({ success: true });
@@ -1031,9 +1063,9 @@ app.post('/api/admin/products/:id/duplicate', verifyToken, verifySuperAdmin, (re
         if (err || !product) return res.status(404).json({ error: 'Product not found' });
         
         const newName = product.name + ' (Copy)';
-        const query = `INSERT INTO products (name, type, price, compare_price, stock_quantity, description, options, image_url)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
-        const params = [newName, product.type, product.price, product.compare_price, product.stock_quantity, product.description, product.options, product.image_url];
+        const query = `INSERT INTO products (name, type, price, compare_price, stock_quantity, description, options, image_url, images_json)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+        const params = [newName, product.type, product.price, product.compare_price, product.stock_quantity, product.description, product.options, product.image_url, product.images_json || '[]'];
         
         db.run(query, params, function(err) {
             if (err) return res.status(500).json({ error: 'Error duplicating product' });
