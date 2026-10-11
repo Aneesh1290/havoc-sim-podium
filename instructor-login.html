@@ -238,15 +238,30 @@
 
             <button type="submit" class="btn btn-gold" id="submitBtn">Login</button>
         </form>
+
+        <form id="resetPasswordForm" autocomplete="off" style="display:none;">
+            <p style="color:var(--muted); font-size:0.9rem; margin-bottom: 1.5rem; line-height: 1.5;">For security reasons, you must change your default password before accessing your dashboard.</p>
+            <div class="field">
+                <label>New Password</label>
+                <div class="input-wrap">
+                    <input type="password" id="newPassword" autocomplete="new-password" placeholder="••••••••" required minlength="6">
+                </div>
+            </div>
+            <button type="submit" class="btn btn-gold" id="resetBtn">Set Password & Login</button>
+        </form>
     </div>
 
     <script>
-        document.getElementById('instructorLoginForm').addEventListener('submit', async (e) => {
+        const loginForm = document.getElementById('instructorLoginForm');
+        const resetForm = document.getElementById('resetPasswordForm');
+        const errorMsg = document.getElementById('errorMsg');
+        const submitBtn = document.getElementById('submitBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const email = document.getElementById('email').value.trim();
             const password = document.getElementById('password').value;
-            const errorMsg = document.getElementById('errorMsg');
-            const submitBtn = document.getElementById('submitBtn');
             
             const originalText = submitBtn.textContent;
             submitBtn.textContent = 'Authenticating...';
@@ -262,7 +277,12 @@
                 const data = await res.json();
                 if (data.token) {
                     localStorage.setItem('instructor_token', data.token);
-                    window.location.href = '/instructor-dashboard.html';
+                    if (data.mustChangePassword) {
+                        loginForm.style.display = 'none';
+                        resetForm.style.display = 'block';
+                    } else {
+                        window.location.href = '/instructor-dashboard.html';
+                    }
                 } else {
                     errorMsg.textContent = data.error || 'Invalid credentials';
                     errorMsg.style.display = 'block';
@@ -274,6 +294,46 @@
                 errorMsg.style.display = 'block';
                 submitBtn.textContent = originalText;
                 submitBtn.classList.remove('loading');
+            }
+        });
+
+        resetForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newPassword = document.getElementById('newPassword').value.trim();
+            const token = localStorage.getItem('instructor_token');
+            if (newPassword.length < 6) {
+                errorMsg.textContent = 'Password must be at least 6 characters.';
+                errorMsg.style.display = 'block';
+                return;
+            }
+
+            resetBtn.textContent = 'Updating...';
+            resetBtn.classList.add('loading');
+            errorMsg.style.display = 'none';
+
+            try {
+                const res = await fetch('/api/instructor/change-password', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ newPassword })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    window.location.href = '/instructor-dashboard.html';
+                } else {
+                    errorMsg.textContent = data.error || 'Failed to update password.';
+                    errorMsg.style.display = 'block';
+                    resetBtn.textContent = 'Set Password & Login';
+                    resetBtn.classList.remove('loading');
+                }
+            } catch (err) {
+                errorMsg.textContent = 'Network error. Please try again.';
+                errorMsg.style.display = 'block';
+                resetBtn.textContent = 'Set Password & Login';
+                resetBtn.classList.remove('loading');
             }
         });
     </script>

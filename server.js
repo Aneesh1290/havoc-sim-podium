@@ -587,23 +587,29 @@ app.get('/api/admin/backup', verifyToken, verifySuperAdmin, (req, res) => {
 app.post('/api/instructor/login', async (req, res) => {
     const { email, password } = req.body;
     db.get("SELECT * FROM instructors WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?)", [email, email, email], async (err, instructor) => {
-        if (err || !instructor) return res.status(401).json({ error: 'Invalid email or password' });
+        if (err || !instructor) return res.status(401).json({ error: 'Invalid username/email or password' });
         
         // If no password set yet, default is 'havoc123'
         const match = instructor.password_hash 
             ? await bcrypt.compare(password, instructor.password_hash)
             : password === 'havoc123';
             
-        if (!match) return res.status(401).json({ error: 'Invalid email or password' });
+        if (!match) return res.status(401).json({ error: 'Invalid username/email or password' });
         
-        // Auto-migrate if they used default
-        if (!instructor.password_hash && password === 'havoc123') {
+        // Auto-migrate if they used default without hash
+        if (!instructor.password_hash) {
             const hash = await bcrypt.hash('havoc123', 10);
-            db.run("UPDATE instructors SET password_hash = ? WHERE id = ?", [hash, instructor.id]);
+            db.run("UPDATE instructors SET password_hash = ?, must_change_password = 1 WHERE id = ?", [hash, instructor.id]);
         }
         
+        const mustChangePassword = (instructor.must_change_password === 1 || password === 'havoc123');
         const token = jwt.sign({ id: instructor.id, role: 'instructor' }, process.env.JWT_SECRET || 'havoc-secret-key', { expiresIn: '7d' });
-        res.json({ token, instructor: { id: instructor.id, name: instructor.name } });
+        res.json({ 
+            success: true,
+            token, 
+            mustChangePassword,
+            instructor: { id: instructor.id, name: instructor.name, username: instructor.username } 
+        });
     });
 });
 
@@ -616,6 +622,18 @@ const verifyInstructorToken = (req, res, next) => {
         next();
     });
 };
+
+app.post('/api/instructor/change-password', verifyInstructorToken, async (req, res) => {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.trim().length < 6) {
+        return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
+    }
+    const hash = await bcrypt.hash(newPassword.trim(), 10);
+    db.run("UPDATE instructors SET password_hash = ?, must_change_password = 0 WHERE id = ?", [hash, req.user.id], function(err) {
+        if (err) return res.status(500).json({ error: 'Failed to update password' });
+        res.json({ success: true, message: 'Password updated successfully' });
+    });
+});
 
 app.get('/api/instructor/me', verifyInstructorToken, (req, res) => {
     db.get("SELECT id, name, email, status, schedule_json FROM instructors WHERE id = ?", [req.user.id], (err, row) => {
@@ -684,12 +702,13 @@ app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single(
     }
     const initialPassword = password && password.trim() ? password.trim() : 'havoc123';
     const password_hash = await bcrypt.hash(initialPassword, 10);
+    const mustChange = initialPassword === 'havoc123' ? 1 : 0;
     const finalUsername = username && username.trim() 
         ? username.trim().toLowerCase() 
         : (email ? email.split('@')[0].toLowerCase() : name.toLowerCase().replace(/\s+/g, ''));
 
-    db.run("INSERT INTO instructors (name, username, age, role, key_achievement, status, biography, photo_url, fee, email, phone, simulator_type, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [name, finalUsername, age || null, role, key_achievement, status || 'Available', biography, photo_url, fee != null ? parseFloat(fee) : 500, email, phone, simulator_type || 'All', password_hash],
+    db.run("INSERT INTO instructors (name, username, age, role, key_achievement, status, biography, photo_url, fee, email, phone, simulator_type, password_hash, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [name, finalUsername, age || null, role, key_achievement, status || 'Available', biography, photo_url, fee != null ? parseFloat(fee) : 500, email, phone, simulator_type || 'All', password_hash, mustChange],
         function(err) {
             if (err) return res.status(500).json({ error: 'Failed to add instructor' });
             res.json({ success: true, id: this.lastID });
@@ -708,8 +727,9 @@ app.put('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, upload.sing
     
     if (password && password.trim()) {
         const hash = await bcrypt.hash(password.trim(), 10);
-        query += ", password_hash=?";
-        params.push(hash);
+        const mustChange = password.trim() === 'havoc123' ? 1 : 0;
+        query += ", password_hash=?, must_change_password=?";
+        params.push(hash, mustChange);
     }
 
     if (req.file) {
@@ -729,6 +749,19 @@ app.put('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, upload.sing
         }
         res.json({ success: true });
     });
+});
+
+app.post('/api/admin/instructors/:id/reset-password', verifyToken, verifySuperAdmin, async (req, res) => {
+    try {
+        const hash = await bcrypt.hash('havoc123', 10);
+        db.run("UPDATE instructors SET password_hash = ?, must_change_password = 1 WHERE id = ?", [hash, req.params.id], function(err) {
+            if (err) return res.status(500).json({ error: 'Failed to reset instructor password' });
+            res.json({ success: true, message: 'Password reset to default (havoc123). Instructor will be prompted to change password.' });
+        });
+    } catch (e) {
+        console.error(e);
+        res.status(500).json({ error: 'Server error' });
+    }
 });
 
 app.delete('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, (req, res) => {

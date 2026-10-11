@@ -1356,6 +1356,7 @@ async function loadInstructors() {
                 <td><span style="color: ${inst.status === 'Available' ? 'var(--green)' : 'var(--red)'}">${inst.status}</span></td>
                 <td>
                     <button class="btn btn-primary btn-sm" onclick='editInstructor(${JSON.stringify(inst).replace(/'/g, "&#39;")})'>Edit</button>
+                    <button class="btn btn-sm" style="background:rgba(229,184,105,0.15); color:var(--gold); border:1px solid rgba(229,184,105,0.3);" onclick='resetInstructorPassword(${inst.id}, "${(inst.name || "").replace(/'/g, "\\'")}")'>Reset Pw</button>
                     <button class="btn btn-sm" style="background:rgba(248,113,113,0.1); color:var(--red);" onclick="deleteInstructor(${inst.id})">Delete</button>
                 </td>
             </tr>
@@ -1376,6 +1377,8 @@ window.showAddInstructorModal = function() {
     document.getElementById('instructorModalTitle').innerText = 'Add Instructor';
     const switchToAddBtn = document.getElementById('switchToAddBtn');
     if (switchToAddBtn) switchToAddBtn.style.display = 'none';
+    const modalResetPwBtn = document.getElementById('modalResetPwBtn');
+    if (modalResetPwBtn) modalResetPwBtn.style.display = 'none';
     document.getElementById('instructorModal').style.display = 'flex';
 };
 
@@ -1413,7 +1416,35 @@ window.editInstructor = function(inst) {
     document.getElementById('instructorModalTitle').innerText = 'Edit Instructor';
     const switchToAddBtn = document.getElementById('switchToAddBtn');
     if (switchToAddBtn) switchToAddBtn.style.display = 'inline-block';
+    const modalResetPwBtn = document.getElementById('modalResetPwBtn');
+    if (modalResetPwBtn) modalResetPwBtn.style.display = 'inline-block';
     document.getElementById('instructorModal').style.display = 'flex';
+};
+
+window.resetInstructorPassword = async function(id, name) {
+    if (!confirm(`Reset password for '${name}' to the default 'havoc123'?\nThey will be required to set their own password on their next login.`)) return;
+    try {
+        const res = await fetchAuth(`/api/admin/instructors/${id}/reset-password`, {
+            method: 'POST'
+        });
+        const data = await res.json();
+        if (data.success) {
+            alert(`Password for '${name}' has been reset to 'havoc123'.\nWhen they log in, they will be prompted to set a new password.`);
+        } else {
+            alert(data.error || 'Failed to reset password');
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Error resetting password');
+    }
+};
+
+window.quickResetModalPassword = async function() {
+    const id = document.getElementById('instructorId').value;
+    const name = document.getElementById('instructorName').value;
+    if (!id) return;
+    await window.resetInstructorPassword(id, name);
+    document.getElementById('instructorPassword').value = '';
 };
 
 window.deleteInstructor = async function(id) {
