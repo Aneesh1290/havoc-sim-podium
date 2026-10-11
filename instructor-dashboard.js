@@ -164,6 +164,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const nextDayBtn = document.getElementById('nextDayBtn');
     const activeDayDisplayMain = document.getElementById('activeDayDisplayMain');
     const todayChipBadge = document.getElementById('todayChipBadge');
+    const datePickerTrigger = document.getElementById('datePickerTrigger');
     const calendarPickerEl = document.getElementById('scheduleCalendarPicker');
     const jumpTodayBtn = document.getElementById('jumpTodayBtn');
     const jumpTomorrowBtn = document.getElementById('jumpTomorrowBtn');
@@ -461,11 +462,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     if (calendarPickerEl) {
-        calendarPickerEl.addEventListener('change', (e) => {
+        const onDateChosen = (e) => {
             if (e.target.value) {
                 const parts = e.target.value.split('-');
-                activeDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-                syncScheduleView();
+                if (parts.length === 3) {
+                    activeDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+                    syncScheduleView();
+                }
+            }
+        };
+        calendarPickerEl.addEventListener('change', onDateChosen);
+        calendarPickerEl.addEventListener('input', onDateChosen);
+    }
+
+    if (datePickerTrigger && calendarPickerEl) {
+        datePickerTrigger.addEventListener('click', () => {
+            try {
+                if (typeof calendarPickerEl.showPicker === 'function') {
+                    calendarPickerEl.showPicker();
+                }
+            } catch (err) {
+                // Handled natively by stretched webkit indicator
             }
         });
     }
