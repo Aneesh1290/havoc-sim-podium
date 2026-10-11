@@ -163,14 +163,14 @@
     </div>
     <!-- Instructor Prompt Modal -->
     <div id="instructorPromptModal" class="slot-modal-overlay">
-        <div class="slot-modal" style="max-width: 450px;">
+        <div class="slot-modal" style="max-width: 680px; width: 95%;">
             <div class="slot-modal-header">
-                <h3 id="instructorPromptTitle">Select an Instructor</h3>
-                <button class="close-modal" id="instructorPromptClose">&times;</button>
+                <h3 id="instructorPromptTitle" style="font-size: 1.25rem; font-weight: 700; margin: 0;">Select an Instructor</h3>
+                <button class="close-modal" id="instructorPromptClose" style="background: rgba(255,255,255,0.06); border: none; color: #fff; width: 34px; height: 34px; border-radius: 50%; font-size: 1.3rem; cursor: pointer; display: flex; align-items: center; justify-content: center;">&times;</button>
             </div>
-            <div class="slot-modal-body" style="text-align: center; padding-top: 1rem;">
-                <p style="color: var(--muted); margin-bottom: 1rem;">Would you like to book an expert instructor to guide your session? (Optional)</p>
-                <div id="instructorContainer" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; text-align: center; max-height: 380px; overflow-y: auto; margin-bottom: 1.5rem; padding-right: 5px;">
+            <div class="slot-modal-body" style="text-align: center; padding: 1.25rem 1.5rem;">
+                <p style="color: var(--muted); margin-bottom: 1.25rem; font-size: 0.95rem;">Would you like to book an expert instructor to guide your session? (Optional)</p>
+                <div id="instructorContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; text-align: center; max-height: 55vh; overflow-y: auto; overflow-x: hidden; margin-bottom: 1.5rem; padding: 4px;">
                     <!-- Instructors injected here -->
                 </div>
                 <div style="display: flex; gap: 1rem;">

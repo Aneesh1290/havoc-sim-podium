@@ -1050,16 +1050,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 if (available.length > 0) {
                     instructorContainerInPrompt.innerHTML = available.map(inst => `
-                        <div class="pill instructor-pill" style="display:flex; flex-direction:column; align-items:center; gap:0.5rem; padding:1.2rem 1rem; border:1px solid var(--border); border-radius:12px; cursor:pointer; color:#fff; text-align:center; transition: border-color 0.2s;" data-id="${inst.id}">
-                            ${inst.photo_url ? `<img src="${inst.photo_url}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div style="width:80px;height:80px;border-radius:50%;background:#383b4d;flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.8rem; color:#aaa;">No Photo</div>`}
-                            <div style="flex:1; margin-top:0.5rem;">
-                                <div style="font-weight:600; font-size:1.1rem; line-height:1.2;">${inst.name}</div>
-                                <div style="font-size:0.8rem; color:var(--muted); margin-top:4px;">${inst.role || 'Instructor'}</div>
-                                ${inst.notice_hours > 0 ? `<div style="display:inline-block; margin-top:5px; font-size:0.7rem; color:var(--gold); background:rgba(229,184,105,0.12); border:1px solid rgba(229,184,105,0.3); padding:1px 7px; border-radius:10px;">🌟 Special Mentor (${inst.notice_hours}h Prior Booking)</div>` : ''}
+                        <div class="pill instructor-pill" style="display:flex; flex-direction:column; align-items:center; gap:0.4rem; padding:1rem 0.8rem; border:1px solid var(--border); border-radius:12px; cursor:pointer; color:#fff; text-align:center; transition: all 0.2s; box-sizing: border-box; width: 100%; min-width: 0;" data-id="${inst.id}">
+                            ${inst.photo_url ? `<img src="${inst.photo_url}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div style="width:70px;height:70px;border-radius:50%;background:#383b4d;flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.75rem; color:#aaa;">No Photo</div>`}
+                            <div style="flex:1; margin-top:0.3rem; width: 100%;">
+                                <div style="font-weight:600; font-size:1rem; line-height:1.25; word-break: break-word;">${inst.name}</div>
+                                <div style="font-size:0.78rem; color:var(--muted); margin-top:3px; word-break: break-word;">${inst.role || 'Instructor'}</div>
+                                ${inst.notice_hours > 0 ? `<div style="display:inline-block; margin-top:4px; font-size:0.68rem; color:var(--gold); background:rgba(229,184,105,0.12); border:1px solid rgba(229,184,105,0.3); padding:1px 6px; border-radius:10px;">🌟 ${inst.notice_hours}h Prior</div>` : ''}
                             </div>
                             <div style="font-weight:700; color:var(--gold); font-size:1rem; margin-top:0.2rem;">+ ₹${inst.fee != null ? inst.fee : 500}</div>
-                            ${inst.biography ? `<div class="inst-bio-toggle" style="margin-top: 0.8rem; font-size: 0.85rem; color: #aaa; text-decoration: underline; z-index: 2; position: relative;" onclick="event.stopPropagation(); const content = this.nextElementSibling; if(content.style.display === 'none'){content.style.display = 'block'; this.innerText = 'Hide Details';} else {content.style.display = 'none'; this.innerText = 'View Details';}">View Details</div>
-                            <div class="inst-bio-content" style="display:none; font-size:0.85rem; color:rgba(255,255,255,0.8); line-height:1.4; border-top:1px solid rgba(255,255,255,0.1); padding-top:0.8rem; margin-top:0.8rem; white-space:normal; text-align:left; width:100%;">${inst.biography}</div>` : ''}
+                            ${inst.biography ? `<div class="inst-bio-toggle" style="margin-top: 0.6rem; font-size: 0.8rem; color: #aaa; text-decoration: underline; z-index: 2; position: relative;" onclick="event.stopPropagation(); const content = this.nextElementSibling; if(content.style.display === 'none'){content.style.display = 'block'; this.innerText = 'Hide Details';} else {content.style.display = 'none'; this.innerText = 'View Details';}">View Details</div>
+                            <div class="inst-bio-content" style="display:none; font-size:0.8rem; color:rgba(255,255,255,0.8); line-height:1.4; border-top:1px solid rgba(255,255,255,0.1); padding-top:0.6rem; margin-top:0.6rem; white-space:normal; text-align:left; width:100%; word-break: break-word;">${inst.biography}</div>` : ''}
                         </div>
 
                     `).join("");
