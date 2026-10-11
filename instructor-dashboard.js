@@ -75,6 +75,63 @@ document.addEventListener('DOMContentLoaded', async () => {
         return [...TIME_SLOTS];
     }
 
+    let saveTimeout = null;
+    async function persistSchedule(showToastNotice = false, customMsg = null) {
+        if (!token) return;
+        const isOnline = masterToggle ? masterToggle.checked : true;
+        const payload = {
+            status: isOnline ? 'Available' : 'Offline',
+            schedule_json: JSON.stringify(scheduleData)
+        };
+
+        if (saveBtn) {
+            saveBtn.innerHTML = '<span>⏳</span> Saving...';
+            saveBtn.disabled = true;
+        }
+
+        try {
+            const res = await fetch('/api/instructor/me', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                if (saveBtn) {
+                    saveBtn.innerHTML = '<span>✓</span> Saved!';
+                    setTimeout(() => {
+                        saveBtn.innerHTML = '<span>💾</span> Save Schedule';
+                        saveBtn.disabled = false;
+                    }, 1500);
+                }
+                if (showToastNotice) {
+                    showToast(customMsg || (isOnline ? 'Status: Available for Bookings' : 'Status: Offline (Hidden from Bookings)'));
+                }
+            } else {
+                if (saveBtn) {
+                    saveBtn.innerHTML = '<span>💾</span> Save Schedule';
+                    saveBtn.disabled = false;
+                }
+            }
+        } catch(err) {
+            console.error('Failed to save instructor status:', err);
+            if (saveBtn) {
+                saveBtn.innerHTML = '<span>💾</span> Save Schedule';
+                saveBtn.disabled = false;
+            }
+        }
+    }
+
+    function debouncedSave() {
+        if (saveTimeout) clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+            persistSchedule(false);
+        }, 600);
+    }
+
     // Direct toggle helper for turning a specific day ON or OFF
     function toggleDayAvailability(targetDate, forceState = null) {
         const iso = formatIsoDate(targetDate);
@@ -89,14 +146,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ? slotsCache[iso]
                 : (scheduleData.weekly[dayKey] && scheduleData.weekly[dayKey].length > 0 ? scheduleData.weekly[dayKey] : [...TIME_SLOTS]);
             scheduleData.dates[iso] = [...restored];
-            showToast(`${weekdayFullNames[targetDate.getDay()]}, ${targetDate.getDate()} turned ON (${restored.length} slots)`);
+            persistSchedule(true, `${weekdayFullNames[targetDate.getDay()]}, ${targetDate.getDate()} turned ON (${restored.length} slots)`);
         } else {
             // Save to cache before clearing
             if (currentSlots.length > 0) {
                 slotsCache[iso] = [...currentSlots];
             }
             scheduleData.dates[iso] = [];
-            showToast(`${weekdayFullNames[targetDate.getDay()]}, ${targetDate.getDate()} marked as DAY OFF`);
+            persistSchedule(true, `${weekdayFullNames[targetDate.getDay()]}, ${targetDate.getDate()} marked as DAY OFF (Hidden from Bookings)`);
         }
 
         syncScheduleView();
@@ -282,6 +339,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     pill.classList.add('active');
                 }
                 onSlotsUpdated();
+                debouncedSave();
             });
 
             activeDaySlotsGrid.appendChild(pill);
@@ -428,6 +486,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 activeDaySlotsGrid.querySelectorAll('.slot-pill').forEach(pill => pill.classList.add('active'));
             }
             onSlotsUpdated();
+            persistSchedule(true, `All slots selected for ${fullMonthNames[activeDate.getMonth()]} ${activeDate.getDate()}`);
         });
     }
 
@@ -458,8 +517,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
 
             renderWeekStrip();
-            showToast(`Applied ${currentSlots.length} slots to all ${weekdayName}s!`);
             onSlotsUpdated();
+            persistSchedule(true, `Applied ${currentSlots.length} slots to all ${weekdayName}s!`);
         });
     }
 
@@ -523,8 +582,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
 
-    if (masterToggle) masterToggle.addEventListener('change', (e) => syncStatus(e.target.checked));
-    if (availToggle) availToggle.addEventListener('change', (e) => syncStatus(e.target.checked));
+    if (masterToggle) {
+        masterToggle.addEventListener('change', (e) => {
+            syncStatus(e.target.checked);
+            persistSchedule(true);
+        });
+    }
+    if (availToggle) {
+        availToggle.addEventListener('change', (e) => {
+            syncStatus(e.target.checked);
+            persistSchedule(true);
+        });
+    }
 
     // Toast helper
     function showToast(msg) {
@@ -623,44 +692,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Save schedule handler
     if (saveBtn) {
-        saveBtn.addEventListener('click', async () => {
-            const originalText = saveBtn.innerHTML;
-            saveBtn.innerHTML = '<span>⏳</span> Saving...';
-            saveBtn.disabled = true;
-            
-            const payload = {
-                status: masterToggle && masterToggle.checked ? 'Available' : 'Offline',
-                schedule_json: JSON.stringify(scheduleData)
-            };
-            
-            try {
-                const res = await fetch('/api/instructor/me', {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    body: JSON.stringify(payload)
-                });
-                
-                if (res.ok) {
-                    saveBtn.innerHTML = '<span>✓</span> Saved!';
-                    showToast('Schedule & availability saved successfully!');
-                    setTimeout(() => {
-                        saveBtn.innerHTML = originalText;
-                        saveBtn.disabled = false;
-                    }, 2000);
-                } else {
-                    alert('Failed to save schedule');
-                    saveBtn.innerHTML = originalText;
-                    saveBtn.disabled = false;
-                }
-            } catch (err) {
-                console.error(err);
-                alert('Network error while saving schedule.');
-                saveBtn.innerHTML = originalText;
-                saveBtn.disabled = false;
-            }
+        saveBtn.addEventListener('click', () => {
+            persistSchedule(true, 'Schedule & availability saved successfully!');
         });
     }
 

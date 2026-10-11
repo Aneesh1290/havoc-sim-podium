@@ -778,6 +778,20 @@ app.get('/api/available-instructors', (req, res) => {
             };
             const targetTime = normTime(time);
 
+            // Derive finalIsoDate if not provided
+            let finalIsoDate = isoDate || null;
+            if (!finalIsoDate && date) {
+                const cleanDateStr = date.replace(/\s*\([a-zA-Z]+\)\s*/, ' ').trim();
+                const curYear = new Date().getFullYear();
+                const pD = new Date(`${cleanDateStr} ${curYear}`);
+                if (!isNaN(pD.getTime())) {
+                    const y = pD.getFullYear();
+                    const m = String(pD.getMonth() + 1).padStart(2, '0');
+                    const d = String(pD.getDate()).padStart(2, '0');
+                    finalIsoDate = `${y}-${m}-${d}`;
+                }
+            }
+
             // Extract day of week from date string or Date object
             let dayOfWeek = '';
             const dayMatch = date.match(/\(([a-zA-Z]+)\)/);
@@ -789,7 +803,7 @@ app.get('/api/available-instructors', (req, res) => {
                 dayOfWeek = dayMap[dayMatch[1].toLowerCase()] || dayMatch[1].toLowerCase();
             }
             if (!dayOfWeek) {
-                const d = new Date(isoDate || date);
+                const d = new Date(finalIsoDate || date);
                 if (!isNaN(d.getTime())) {
                     const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
                     dayOfWeek = days[d.getDay()];
@@ -797,6 +811,7 @@ app.get('/api/available-instructors', (req, res) => {
             }
 
             const availableInstructors = instructors.filter(i => {
+                if ((i.status || '').toLowerCase() !== 'available') return false;
                 if (bookedInstructorIds.includes(i.id)) return false;
                 
                 if (i.schedule_json) {
@@ -806,13 +821,13 @@ app.get('/api/available-instructors', (req, res) => {
 
                         // 1. Check exact date overrides in schedule.dates
                         if (schedule.dates) {
-                            if (isoDate && schedule.dates[isoDate] !== undefined) {
-                                allowedSlots = schedule.dates[isoDate];
+                            if (finalIsoDate && schedule.dates[finalIsoDate] !== undefined) {
+                                allowedSlots = schedule.dates[finalIsoDate];
                             } else if (schedule.dates[date] !== undefined) {
                                 allowedSlots = schedule.dates[date];
                             } else {
                                 for (const [dKey, sList] of Object.entries(schedule.dates)) {
-                                    if (date.includes(dKey) || (isoDate && dKey.includes(isoDate))) {
+                                    if (date.includes(dKey) || (finalIsoDate && dKey.includes(finalIsoDate))) {
                                         allowedSlots = sList;
                                         break;
                                     }
