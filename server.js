@@ -675,15 +675,18 @@ app.get('/api/available-instructors', (req, res) => {
     });
 });
 
-app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
-    const { name, age, role, key_achievement, status, biography, fee, email, phone, simulator_type } = req.body;
+app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single('image'), async (req, res) => {
+    const { name, age, role, key_achievement, status, biography, fee, email, phone, simulator_type, password } = req.body;
     let photo_url = null;
     if (req.file) {
         const base64Data = req.file.buffer.toString('base64');
         photo_url = `data:${req.file.mimetype};base64,${base64Data}`;
     }
-    db.run("INSERT INTO instructors (name, age, role, key_achievement, status, biography, photo_url, fee, email, phone, simulator_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [name, age || null, role, key_achievement, status || 'Available', biography, photo_url, fee != null ? parseFloat(fee) : 500, email, phone, simulator_type || 'All'],
+    const initialPassword = password && password.trim() ? password.trim() : 'havoc123';
+    const password_hash = await bcrypt.hash(initialPassword, 10);
+
+    db.run("INSERT INTO instructors (name, age, role, key_achievement, status, biography, photo_url, fee, email, phone, simulator_type, password_hash) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [name, age || null, role, key_achievement, status || 'Available', biography, photo_url, fee != null ? parseFloat(fee) : 500, email, phone, simulator_type || 'All', password_hash],
         function(err) {
             if (err) return res.status(500).json({ error: 'Failed to add instructor' });
             res.json({ success: true, id: this.lastID });
@@ -691,20 +694,29 @@ app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single(
     );
 });
 
-app.put('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, upload.single('image'), (req, res) => {
-    const { name, age, role, key_achievement, status, biography, fee, email, phone, simulator_type } = req.body;
+app.put('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, upload.single('image'), async (req, res) => {
+    const { name, age, role, key_achievement, status, biography, fee, email, phone, simulator_type, password } = req.body;
     const feeVal = fee != null ? parseFloat(fee) : 500;
     const simTypeVal = simulator_type || 'All';
-    let query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=?, email=?, phone=?, simulator_type=? WHERE id=?";
-    let params = [name, age || null, role, key_achievement, status || 'Available', biography, feeVal, email, phone, simTypeVal, req.params.id];
+    let query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=?, email=?, phone=?, simulator_type=?";
+    let params = [name, age || null, role, key_achievement, status || 'Available', biography, feeVal, email, phone, simTypeVal];
     
+    if (password && password.trim()) {
+        const hash = await bcrypt.hash(password.trim(), 10);
+        query += ", password_hash=?";
+        params.push(hash);
+    }
+
     if (req.file) {
         const base64Data = req.file.buffer.toString('base64');
         const photo_url = `data:${req.file.mimetype};base64,${base64Data}`;
-        query = "UPDATE instructors SET name=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=?, email=?, phone=?, simulator_type=?, photo_url=? WHERE id=?";
-        params = [name, age || null, role, key_achievement, status || 'Available', biography, feeVal, email, phone, simTypeVal, photo_url, req.params.id];
+        query += ", photo_url=?";
+        params.push(photo_url);
     }
     
+    query += " WHERE id=?";
+    params.push(req.params.id);
+
     db.run(query, params, (err) => {
         if (err) {
             console.error("SQL UPDATE ERROR:", err);

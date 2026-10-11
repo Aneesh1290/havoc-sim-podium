@@ -1369,7 +1369,11 @@ async function loadInstructors() {
 window.showAddInstructorModal = function() {
     document.getElementById('instructorForm').reset();
     document.getElementById('instructorId').value = '';
+    const pwInput = document.getElementById('instructorPassword');
+    if (pwInput) pwInput.value = '';
     document.getElementById('instructorModalTitle').innerText = 'Add Instructor';
+    const switchToAddBtn = document.getElementById('switchToAddBtn');
+    if (switchToAddBtn) switchToAddBtn.style.display = 'none';
     document.getElementById('instructorModal').style.display = 'flex';
 };
 
@@ -1382,6 +1386,8 @@ window.editInstructor = function(inst) {
     document.getElementById('instructorName').value = inst.name;
     document.getElementById('instructorEmail').value = inst.email || '';
     document.getElementById('instructorPhone').value = inst.phone || '';
+    const pwInput = document.getElementById('instructorPassword');
+    if (pwInput) pwInput.value = '';
     const instTypeSelect = document.getElementById('instructorSimulatorType');
     const typeVal = inst.simulator_type || 'All';
     if (instTypeSelect) {
@@ -1401,6 +1407,8 @@ window.editInstructor = function(inst) {
     document.getElementById('instructorFee').value = inst.fee != null ? inst.fee : 500;
     document.getElementById('instructorBio').value = inst.biography || '';
     document.getElementById('instructorModalTitle').innerText = 'Edit Instructor';
+    const switchToAddBtn = document.getElementById('switchToAddBtn');
+    if (switchToAddBtn) switchToAddBtn.style.display = 'inline-block';
     document.getElementById('instructorModal').style.display = 'flex';
 };
 
@@ -1436,6 +1444,9 @@ if (instructorForm) {
         formData.append('status', document.getElementById('instructorStatus').value);
         formData.append('fee', document.getElementById('instructorFee').value || 500);
         formData.append('biography', document.getElementById('instructorBio').value);
+        
+        const pw = document.getElementById('instructorPassword')?.value.trim();
+        if (pw) formData.append('password', pw);
         
         const photoFile = document.getElementById('instructorPhoto').files[0];
         if (photoFile) formData.append('image', photoFile);
