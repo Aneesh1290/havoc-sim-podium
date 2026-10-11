@@ -455,8 +455,94 @@
             border-color: var(--gold);
             background: rgba(229,184,105,0.1);
         }
+        .action-link.action-danger {
+            border-color: rgba(248,113,113,0.35);
+            color: #f87171;
+        }
+        .action-link.action-danger:hover {
+            border-color: #f87171;
+            background: rgba(248,113,113,0.12);
+        }
 
-        /* Date selector toolbar */
+        /* Day Status Quick Switch in Header */
+        .day-status-toggle-wrap {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            padding: 0.35rem 0.75rem;
+            border-radius: 8px;
+        }
+        .day-status-pill {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+        .day-status-pill.online { color: var(--gold); }
+        .day-status-pill.offline { color: #f87171; }
+
+        .switch-sm {
+            width: 42px;
+            height: 22px;
+        }
+        .switch-sm .slider:before {
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+        }
+
+        .chip-toggle-btn {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 6px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            cursor: pointer;
+            margin-top: 2px;
+            user-select: none;
+        }
+        .chip-toggle-btn.on {
+            background: rgba(229,184,105,0.12);
+            color: var(--gold);
+            border-color: rgba(229,184,105,0.25);
+        }
+        .chip-toggle-btn.off {
+            background: rgba(248,113,113,0.15);
+            color: #f87171;
+            border-color: rgba(248,113,113,0.35);
+        }
+        .chip-toggle-btn:hover {
+            transform: scale(1.05);
+        }
+        .week-day-chip.day-off-card {
+            border-color: rgba(248,113,113,0.25);
+        }
+
+        .day-off-alert {
+            background: rgba(248,113,113,0.06);
+            border: 1px dashed rgba(248,113,113,0.35);
+            border-radius: 10px;
+            padding: 1.25rem 1.5rem;
+            margin-bottom: 1.25rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .day-off-alert-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .day-off-alert-icon { font-size: 1.5rem; }
+        .day-off-alert-title { font-size: 0.95rem; font-weight: 700; color: #f87171; margin-bottom: 2px; }
+        .day-off-alert-desc { font-size: 0.83rem; color: var(--muted); margin: 0; }
+
         /* Date Navigator Bar */
         .schedule-date-nav {
             background: var(--card);
@@ -905,15 +991,38 @@
             <div class="day-card" id="activeDayCard">
                 <div class="day-header">
                     <div class="day-title-wrap">
-                        <div class="day-dot"></div>
+                        <div class="day-dot" id="activeDayDot"></div>
                         <span class="day-name" id="activeDayDisplayTitle">Sunday, October 11</span>
                         <span class="day-count" id="activeDayDisplayCount">0 slots active</span>
+                        <!-- Direct Day Status Switch -->
+                        <div class="day-status-toggle-wrap" title="Toggle availability for this specific day">
+                            <span class="day-status-pill online" id="dayStatusBadge">ACTIVE</span>
+                            <label class="switch switch-sm">
+                                <input type="checkbox" id="dayStatusToggle" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
                     </div>
                     <div class="day-actions">
+                        <button type="button" class="action-link action-danger" id="toggleDayOffBtn">Mark Day Off</button>
                         <button type="button" class="action-link" id="selectAllForDayBtn">Select All</button>
                         <button type="button" class="action-link" id="clearAllForDayBtn">Clear</button>
                         <button type="button" class="action-link action-gold" id="applyToWeekdayBtn">Apply to All <span id="currentWeekdayName">Sunday</span>s</button>
                     </div>
+                </div>
+
+                <!-- Day Off Alert Banner (shown when day is marked OFF) -->
+                <div class="day-off-alert" id="dayOffAlert" style="display: none;">
+                    <div class="day-off-alert-left">
+                        <span class="day-off-alert-icon">🚫</span>
+                        <div>
+                            <div class="day-off-alert-title">This day is turned OFF</div>
+                            <p class="day-off-alert-desc">You are marked unavailable for bookings on this date. Click below or use the switch to turn it back on.</p>
+                        </div>
+                    </div>
+                    <button type="button" class="btn btn-gold" id="turnDayBackOnBtn" style="padding: 0.5rem 1.1rem; font-size: 0.85rem;">
+                        <span>✓</span> Turn Day On
+                    </button>
                 </div>
 
                 <div class="slots-grid" id="activeDaySlotsGrid">

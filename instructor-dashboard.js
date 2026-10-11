@@ -28,6 +28,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         weekly: {}
     };
 
+    // Cache to remember previous slot configurations when turning a day back ON
+    const slotsCache = {};
+
     // By default, initialize all weekdays with all 25 slots active
     daysOfWeek.forEach(d => {
         scheduleData.weekly[d] = [...TIME_SLOTS];
@@ -72,6 +75,33 @@ document.addEventListener('DOMContentLoaded', async () => {
         return [...TIME_SLOTS];
     }
 
+    // Direct toggle helper for turning a specific day ON or OFF
+    function toggleDayAvailability(targetDate, forceState = null) {
+        const iso = formatIsoDate(targetDate);
+        const dayKey = daysOfWeek[targetDate.getDay()];
+        const currentSlots = scheduleData.dates[iso] !== undefined ? scheduleData.dates[iso] : getSlotsForDate(targetDate);
+        const isCurrentlyOn = currentSlots.length > 0;
+        const shouldBeOn = forceState !== null ? forceState : !isCurrentlyOn;
+
+        if (shouldBeOn) {
+            // Restore slots from cache, or from weekly default, or all slots
+            const restored = slotsCache[iso] && slotsCache[iso].length > 0
+                ? slotsCache[iso]
+                : (scheduleData.weekly[dayKey] && scheduleData.weekly[dayKey].length > 0 ? scheduleData.weekly[dayKey] : [...TIME_SLOTS]);
+            scheduleData.dates[iso] = [...restored];
+            showToast(`${weekdayFullNames[targetDate.getDay()]}, ${targetDate.getDate()} turned ON (${restored.length} slots)`);
+        } else {
+            // Save to cache before clearing
+            if (currentSlots.length > 0) {
+                slotsCache[iso] = [...currentSlots];
+            }
+            scheduleData.dates[iso] = [];
+            showToast(`${weekdayFullNames[targetDate.getDay()]}, ${targetDate.getDate()} marked as DAY OFF`);
+        }
+
+        syncScheduleView();
+    }
+
     // UI Elements
     const prevDayBtn = document.getElementById('prevDayBtn');
     const nextDayBtn = document.getElementById('nextDayBtn');
@@ -85,6 +115,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const weekStripContainer = document.getElementById('weekStripContainer');
     const activeDayDisplayTitle = document.getElementById('activeDayDisplayTitle');
     const activeDayDisplayCount = document.getElementById('activeDayDisplayCount');
+    const activeDayDot = document.getElementById('activeDayDot');
+    const dayStatusBadge = document.getElementById('dayStatusBadge');
+    const dayStatusToggle = document.getElementById('dayStatusToggle');
+    const toggleDayOffBtn = document.getElementById('toggleDayOffBtn');
+    const dayOffAlert = document.getElementById('dayOffAlert');
+    const turnDayBackOnBtn = document.getElementById('turnDayBackOnBtn');
+
     const currentWeekdayName = document.getElementById('currentWeekdayName');
     const activeDaySlotsGrid = document.getElementById('activeDaySlotsGrid');
     const selectAllForDayBtn = document.getElementById('selectAllForDayBtn');
@@ -113,20 +150,31 @@ document.addEventListener('DOMContentLoaded', async () => {
             const dayShort = weekdayFullNames[dayIdx].substring(0, 3).toUpperCase();
             const slots = getSlotsForDate(d);
             const count = slots.length;
+            const isOff = count === 0;
 
             const chip = document.createElement('div');
-            chip.className = `week-day-chip ${isSelected ? 'active' : ''}`;
+            chip.className = `week-day-chip ${isSelected ? 'active' : ''} ${isOff ? 'day-off-card' : ''}`;
             chip.id = `chip-${formatIsoDate(d)}`;
-
-            const statusClass = count === 0 ? 'off' : '';
-            const statusLabel = count === 0 ? 'Off' : `${count} slots`;
 
             chip.innerHTML = `
                 <div class="week-day-name">${isTodayDay ? 'TODAY' : dayShort}</div>
                 <div class="week-day-num">${d.getDate()}</div>
-                <div class="week-day-status ${statusClass}">${statusLabel}</div>
+                <button type="button" class="chip-toggle-btn ${isOff ? 'off' : 'on'}" title="Click to directly toggle this day ON / OFF">
+                    ${isOff ? 'DAY OFF 🚫' : `${count} slots`}
+                </button>
             `;
 
+            // Clicking the toggle button turns that specific day ON/OFF directly
+            const toggleBtn = chip.querySelector('.chip-toggle-btn');
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    activeDate = new Date(d);
+                    toggleDayAvailability(d);
+                });
+            }
+
+            // Clicking anywhere else selects the day
             chip.addEventListener('click', () => {
                 activeDate = new Date(d);
                 syncScheduleView();
@@ -151,6 +199,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         const activeSlots = scheduleData.dates[iso];
         const count = activeSlots.length;
+        const isDayOff = count === 0;
 
         // Update Date Navigator
         if (activeDayDisplayMain) {
@@ -176,6 +225,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         if (currentWeekdayName) {
             currentWeekdayName.textContent = dayFull;
+        }
+
+        // Day Status Toggle Switch & Badges
+        if (dayStatusToggle) {
+            dayStatusToggle.checked = !isDayOff;
+        }
+        if (dayStatusBadge) {
+            dayStatusBadge.textContent = isDayOff ? 'DAY OFF' : 'ACTIVE';
+            dayStatusBadge.className = `day-status-pill ${isDayOff ? 'offline' : 'online'}`;
+        }
+        if (activeDayDot) {
+            activeDayDot.style.background = isDayOff ? '#f87171' : 'var(--gold)';
+            activeDayDot.style.boxShadow = isDayOff ? '0 0 8px rgba(248,113,113,0.4)' : '0 0 8px var(--gold-glow)';
+        }
+
+        if (toggleDayOffBtn) {
+            if (isDayOff) {
+                toggleDayOffBtn.textContent = 'Turn Day On';
+                toggleDayOffBtn.className = 'action-link action-gold';
+            } else {
+                toggleDayOffBtn.textContent = 'Mark Day Off';
+                toggleDayOffBtn.className = 'action-link action-danger';
+            }
+        }
+
+        // Day Off Alert Banner & Grid opacity
+        if (dayOffAlert) {
+            dayOffAlert.style.display = isDayOff ? 'flex' : 'none';
+        }
+        if (activeDaySlotsGrid) {
+            activeDaySlotsGrid.style.opacity = isDayOff ? '0.3' : '1';
+            activeDaySlotsGrid.style.pointerEvents = isDayOff ? 'none' : 'auto';
         }
 
         updateSlotCounterUI(count);
@@ -208,7 +289,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function updateSlotCounterUI(count) {
-        const countText = count === 0 ? '0 slots active (Day Off)' : `${count} slot${count === 1 ? '' : 's'} active`;
+        const countText = count === 0 ? 'Day Off (0 slots active)' : `${count} slot${count === 1 ? '' : 's'} active`;
         if (activeDayDisplayCount) {
             activeDayDisplayCount.textContent = countText;
             activeDayDisplayCount.style.color = count === 0 ? '#ff5252' : 'var(--muted)';
@@ -218,16 +299,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     function onSlotsUpdated() {
         const iso = formatIsoDate(activeDate);
         const count = (scheduleData.dates[iso] || []).length;
+        const isDayOff = count === 0;
+
+        // Remember non-empty slots in cache
+        if (count > 0) {
+            slotsCache[iso] = [...scheduleData.dates[iso]];
+        }
+
         updateSlotCounterUI(count);
+
+        if (dayStatusToggle) dayStatusToggle.checked = !isDayOff;
+        if (dayStatusBadge) {
+            dayStatusBadge.textContent = isDayOff ? 'DAY OFF' : 'ACTIVE';
+            dayStatusBadge.className = `day-status-pill ${isDayOff ? 'offline' : 'online'}`;
+        }
+        if (activeDayDot) {
+            activeDayDot.style.background = isDayOff ? '#f87171' : 'var(--gold)';
+        }
+        if (toggleDayOffBtn) {
+            toggleDayOffBtn.textContent = isDayOff ? 'Turn Day On' : 'Mark Day Off';
+            toggleDayOffBtn.className = isDayOff ? 'action-link action-gold' : 'action-link action-danger';
+        }
+        if (dayOffAlert) {
+            dayOffAlert.style.display = isDayOff ? 'flex' : 'none';
+        }
+        if (activeDaySlotsGrid) {
+            activeDaySlotsGrid.style.opacity = isDayOff ? '0.3' : '1';
+            activeDaySlotsGrid.style.pointerEvents = isDayOff ? 'none' : 'auto';
+        }
 
         // Update strip chip for this day
         const chip = document.getElementById(`chip-${iso}`);
         if (chip) {
-            const statusEl = chip.querySelector('.week-day-status');
-            if (statusEl) {
-                statusEl.textContent = count === 0 ? 'Off' : `${count} slots`;
-                statusEl.className = `week-day-status ${count === 0 ? 'off' : ''}`;
+            const btn = chip.querySelector('.chip-toggle-btn');
+            if (btn) {
+                btn.textContent = isDayOff ? 'DAY OFF 🚫' : `${count} slots`;
+                btn.className = `chip-toggle-btn ${isDayOff ? 'off' : 'on'}`;
             }
+            chip.classList.toggle('day-off-card', isDayOff);
         }
     }
 
@@ -239,6 +348,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         renderWeekStrip();
         renderActiveDaySlots();
+    }
+
+    // Direct Day Status Switch & Buttons
+    if (dayStatusToggle) {
+        dayStatusToggle.addEventListener('change', (e) => {
+            toggleDayAvailability(activeDate, e.target.checked);
+        });
+    }
+
+    if (toggleDayOffBtn) {
+        toggleDayOffBtn.addEventListener('click', () => {
+            toggleDayAvailability(activeDate);
+        });
+    }
+
+    if (turnDayBackOnBtn) {
+        turnDayBackOnBtn.addEventListener('click', () => {
+            toggleDayAvailability(activeDate, true);
+        });
     }
 
     // Date Navigation Listeners
@@ -306,12 +434,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Clear All (Day Off)
     if (clearAllForDayBtn) {
         clearAllForDayBtn.addEventListener('click', () => {
-            const iso = formatIsoDate(activeDate);
-            scheduleData.dates[iso] = [];
-            if (activeDaySlotsGrid) {
-                activeDaySlotsGrid.querySelectorAll('.slot-pill').forEach(pill => pill.classList.remove('active'));
-            }
-            onSlotsUpdated();
+            toggleDayAvailability(activeDate, false);
         });
     }
 
