@@ -15,7 +15,8 @@ const sendConfirmationEmail = async (booking) => {
         return;
     }
 
-    const { order_id, name, email, item_name, price, booking_date, booking_time } = booking;
+    const { order_id, name, email, item_name, price, booking_date, booking_time, players, player_two_name } = booking;
+    const isTwoPlayer = (players === 2 || price >= 300);
 
     const amountLabel = booking.status === 'CASH' ? 'Amount Due (Pay At Desk)' : 'Amount Paid';
 
@@ -24,16 +25,29 @@ const sendConfirmationEmail = async (booking) => {
         <div style="text-align: center; margin-bottom: 20px;">
             <h1 style="color: #e5b869; margin-bottom: 5px;">Booking Confirmed!</h1>
             <p style="color: #aaaaaa; margin-top: 0;">Order ID: ${order_id}</p>
+            ${isTwoPlayer ? `
+            <div style="display:inline-block; margin-top: 8px; background: rgba(229,184,105,0.15); border: 1px solid rgba(229,184,105,0.4); padding: 6px 14px; border-radius: 20px;">
+                <span style="color: #e5b869; font-weight: bold; font-size: 14px;">👥 2-PLAYER DUO PASS (Admit 2 Persons)</span>
+            </div>` : `
+            <div style="display:inline-block; margin-top: 8px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15); padding: 5px 12px; border-radius: 20px;">
+                <span style="color: #cccccc; font-size: 13px;">👤 1-Player Standard Pass (Admit 1 Person)</span>
+            </div>`}
         </div>
         
         <div style="background-color: #1a1a1f; padding: 20px; border-radius: 8px;">
             <p style="font-size: 16px; margin-top: 0;">Hi <strong>${name}</strong>,</p>
-            <p style="font-size: 16px; color: #cccccc;">Your booking at Havoc Sim Podium has been confirmed. Get ready to race!</p>
+            <p style="font-size: 16px; color: #cccccc;">Your booking at Havoc Sim Podium has been confirmed. ${isTwoPlayer ? 'Your pass includes arena entry and play for <strong>2 Players</strong>!' : 'Get ready to race!'}</p>
             
             <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
                 <tr>
                     <td style="padding: 10px 0; border-bottom: 1px solid #333; color: #888;">Experience</td>
                     <td style="padding: 10px 0; border-bottom: 1px solid #333; text-align: right; font-weight: bold;">${item_name}</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; color: #888;">Gate Entry / Pass</td>
+                    <td style="padding: 10px 0; border-bottom: 1px solid #333; text-align: right; font-weight: bold; color: ${isTwoPlayer ? '#e5b869' : '#ffffff'};">
+                        ${isTwoPlayer ? `👥 2 Players (Co-op Duo Pass)${player_two_name ? `<br><span style="font-size: 12px; font-weight: normal; color: #aaaaaa;">Player 2: ${player_two_name}</span>` : ''}` : '👤 1 Player'}
+                    </td>
                 </tr>
                 <tr>
                     <td style="padding: 10px 0; border-bottom: 1px solid #333; color: #888;">Date</td>
@@ -56,6 +70,10 @@ const sendConfirmationEmail = async (booking) => {
                     <td style="padding: 10px 0; text-align: right; font-weight: bold; color: #e5b869;">₹${price}</td>
                 </tr>
             </table>
+
+            <div style="margin-top: 15px; padding: 12px; background: rgba(229,184,105,0.08); border: 1px dashed rgba(229,184,105,0.3); border-radius: 6px; font-size: 13px; color: #e5b869; text-align: center;">
+                🛡️ <strong>Gate Verification Notice:</strong> ${isTwoPlayer ? 'Show this email at the gate. This pass authorizes entry for <strong>2 players</strong>.' : 'Show this email at the gate. This pass authorizes entry for <strong>1 player</strong>.'}
+            </div>
         </div>
         
         <div style="margin-top: 20px; text-align: center; font-size: 12px; color: #666666;">
@@ -66,20 +84,20 @@ const sendConfirmationEmail = async (booking) => {
     `;
 
     try {
-        const textContent = `Booking Confirmed!\nOrder ID: ${order_id}\n\nHi ${name},\nYour booking at Havoc Sim Podium has been confirmed. Get ready to race!\n\nExperience: ${item_name}\nDate: ${booking_date}\nTime: ${booking_time}\n${amountLabel}: ₹${price}\n\nPlease arrive 10 minutes before your slot.\nVisit Website: https://havocsimpodium.com`;
+        const textContent = `Booking Confirmed!\nOrder ID: ${order_id}\nPass Type: ${isTwoPlayer ? '2 Players (Duo Pass - Admit 2)' : '1 Player'}${player_two_name ? `\nPlayer 2: ${player_two_name}` : ''}\n\nHi ${name},\nYour booking at Havoc Sim Podium has been confirmed. ${isTwoPlayer ? 'Your pass admits 2 players to the arena.' : 'Get ready to race!'}\n\nExperience: ${item_name}\nDate: ${booking_date}\nTime: ${booking_time}\n${amountLabel}: ₹${price}\n\nGate Verification: Show this email at the arena entrance. Admits ${isTwoPlayer ? '2 players' : '1 player'}.\nPlease arrive 10 minutes before your slot.\nVisit Website: https://havocsimpodium.com`;
 
         await transporter.sendMail({
             from: `"Havoc Sim Podium" <${process.env.SMTP_USER}>`,
             to: email,
-            subject: `Booking Confirmed: ${item_name} - ${booking_date}`,
+            subject: `Booking Confirmed [${isTwoPlayer ? '2-Player Duo Pass' : '1-Player'}]: ${item_name} - ${booking_date}`,
             text: textContent,
             html: htmlContent
         });
         await transporter.sendMail({
             from: `"Havoc System" <${process.env.SMTP_USER}>`,
             to: 'havochobbysim@gmail.com',
-            subject: `New Booking Alert: ${order_id}`,
-            text: `A new order has been booked.\n\nOrder ID: ${order_id}\nCustomer Name: ${name}\nCustomer Email: ${email}\nExperience: ${item_name}\nDate: ${booking_date}\nTime: ${booking_time}\nAmount: ₹${price}\n\nPlease check the admin dashboard for details.`
+            subject: `New Booking Alert [${isTwoPlayer ? '2 Players' : '1 Player'}]: ${order_id}`,
+            text: `A new order has been booked.\n\nOrder ID: ${order_id}\nPass Type: ${isTwoPlayer ? '2-Player Combo (Admit 2)' : '1-Player'}${player_two_name ? `\nPlayer 2: ${player_two_name}` : ''}\nCustomer Name: ${name}\nCustomer Email: ${email}\nExperience: ${item_name}\nDate: ${booking_date}\nTime: ${booking_time}\nAmount: ₹${price}\n\nPlease check the admin dashboard for details.`
         });
         
         console.log(`[${new Date().toISOString()}] Confirmation email sent to ${email} for order ${order_id}`);
