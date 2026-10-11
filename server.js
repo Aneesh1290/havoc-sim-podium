@@ -816,9 +816,39 @@ app.get('/api/available-instructors', (req, res) => {
                 }
             }
 
+            // Calculate slot start timestamp for notice_hours check
+            let slotStartTimestamp = null;
+            if (finalIsoDate) {
+                // Parse start time from slot e.g. "11:00 AM - 11:30 AM" or "11AM-11:30AM" or "2:30PM-3PM"
+                const timeMatch = time.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+                if (timeMatch) {
+                    let hour = parseInt(timeMatch[1], 10);
+                    const minute = timeMatch[2] ? parseInt(timeMatch[2], 10) : 0;
+                    const meridiem = timeMatch[3].toLowerCase();
+                    if (meridiem === 'pm' && hour < 12) hour += 12;
+                    if (meridiem === 'am' && hour === 12) hour = 0;
+                    
+                    const [y, m, d] = finalIsoDate.split('-').map(Number);
+                    slotStartTimestamp = new Date(y, m - 1, d, hour, minute, 0).getTime();
+                } else {
+                    const [y, m, d] = finalIsoDate.split('-').map(Number);
+                    slotStartTimestamp = new Date(y, m - 1, d, 23, 59, 59).getTime();
+                }
+            }
+            const nowTime = Date.now();
+
             const availableInstructors = instructors.filter(i => {
                 if ((i.status || '').toLowerCase() !== 'available') return false;
                 if (bookedInstructorIds.includes(i.id)) return false;
+
+                // Check Notice Hours Requirement (e.g. 48 hours prior)
+                const requiredNoticeHours = parseInt(i.notice_hours, 10) || 0;
+                if (requiredNoticeHours > 0 && slotStartTimestamp) {
+                    const hoursUntilSlot = (slotStartTimestamp - nowTime) / (1000 * 60 * 60);
+                    if (hoursUntilSlot < requiredNoticeHours) {
+                        return false; // Slot is too soon for this instructor's notice requirement
+                    }
+                }
                 
                 if (i.schedule_json) {
                     try {
@@ -882,7 +912,7 @@ app.get('/api/available-instructors', (req, res) => {
 });
 
 app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single('image'), async (req, res) => {
-    const { name, username, age, role, key_achievement, status, biography, fee, email, phone, simulator_type, password } = req.body;
+    const { name, username, age, role, key_achievement, status, biography, fee, email, phone, simulator_type, password, notice_hours } = req.body;
     let photo_url = null;
     if (req.file) {
         const base64Data = req.file.buffer.toString('base64');
@@ -894,9 +924,10 @@ app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single(
     const finalUsername = username && username.trim() 
         ? username.trim().toLowerCase() 
         : (email ? email.split('@')[0].toLowerCase() : name.toLowerCase().replace(/\s+/g, ''));
+    const noticeHoursVal = parseInt(notice_hours, 10) || 0;
 
-    db.run("INSERT INTO instructors (name, username, age, role, key_achievement, status, biography, photo_url, fee, email, phone, simulator_type, password_hash, must_change_password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        [name, finalUsername, age || null, role, key_achievement, status || 'Available', biography, photo_url, fee != null ? parseFloat(fee) : 500, email, phone, simulator_type || 'All', password_hash, mustChange],
+    db.run("INSERT INTO instructors (name, username, age, role, key_achievement, status, biography, photo_url, fee, email, phone, simulator_type, password_hash, must_change_password, notice_hours) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        [name, finalUsername, age || null, role, key_achievement, status || 'Available', biography, photo_url, fee != null ? parseFloat(fee) : 500, email, phone, simulator_type || 'All', password_hash, mustChange, noticeHoursVal],
         function(err) {
             if (err) return res.status(500).json({ error: 'Failed to add instructor' });
             res.json({ success: true, id: this.lastID });
@@ -905,13 +936,14 @@ app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single(
 });
 
 app.put('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, upload.single('image'), async (req, res) => {
-    const { name, username, age, role, key_achievement, status, biography, fee, email, phone, simulator_type, password } = req.body;
+    const { name, username, age, role, key_achievement, status, biography, fee, email, phone, simulator_type, password, notice_hours } = req.body;
     const feeVal = fee != null ? parseFloat(fee) : 500;
     const simTypeVal = simulator_type || 'All';
     const finalUsername = username && username.trim() ? username.trim().toLowerCase() : null;
+    const noticeHoursVal = parseInt(notice_hours, 10) || 0;
 
-    let query = "UPDATE instructors SET name=?, username=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=?, email=?, phone=?, simulator_type=?";
-    let params = [name, finalUsername, age || null, role, key_achievement, status || 'Available', biography, feeVal, email, phone, simTypeVal];
+    let query = "UPDATE instructors SET name=?, username=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=?, email=?, phone=?, simulator_type=?, notice_hours=?";
+    let params = [name, finalUsername, age || null, role, key_achievement, status || 'Available', biography, feeVal, email, phone, simTypeVal, noticeHoursVal];
     
     if (password && password.trim()) {
         const hash = await bcrypt.hash(password.trim(), 10);

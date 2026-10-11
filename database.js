@@ -87,6 +87,7 @@ const initDb = () => {
         db.run(`ALTER TABLE instructors ADD COLUMN must_change_password INTEGER DEFAULT 1`, () => {});
         db.run(`ALTER TABLE instructors ADD COLUMN reset_otp TEXT`, () => {});
         db.run(`ALTER TABLE instructors ADD COLUMN reset_otp_expires_at INTEGER`, () => {});
+        db.run(`ALTER TABLE instructors ADD COLUMN notice_hours INTEGER DEFAULT 0`, () => {});
 
         db.get("SELECT COUNT(*) as count FROM admin_auth", async (err, row) => {
             if (!err && row.count === 0) {

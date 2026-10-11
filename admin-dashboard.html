@@ -1225,6 +1225,27 @@
                     </div>
 
                     <div class="field" style="margin-bottom: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem;">
+                            <label style="margin-bottom: 0;">⏱️ Prior Notice Required (Invite Basis)</label>
+                            <span style="font-size: 0.75rem; color: var(--gold); font-weight: 500;">Set 0 for immediate / walk-in booking</span>
+                        </div>
+                        <div class="input-wrap">
+                            <select id="instructorNoticeHours" style="width:100%; padding: 0.9rem 1.1rem; background: transparent !important; border: none !important; outline: none; color: #fff; font-family: 'Outfit', sans-serif; font-size: 0.95rem; appearance: none; -webkit-appearance: none;">
+                                <option value="0" style="color:#000;">No prior notice (Always available instantly)</option>
+                                <option value="12" style="color:#000;">12 Hours prior notice</option>
+                                <option value="24" style="color:#000;">24 Hours prior notice (1 Day)</option>
+                                <option value="48" style="color:#000;">48 Hours prior notice (2 Days - On Invite)</option>
+                                <option value="72" style="color:#000;">72 Hours prior notice (3 Days)</option>
+                                <option value="96" style="color:#000;">96 Hours prior notice (4 Days)</option>
+                                <option value="168" style="color:#000;">1 Week (168 Hours) prior notice</option>
+                            </select>
+                        </div>
+                        <p style="font-size: 0.75rem; color: var(--muted); margin: 0.35rem 0 0 0.2rem;">
+                            If set (e.g. 48 hrs), this instructor will only appear in the booking modal when the customer books at least 48 hours in advance.
+                        </p>
+                    </div>
+
+                    <div class="field" style="margin-bottom: 1rem;">
                         <label>Profile Photo</label>
                         <div class="input-wrap" style="padding: 0.5rem;">
                             <input type="file" id="instructorPhoto" accept="image/*" style="width:100%;">

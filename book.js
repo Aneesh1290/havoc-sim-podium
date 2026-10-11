@@ -1055,6 +1055,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             <div style="flex:1; margin-top:0.5rem;">
                                 <div style="font-weight:600; font-size:1.1rem; line-height:1.2;">${inst.name}</div>
                                 <div style="font-size:0.8rem; color:var(--muted); margin-top:4px;">${inst.role || 'Instructor'}</div>
+                                ${inst.notice_hours > 0 ? `<div style="display:inline-block; margin-top:5px; font-size:0.7rem; color:var(--gold); background:rgba(229,184,105,0.12); border:1px solid rgba(229,184,105,0.3); padding:1px 7px; border-radius:10px;">🌟 Special Mentor (${inst.notice_hours}h Prior Booking)</div>` : ''}
                             </div>
                             <div style="font-weight:700; color:var(--gold); font-size:1rem; margin-top:0.2rem;">+ ₹${inst.fee != null ? inst.fee : 500}</div>
                             ${inst.biography ? `<div class="inst-bio-toggle" style="margin-top: 0.8rem; font-size: 0.85rem; color: #aaa; text-decoration: underline; z-index: 2; position: relative;" onclick="event.stopPropagation(); const content = this.nextElementSibling; if(content.style.display === 'none'){content.style.display = 'block'; this.innerText = 'Hide Details';} else {content.style.display = 'none'; this.innerText = 'View Details';}">View Details</div>

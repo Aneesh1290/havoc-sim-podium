@@ -1369,7 +1369,10 @@ async function loadInstructors() {
                 <td><span class="pill" style="padding:0.25rem 0.5rem; font-size:0.75rem;">${inst.simulator_type || 'All'}</span></td>
                 <td>${inst.role || '-'}</td>
                 <td><span style="color: var(--gold); font-weight:600;">₹${inst.fee != null ? inst.fee : 500}</span></td>
-                <td><span style="color: ${inst.status === 'Available' ? 'var(--green)' : 'var(--red)'}">${inst.status}</span></td>
+                <td>
+                    <span style="color: ${inst.status === 'Available' ? 'var(--green)' : 'var(--red)'}">${inst.status}</span>
+                    ${inst.notice_hours > 0 ? `<div style="font-size: 0.7rem; color: var(--gold); margin-top: 3px; font-weight: 500;">⏱️ ${inst.notice_hours}h Prior</div>` : ''}
+                </td>
                 <td>
                     <button class="btn btn-primary btn-sm" onclick='editInstructor(${JSON.stringify(inst).replace(/'/g, "&#39;")})'>Edit</button>
                     <button class="btn btn-sm" style="background:rgba(229,184,105,0.15); color:var(--gold); border:1px solid rgba(229,184,105,0.3);" onclick='resetInstructorPassword(${inst.id}, "${(inst.name || "").replace(/'/g, "\\'")}")'>Reset Pw</button>
@@ -1390,6 +1393,8 @@ window.showAddInstructorModal = function() {
     if (usernameInput) usernameInput.value = '';
     const pwInput = document.getElementById('instructorPassword');
     if (pwInput) pwInput.value = '';
+    const noticeSelect = document.getElementById('instructorNoticeHours');
+    if (noticeSelect) noticeSelect.value = '0';
     document.getElementById('instructorModalTitle').innerText = 'Add Instructor';
     const switchToAddBtn = document.getElementById('switchToAddBtn');
     if (switchToAddBtn) switchToAddBtn.style.display = 'none';
@@ -1428,6 +1433,8 @@ window.editInstructor = function(inst) {
     document.getElementById('instructorAchievement').value = inst.key_achievement || '';
     document.getElementById('instructorStatus').value = inst.status || 'Available';
     document.getElementById('instructorFee').value = inst.fee != null ? inst.fee : 500;
+    const noticeSelect = document.getElementById('instructorNoticeHours');
+    if (noticeSelect) noticeSelect.value = String(inst.notice_hours != null ? inst.notice_hours : 0);
     document.getElementById('instructorBio').value = inst.biography || '';
     document.getElementById('instructorModalTitle').innerText = 'Edit Instructor';
     const switchToAddBtn = document.getElementById('switchToAddBtn');
@@ -1496,6 +1503,7 @@ if (instructorForm) {
         formData.append('key_achievement', document.getElementById('instructorAchievement').value);
         formData.append('status', document.getElementById('instructorStatus').value);
         formData.append('fee', document.getElementById('instructorFee').value || 500);
+        formData.append('notice_hours', document.getElementById('instructorNoticeHours')?.value || 0);
         formData.append('biography', document.getElementById('instructorBio').value);
         
         const pw = document.getElementById('instructorPassword')?.value.trim();
