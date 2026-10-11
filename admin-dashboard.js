@@ -106,6 +106,9 @@ async function loadBookings() {
         renderInventory(inventoryData);
     }
     updateAnalyticsSummary(window.allBookings);
+    if (typeof loadInventoryReport === 'function') {
+        loadInventoryReport();
+    }
 }
 
 function renderBookings(bookingsToRender) {
@@ -880,6 +883,11 @@ document.getElementById('walkinForm').addEventListener('submit', async (e) => {
 function populateInventoryMonthDropdown() {
     const select = document.getElementById('inventoryReportFilter');
     if (!select) return;
+    const currentVal = select.value;
+    if (select.options && select.options.length > 1 && currentVal) {
+        // Already populated, preserve existing selection
+        return;
+    }
     select.innerHTML = '';
 
     // "All Time" option
@@ -888,17 +896,18 @@ function populateInventoryMonthDropdown() {
     allOpt.textContent = 'All Time';
     select.appendChild(allOpt);
 
-    // Generate next 12 months
+    // Generate past 3 months through next 6 months
     const now = new Date();
     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    for (let i = 0; i < 12; i++) {
+    for (let i = -3; i <= 6; i++) {
         const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
         const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
         const opt = document.createElement('option');
         opt.value = val;
         opt.textContent = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
-        // Pre-select current month
-        if (i === 0) opt.selected = true;
+        if (currentVal ? val === currentVal : i === 0) {
+            opt.selected = true;
+        }
         select.appendChild(opt);
     }
 }
@@ -1518,6 +1527,8 @@ loadBookings();
 loadAvailability();
 checkRole();
 loadInstructors();
+populateInventoryMonthDropdown();
+loadInventoryReport();
 
 // ==========================================
 // CHANGE MY PASSWORD LOGIC

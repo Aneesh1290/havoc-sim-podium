@@ -939,7 +939,7 @@ app.get('/api/admin/analytics', verifyToken, (req, res) => {
         params.push(`-${days} days`);
     }
 
-    db.get(`SELECT SUM(price) as sales, COUNT(id) as orders FROM bookings WHERE status='SUCCESS' ${dateFilter}`, params, (err, bookingStats) => {
+    db.get(`SELECT SUM(price) as sales, COUNT(id) as orders FROM bookings WHERE status IN ('PAID', 'ATTENDED', 'CASH', 'SUCCESS') ${dateFilter}`, params, (err, bookingStats) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         
         db.get("SELECT COUNT(id) as active_slots FROM slots WHERE active=1", [], (err, slotStat) => {
@@ -980,7 +980,7 @@ app.get('/api/admin/inventory', verifyToken, (req, res) => {
         db.all("SELECT time_range FROM slots WHERE active=1 ORDER BY sort_order ASC", [], (err, slots) => {
             if (err) return res.status(500).json({ error: 'Database error' });
             
-            db.all("SELECT item_name, booking_date, booking_time, status FROM bookings WHERE status='SUCCESS' AND booking_date >= date('now', '-1 day')", [], (err, bookings) => {
+            db.all("SELECT item_name, booking_date, booking_time, status FROM bookings WHERE status IN ('PAID', 'ATTENDED', 'CASH', 'SUCCESS') AND booking_date >= date('now', '-1 day')", [], (err, bookings) => {
                 if (err) return res.status(500).json({ error: 'Database error' });
                 
                 db.all("SELECT product_id, date_str, time_range, override_quantity FROM inventory_overrides WHERE date_str >= date('now', '-1 day')", [], (err, overrides) => {
@@ -1035,16 +1035,30 @@ app.get('/api/admin/inventory-report', verifyToken, (req, res) => {
             let dateFilter = '';
             let dateParams = [];
             if (month && month !== 'all') {
-                // month is like "2026-09", but DB has "September 10" or "Sep 10"
                 const monthNamesLong = ["January","February","March","April","May","June","July","August","September","October","November","December"];
                 const monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-                const moIndex = Number(month.split('-')[1]) - 1;
-                dateFilter = `AND (booking_date LIKE ? OR booking_date LIKE ?)`;
-                dateParams = [`${monthNamesShort[moIndex]} %`, `${monthNamesLong[moIndex]} %`];
+                const parts = month.split('-');
+                const yrStr = parts[0];
+                const moNumStr = parts[1];
+                const moIndex = Number(moNumStr) - 1;
+                dateFilter = `AND (
+                    booking_date LIKE ? OR 
+                    booking_date LIKE ? OR 
+                    booking_date LIKE ? OR 
+                    booking_date LIKE ? OR 
+                    booking_date LIKE ?
+                )`;
+                dateParams = [
+                    `${monthNamesShort[moIndex]}%`,
+                    `${monthNamesLong[moIndex]}%`,
+                    `${yrStr}-${moNumStr}%`,
+                    `%-${moNumStr}-%`,
+                    `%/${moNumStr}/%`
+                ];
             }
 
             db.all(
-                `SELECT item_name, COUNT(*) as booked_count FROM bookings WHERE status='SUCCESS' ${dateFilter} GROUP BY item_name`,
+                `SELECT item_name, COUNT(*) as booked_count FROM bookings WHERE status IN ('PAID', 'ATTENDED', 'CASH', 'SUCCESS') ${dateFilter} GROUP BY item_name`,
                 dateParams,
                 (err, bookingCounts) => {
                     if (err) return res.status(500).json({ error: 'Database error' });
@@ -1066,12 +1080,28 @@ app.get('/api/admin/inventory-report', verifyToken, (req, res) => {
                         totalOpenDays = Math.floor(365 * 6 / 7);
                     }
 
+                    const norm = str => (str || '').toLowerCase().trim();
                     const bookingMap = {};
-                    bookingCounts.forEach(b => { bookingMap[b.item_name] = b.booked_count; });
+                    (bookingCounts || []).forEach(b => {
+                        const key = norm(b.item_name);
+                        bookingMap[key] = (bookingMap[key] || 0) + (b.booked_count || 0);
+                    });
 
                     const report = products.map(p => {
                         const totalSlots = totalOpenDays * slotsPerDay;
-                        const fullSlots = bookingMap[p.name] || 0;
+                        const pKey = norm(p.name);
+                        let fullSlots = bookingMap[pKey] || 0;
+
+                        if (!fullSlots) {
+                            for (const [bKey, count] of Object.entries(bookingMap)) {
+                                const cleanP = pKey.replace(/[^a-z0-9]/g, '');
+                                const cleanB = bKey.replace(/[^a-z0-9]/g, '');
+                                if (cleanP === cleanB || (cleanP.length > 5 && cleanB.length > 5 && (cleanP.includes(cleanB) || cleanB.includes(cleanP)))) {
+                                    fullSlots += count;
+                                }
+                            }
+                        }
+
                         const emptySlots = Math.max(0, totalSlots - fullSlots);
                         return {
                             id: p.id,
