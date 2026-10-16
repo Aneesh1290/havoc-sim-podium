@@ -1,108 +1,189 @@
+const { Pool } = require('pg');
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const bcrypt = require('bcrypt');
 
-const sqlite3 = require('sqlite3').verbose();
-const dbPath = process.env.DB_PATH || path.resolve(__dirname, 'havoc.db');
-const db = new sqlite3.Database(dbPath);
+const DB_URL = process.env.DATABASE_URL || "postgresql://slots_db_yqvv_user:feguu4oTsGEZ2TVGok9U0ylcphlCftjh@dpg-db941hft5n8s73e7qt1g-a.singapore-postgres.render.com/slots_db_yqvv";
 
-const initDb = () => {
-    db.serialize(() => {
-        db.run(`CREATE TABLE IF NOT EXISTS coupons (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE, type TEXT, value REAL, active INTEGER DEFAULT 1)`);
-        db.run(`CREATE TABLE IF NOT EXISTS newsletter_subscribers (id INTEGER PRIMARY KEY AUTOINCREMENT, email TEXT UNIQUE, subscribed_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-        db.run(`CREATE TABLE IF NOT EXISTS products (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, type TEXT, price REAL, compare_price REAL, stock_quantity INTEGER DEFAULT 0, description TEXT, image_url TEXT, options TEXT, hide_suffix INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-        db.run(`ALTER TABLE products ADD COLUMN hide_suffix INTEGER DEFAULT 0`, (err) => {});
-        
-        db.get("SELECT COUNT(*) AS count FROM products", (err, row) => {
-            if (!err && row.count === 0) {
-                const defaultProducts = [
-                    { name: "RC Flying Sim", type: "Simulator", price: 300, stock: 10 },
-                    { name: "Flight Sim Pro (Airbus Edition)", type: "Simulator", price: 1500, stock: 10 },
-                    { name: "Flight Sim Pro (Boeing Edition)", type: "Simulator", price: 1500, stock: 10 },
-                    { name: "Race Sim GT", type: "Simulator", price: 500, stock: 10 },
-                    { name: "Race Sim F1", type: "Simulator", price: 600, stock: 10 },
-                    { name: "Race Sim Jr.", type: "Simulator", price: 400, stock: 10 },
-                    { name: "Race Sim Beginner", type: "Simulator", price: 300, stock: 10 }
-                ];
-                const stmt = db.prepare("INSERT INTO products (name, type, price, stock_quantity) VALUES (?, ?, ?, ?)");
-                defaultProducts.forEach(p => stmt.run(p.name, p.type, p.price, p.stock));
-                stmt.finalize();
-            }
-        });
+let db = null;
 
-        db.run(`CREATE TABLE IF NOT EXISTS bookings (id INTEGER PRIMARY KEY AUTOINCREMENT, order_id TEXT UNIQUE, name TEXT, email TEXT, phone TEXT, item_name TEXT, price REAL, booking_date TEXT, booking_time TEXT, status TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`);
-        db.run(`CREATE TABLE IF NOT EXISTS slots (id INTEGER PRIMARY KEY AUTOINCREMENT, time_range TEXT UNIQUE, active INTEGER DEFAULT 1, sort_order INTEGER DEFAULT 0)`);
-        
-        db.get("SELECT COUNT(*) AS count FROM slots", (err, row) => {
-            if (!err && row.count === 0) {
-                const defaultSlots = [
-                    "11:00 AM - 11:30 AM", "11:30 AM - 12:00 PM",
-                    "12:00 PM - 12:30 PM", "12:30 PM - 01:00 PM",
-                    "02:00 PM - 02:30 PM", "02:30 PM - 03:00 PM",
-                    "03:00 PM - 03:30 PM", "03:30 PM - 04:00 PM",
-                    "04:00 PM - 04:30 PM", "04:30 PM - 05:00 PM",
-                    "05:00 PM - 05:30 PM", "05:30 PM - 06:00 PM",
-                    "06:00 PM - 06:30 PM", "06:30 PM - 07:00 PM",
-                    "07:00 PM - 07:30 PM", "07:30 PM - 08:00 PM",
-                    "08:00 PM - 08:30 PM", "08:30 PM - 09:00 PM",
-                    "09:00 PM - 09:30 PM", "09:30 PM - 10:00 PM"
-                ];
-                const stmt = db.prepare("INSERT INTO slots (time_range, active) VALUES (?, 1)");
-                defaultSlots.forEach(s => stmt.run(s));
-                stmt.finalize();
-            }
-        });
-
-        db.run(`CREATE TABLE IF NOT EXISTS admin_auth (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password_hash TEXT, totp_secret TEXT, must_change_password INTEGER DEFAULT 0, role TEXT DEFAULT 'staff')`);
-        db.run(`ALTER TABLE admin_auth ADD COLUMN role TEXT DEFAULT 'staff'`, (err) => {
-            if (!err) {
-                db.run(`UPDATE admin_auth SET role = 'super_admin' WHERE username = 'admin'`);
-            }
-        });
-
-        db.run(`ALTER TABLE products ADD COLUMN description TEXT`, () => {});
-        db.run(`ALTER TABLE products ADD COLUMN image_url TEXT`, () => {});
-        db.run(`ALTER TABLE products ADD COLUMN images_json TEXT DEFAULT '[]'`, () => {});
-        db.run(`ALTER TABLE products ADD COLUMN options TEXT`, () => {});
-        db.run(`ALTER TABLE products ADD COLUMN compare_price REAL`, () => {});
-        db.run(`ALTER TABLE products ADD COLUMN two_player_price REAL`, () => {});
-        db.run(`ALTER TABLE slots ADD COLUMN sort_order INTEGER DEFAULT 0`, () => {});
-        db.run(`ALTER TABLE coupons ADD COLUMN expires_at TEXT`, () => {});
-        db.run(`ALTER TABLE coupons ADD COLUMN max_uses INTEGER`, () => {});
-        db.run(`ALTER TABLE coupons ADD COLUMN used_count INTEGER DEFAULT 0`, () => {});
-        
-        db.run(`ALTER TABLE bookings ADD COLUMN instructor_id INTEGER`, () => {});
-        db.run(`ALTER TABLE bookings ADD COLUMN instructor_fee REAL DEFAULT 0`, () => {});
-        db.run(`ALTER TABLE bookings ADD COLUMN players INTEGER DEFAULT 1`, () => {});
-        db.run(`ALTER TABLE bookings ADD COLUMN player_two_name TEXT`, () => {});
-        db.run(`CREATE TABLE IF NOT EXISTS inventory_overrides (id INTEGER PRIMARY KEY AUTOINCREMENT, product_id INTEGER, date_str TEXT, time_range TEXT, override_quantity INTEGER, UNIQUE(product_id, date_str, time_range))`);
-        
-        db.run(`CREATE TABLE IF NOT EXISTS instructors (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, age INTEGER, role TEXT, key_achievement TEXT, status TEXT DEFAULT 'Available', photo_url TEXT, biography TEXT, fee REAL DEFAULT 500, email TEXT, phone TEXT, simulator_type TEXT DEFAULT 'All')`);
-        db.run(`ALTER TABLE instructors ADD COLUMN fee REAL DEFAULT 500`, () => {});
-        db.run(`ALTER TABLE instructors ADD COLUMN email TEXT`, () => {});
-        db.run(`ALTER TABLE instructors ADD COLUMN phone TEXT`, () => {});
-        db.run(`ALTER TABLE instructors ADD COLUMN simulator_type TEXT DEFAULT 'All'`, () => {});
-        db.run(`ALTER TABLE instructors ADD COLUMN password_hash TEXT`, () => {});
-        db.run(`ALTER TABLE instructors ADD COLUMN schedule_json TEXT`, () => {});
-        db.run(`ALTER TABLE instructors ADD COLUMN username TEXT`, () => {});
-        db.run(`ALTER TABLE instructors ADD COLUMN must_change_password INTEGER DEFAULT 1`, () => {});
-        db.run(`ALTER TABLE instructors ADD COLUMN reset_otp TEXT`, () => {});
-        db.run(`ALTER TABLE instructors ADD COLUMN reset_otp_expires_at INTEGER`, () => {});
-        db.run(`ALTER TABLE instructors ADD COLUMN notice_hours INTEGER DEFAULT 0`, () => {});
-
-        db.get("SELECT COUNT(*) as count FROM admin_auth", async (err, row) => {
-            if (!err && row.count === 0) {
-                const hash = await bcrypt.hash('password123', 10);
-                db.run("INSERT INTO admin_auth (username, password_hash) VALUES (?, ?)", ['admin', hash]);
-            }
-        });
-        db.run(`CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT)`);
-        db.get(`SELECT COUNT(*) AS count FROM settings WHERE key = 'payment_methods'`, (err, row) => {
-            if (!err && row.count === 0) {
-                db.run(`INSERT INTO settings (key, value) VALUES ('payment_methods', '{"cod": true, "upi": true}')`);
-            }
-        });
+if (DB_URL) {
+    console.log("[Database] Connecting to PostgreSQL (Render)...");
+    const pool = new Pool({
+        connectionString: DB_URL,
+        ssl: { rejectUnauthorized: false }
     });
-};
 
-initDb();
+    // Helper: translate SQLite SQL dialect and ? placeholders to PostgreSQL $1, $2, ...
+    function convertQuery(sql, params = []) {
+        let paramIndex = 1;
+        let converted = sql.replace(/\?/g, () => `$${paramIndex++}`);
+
+        // SQLite date/time conversions to PostgreSQL
+        converted = converted.replace(/datetime\(created_at\)\s*<=\s*datetime\('now',\s*'-15 minutes'\)/gi, "created_at <= NOW() - INTERVAL '15 minutes'");
+        converted = converted.replace(/created_at\s*>=\s*date\('now',\s*\$([0-9]+)\)/gi, (m, g1) => `created_at >= NOW() - ($${g1}::text || ' days')::interval`);
+        converted = converted.replace(/booking_date\s*>=\s*date\('now',\s*'-1 day'\)/gi, "1=1");
+        converted = converted.replace(/date_str\s*>=\s*date\('now',\s*'-1 day'\)/gi, "1=1");
+        converted = converted.replace(/INSERT\s+OR\s+IGNORE\s+INTO\s+([a-zA-Z0-9_]+)\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)/gi, (match, table, cols, vals) => {
+            return `INSERT INTO ${table} (${cols}) VALUES (${vals}) ON CONFLICT DO NOTHING`;
+        });
+
+        // Normalize params array
+        const normalizedParams = Array.isArray(params) ? params.map(p => {
+            if (p === undefined) return null;
+            if (typeof p === 'string' && p.startsWith('-') && p.endsWith(' days')) {
+                // e.g. "-30 days" -> "30"
+                return p.replace(/[^0-9]/g, '');
+            }
+            return p;
+        }) : [];
+
+        return { text: converted, values: normalizedParams };
+    }
+
+    // Helper: whenever a booking is created or updated, synchronize simulator_slot_locks
+    async function syncSlotLock(sql, params) {
+        try {
+            const lower = (sql || '').toLowerCase();
+            if (lower.includes('insert into bookings')) {
+                // INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, ...)
+                // Parameters: order_id, name, email, phone, item_name, price, booking_date, booking_time, status
+                const orderId = params[0];
+                const customerName = params[1];
+                const phone = params[3];
+                const itemName = params[4];
+                const bookingDate = params[6];
+                const bookingTime = params[7];
+                const status = params[8] || 'PENDING';
+
+                if (itemName && bookingDate && bookingTime) {
+                    await pool.query(`
+                        INSERT INTO simulator_slot_locks 
+                            (simulator_name, booking_date, booking_time, source_platform, source_order_id, customer_name, customer_phone, status)
+                        VALUES ($1, $2, $3, 'HAVOC_SIM_PODIUM', $4, $5, $6, $7)
+                        ON CONFLICT (simulator_name, booking_date, booking_time) DO UPDATE 
+                        SET source_order_id = excluded.source_order_id,
+                            status = excluded.status,
+                            customer_name = excluded.customer_name,
+                            customer_phone = excluded.customer_phone
+                    `, [itemName, bookingDate, bookingTime, orderId, customerName, phone, status]);
+                }
+            } else if (lower.includes("update bookings set status = 'paid'")) {
+                const match = params && params[0];
+                if (match) {
+                    const cleanPrefix = String(match).replace(/%/g, '');
+                    await pool.query(`UPDATE simulator_slot_locks SET status = 'PAID' WHERE source_order_id LIKE $1`, [`${cleanPrefix}%`]);
+                }
+            } else if (lower.includes("update bookings set status = 'attended'")) {
+                const match = params && params[0];
+                if (match) {
+                    const cleanPrefix = String(match).replace(/%/g, '');
+                    await pool.query(`UPDATE simulator_slot_locks SET status = 'ATTENDED' WHERE source_order_id LIKE $1`, [`${cleanPrefix}%`]);
+                }
+            } else if (lower.includes('update bookings set status = ?')) {
+                const newStatus = (params[0] || '').toUpperCase();
+                const match = params[1];
+                if (match) {
+                    const cleanPrefix = String(match).replace(/%/g, '');
+                    if (newStatus === 'CANCELLED') {
+                        await pool.query(`DELETE FROM simulator_slot_locks WHERE source_order_id LIKE $1`, [`${cleanPrefix}%`]);
+                    } else {
+                        await pool.query(`UPDATE simulator_slot_locks SET status = $1 WHERE source_order_id LIKE $2`, [newStatus, `${cleanPrefix}%`]);
+                    }
+                }
+            } else if (lower.includes('delete from bookings where order_id like') || lower.includes("status = 'pending' and created_at <=")) {
+                if (lower.includes('order_id like')) {
+                    const match = params && params[0];
+                    if (match) {
+                        const cleanPrefix = String(match).replace(/%/g, '');
+                        await pool.query(`DELETE FROM simulator_slot_locks WHERE source_order_id LIKE $1`, [`${cleanPrefix}%`]);
+                    }
+                } else {
+                    // Expired pending bookings cleanup
+                    await pool.query(`DELETE FROM simulator_slot_locks WHERE status = 'PENDING' AND created_at <= NOW() - INTERVAL '15 minutes'`);
+                }
+            }
+        } catch (lockErr) {
+            console.warn('[Slot Lock Sync Notice]', lockErr.message);
+        }
+    }
+
+    db = {
+        pool,
+        isPostgres: true,
+
+        all: function(sql, params, callback) {
+            if (typeof params === 'function') {
+                callback = params;
+                params = [];
+            }
+            const q = convertQuery(sql, params);
+            pool.query(q.text, q.values, (err, res) => {
+                if (err) {
+                    console.error('[PG Error in all()]', err.message, q.text, q.values);
+                    return callback ? callback(err) : null;
+                }
+                if (callback) callback(null, res.rows);
+            });
+        },
+
+        get: function(sql, params, callback) {
+            if (typeof params === 'function') {
+                callback = params;
+                params = [];
+            }
+            const q = convertQuery(sql, params);
+            pool.query(q.text, q.values, (err, res) => {
+                if (err) {
+                    console.error('[PG Error in get()]', err.message, q.text, q.values);
+                    return callback ? callback(err) : null;
+                }
+                if (callback) callback(null, res.rows[0] || null);
+            });
+        },
+
+        run: function(sql, params, callback) {
+            if (typeof params === 'function') {
+                callback = params;
+                params = [];
+            }
+            const q = convertQuery(sql, params);
+            const context = { changes: 0, lastID: null };
+
+            pool.query(q.text, q.values, async (err, res) => {
+                if (err) {
+                    console.error('[PG Error in run()]', err.message, q.text, q.values);
+                    if (callback) callback.call(context, err);
+                    return;
+                }
+                context.changes = res.rowCount || 0;
+                
+                // Asynchronously sync slot locks if applicable
+                await syncSlotLock(sql, params);
+
+                if (callback) callback.call(context, null);
+            });
+        },
+
+        prepare: function(sql) {
+            return {
+                run: (params, callback) => {
+                    db.run(sql, params, callback);
+                },
+                finalize: () => {}
+            };
+        },
+
+        serialize: function(fn) {
+            if (fn) fn();
+        }
+    };
+
+    console.log("[Database] PostgreSQL adapter ready.");
+} else {
+    console.log("[Database] No DATABASE_URL found. Falling back to local SQLite...");
+    const dbPath = process.env.DB_PATH || path.resolve(__dirname, 'havoc.db');
+    db = new sqlite3.Database(dbPath);
+}
+
 module.exports = db;
