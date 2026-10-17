@@ -43,6 +43,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'havoc-super-secret-key-123';
 
 
 app.use(helmet({
+    referrerPolicy: { policy: 'no-referrer-when-downgrade' },
     contentSecurityPolicy: {
         directives: {
             defaultSrc: ["'self'"],
