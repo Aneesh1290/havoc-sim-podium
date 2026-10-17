@@ -7,12 +7,7 @@ const BACKEND_URL = "";
 
 document.addEventListener("DOMContentLoaded", async () => {
 
-    // Hidden Test Mode for Payment Gateway
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('test_payment') === '1') {
-        const iciciOption = document.getElementById('icici-payment-option');
-        if (iciciOption) iciciOption.style.display = 'flex';
-    }
+
 
     // Fetch product catalog to map item names to images
     let productMap = {};
@@ -185,11 +180,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     let firstAvailable = null;
     paymentOptions.forEach(option => {
         const method = option.getAttribute('data-method');
+        const isEnabled = method === 'icici' ? (paymentSettings.upi !== false && paymentSettings.icici !== false) : (paymentSettings[method] !== false);
         // Check if the method is disabled in settings
-        if (paymentSettings[method] === false) {
+        if (!isEnabled) {
             option.style.display = 'none';
             option.classList.remove('selected');
         } else {
+            option.style.display = 'flex';
             if (!firstAvailable) firstAvailable = option;
             
             option.addEventListener("click", () => {
