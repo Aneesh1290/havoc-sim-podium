@@ -1807,10 +1807,10 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
             const digitsOnly = rawPhone.replace(/\D/g, '');
             const cleanMobile = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly.padStart(10, '9');
 
-            // In production, ICICI Bank enforces strict domain whitelisting (DOMAIL VALIDATION)
-            // It must match the registered domain (https://havocsim.in)
+            // In production, ICICI Bank enforces strict domain whitelisting (DOMAIN VALIDATION)
+            // The exact whitelisted domain in ICICI PG is https://www.havocsim.in
             const isProd = process.env.NODE_ENV === 'production' || ICICI_ENV === 'live';
-            const returnBase = isProd ? 'https://havocsim.in' : `${req.protocol}://${req.get('host')}`;
+            const returnBase = isProd ? 'https://www.havocsim.in' : `${req.protocol}://${req.get('host')}`;
 
             const payload = {
                 "merchantId": ICICI_MERCHANT_ID,
