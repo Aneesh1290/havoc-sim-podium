@@ -95,31 +95,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Render immediately using local cart info (0ms latency!)
     renderCartItems();
-    
-    if (itemsContainer) {
-        itemsContainer.innerHTML = "";
-        cart.forEach((item, index) => {
-            const priceVal = parseFloat((item.itemPrice || "0").replace(/[^\d.]/g, ""));
-            const instFee = item.instructorFee ? parseFloat(item.instructorFee) : 0;
-            const itemTotal = (isNaN(priceVal) ? 0 : priceVal) + instFee;
-            originalPrice += itemTotal;
-            
-            const div = document.createElement("div");
-            div.className = "summary-item";
-            div.innerHTML = `
-                <img id="co-item-img-${index}" src="${productMap[item.itemName] || item.itemImage || 'havoc_logo.png'}" alt="Simulator" class="summary-img">
-                <div class="summary-details" style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.2rem;">
-                        <strong id="co-item-name-${index}">${item.itemName}</strong>
-                        <span class="summary-price" style="font-size: 1rem; white-space: nowrap; margin-left: 0.5rem;">₹${(isNaN(priceVal) ? 0 : priceVal).toFixed(2)}</span>
-                    </div>
-                    <span id="co-item-date-${index}" class="summary-meta">Date: ${item.dateLabel}</span>
-                    <span id="co-item-time-${index}" class="summary-meta">Slot: ${item.slot}</span>
-                    ${item.players === 2 ? `
-                    <div style="display:flex; align-items:center; gap:0.4rem; margin:0.3rem 0;">
-                        <span style="color:var(--gold); font-size:0.75rem; background:rgba(229,184,105,0.12); border:1px solid rgba(229,184,105,0.3); padding:2px 8px; border-radius:12px; font-weight:600;">👥 2 Players (Combo)</span>
-                        ${item.playerTwoName ? `<span style="font-size:0.75rem; color:#aaa;">P2: ${item.playerTwoName}</span>` : ''}
-                    </div>` : ''}
     // Fetch products catalog and payment settings in background without blocking Order Summary
     Promise.all([
         fetch(BACKEND_URL + "/api/products").then(r => r.ok ? r.json() : []).catch(() => []),
