@@ -508,6 +508,7 @@ window.openOrderDetails = (baseOrderId) => {
                 <div class="custom-dropdown-item" onclick="markOrderAsFulfilled('${baseOrderId}')">✓ Mark as fulfilled</div>
                 <div class="custom-dropdown-item" onclick="markOrderAsUnfulfilled('${baseOrderId}')">✗ Mark as unfulfilled</div>
                 <div class="custom-dropdown-item" onclick="cancelOrder('${baseOrderId}')">✗ Cancel order</div>
+                <div class="custom-dropdown-item" style="color: #ef4444; border-top: 1px solid rgba(255,255,255,0.08);" onclick="refundOrder('${baseOrderId}', '${priceFormatted}')">💸 Refund Payment (ICICI)</div>
             </div>
         </div>
         <div class="custom-dropdown">
@@ -669,6 +670,40 @@ window.cancelOrder = async (orderId) => {
     } else {
         const data = await res.json();
         alert(data.error || 'Failed to update status');
+    }
+};
+
+window.refundOrder = async (orderId, totalAmount) => {
+    document.querySelectorAll('.custom-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+    const inputAmount = prompt(`Enter amount to refund for Order #${orderId} (leave as ${totalAmount} for full refund):`, totalAmount);
+    if (!inputAmount) return; // user cancelled prompt
+
+    const amountNum = parseFloat(inputAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+        alert('Please enter a valid refund amount.');
+        return;
+    }
+
+    if (!confirm(`Are you sure you want to refund ₹${amountNum.toFixed(2)} to the customer via ICICI Bank PG? This action cannot be undone.`)) {
+        return;
+    }
+
+    try {
+        const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}/refund`, {
+            method: 'POST',
+            body: JSON.stringify({ amount: amountNum })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            alert(`✅ Refund of ₹${amountNum.toFixed(2)} processed successfully!\nRefund Txn ID: ${data.refundTxnNo || 'N/A'}`);
+            await loadBookings();
+            const view = document.getElementById('order-details-view');
+            if (view && view.classList.contains('active')) openOrderDetails(orderId);
+        } else {
+            alert(`❌ Refund Failed: ${data.error || 'Unknown error from payment gateway'}`);
+        }
+    } catch (err) {
+        alert('Could not communicate with refund server: ' + err.message);
     }
 };
 

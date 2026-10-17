@@ -1482,7 +1482,7 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, (req, res) => {
     const { order_id } = req.params;
     const { status } = req.body;
     
-    const validStatuses = ['PENDING', 'PAID', 'ATTENDED', 'CANCELLED', 'CASH'];
+    const validStatuses = ['PENDING', 'PAID', 'ATTENDED', 'CANCELLED', 'CASH', 'REFUNDED'];
     if (!validStatuses.includes(status?.toUpperCase())) {
         return res.status(400).json({ error: 'Invalid status value' });
     }
@@ -1491,6 +1491,74 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, (req, res) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         if (this.changes === 0) return res.status(404).json({ error: 'Booking not found' });
         res.json({ success: true });
+    });
+});
+
+// Process ICICI Refund for a Booking (Protected)
+app.post('/api/admin/bookings/:order_id/refund', verifyToken, async (req, res) => {
+    const { order_id } = req.params;
+    const refundAmount = req.body.amount ? parseFloat(req.body.amount).toFixed(2) : null;
+
+    db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${order_id}%`], async (err, rows) => {
+        if (err || !rows || rows.length === 0) {
+            return res.status(404).json({ error: 'Booking not found' });
+        }
+
+        const booking = rows[0];
+        const totalAmount = refundAmount || rows.reduce((sum, r) => sum + (parseFloat(r.price) || 0), 0).toFixed(2);
+        const originalTxnNo = booking.order_id;
+        const refundTxnNo = ('REF_' + Date.now().toString().slice(-8) + Math.floor(100 + Math.random() * 900)).slice(0, 20);
+
+        const refundPayload = {
+            amount: totalAmount,
+            merchantId: ICICI_MERCHANT_ID,
+            merchantTxnNo: refundTxnNo,
+            originalTxnNo: originalTxnNo,
+            transactionType: 'REFUND'
+        };
+        if (ICICI_AGGREGATOR_ID) {
+            refundPayload.aggregatorID = ICICI_AGGREGATOR_ID;
+        }
+        refundPayload.secureHash = generateIciciHash(refundPayload);
+
+        try {
+            const formBody = new URLSearchParams();
+            for (const [k, v] of Object.entries(refundPayload)) {
+                formBody.append(k, v);
+            }
+
+            const iciciBase = ICICI_ENV === 'live' ? 'https://pgpay.icici.bank.in/pg/api' : 'https://pgpayuat.icicibank.com/tsp/pg/api';
+            const response = await fetch(`${iciciBase}/command`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formBody.toString()
+            });
+
+            const data = await response.json();
+            console.log('ICICI Refund Response:', data);
+
+            // Response code "000" or "R1000" means refund accepted / success
+            if (data.responseCode === "000" || data.responseCode === "R1000") {
+                db.run("UPDATE bookings SET status = 'REFUNDED', refund_id = ? WHERE order_id LIKE ?", [data.txnID || refundTxnNo, `${order_id}%`], () => {
+                    res.json({
+                        success: true,
+                        message: 'Refund processed successfully',
+                        refundTxnNo,
+                        details: data
+                    });
+                });
+            } else {
+                // If ICICI rejects (e.g. transaction already settled or beyond cutoff), inform admin
+                return res.status(400).json({
+                    error: data.respDescription || 'ICICI Payment Gateway rejected the refund request',
+                    code: data.responseCode,
+                    details: data
+                });
+            }
+        } catch (apiErr) {
+            console.error('Refund API error:', apiErr);
+            return res.status(500).json({ error: 'Failed to communicate with ICICI Refund Gateway' });
+        }
     });
 });
 
@@ -1876,7 +1944,8 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
 
         if (body.responseCode === "0000") {
             // Payment success!
-            db.run("UPDATE bookings SET status = 'PAID' WHERE order_id LIKE ?", [`${baseOrderId}%`], () => {
+            const txnID = body.txnID || body.paymentID || null;
+            db.run("UPDATE bookings SET status = 'PAID', icici_txn_id = ? WHERE order_id LIKE ?", [txnID, `${baseOrderId}%`], () => {
                 // Fetch booking details and send confirmation email
                 db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`], (err, rows) => {
                     if (!err && rows && rows.length > 0) {
