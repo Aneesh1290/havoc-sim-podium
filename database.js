@@ -11,7 +11,11 @@ if (DB_URL) {
     console.log("[Database] Connecting to PostgreSQL (Render)...");
     const pool = new Pool({
         connectionString: DB_URL,
-        ssl: { rejectUnauthorized: false }
+        ssl: { rejectUnauthorized: false },
+        max: 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 5000,
+        keepAlive: true
     });
 
     // Helper: translate SQLite SQL dialect and ? placeholders to PostgreSQL $1, $2, ...
