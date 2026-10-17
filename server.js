@@ -41,6 +41,18 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'havoc-super-secret-key-123';
 
+// Redirect all secondary domains to canonical https://www.havocsim.in
+app.use((req, res, next) => {
+    const host = req.hostname;
+    // Only redirect production domains (do not redirect localhost / render internal hostnames)
+    if (host && host !== 'localhost' && host !== '127.0.0.1' && !host.includes('onrender.com')) {
+        if (host !== 'www.havocsim.in') {
+            return res.redirect(301, 'https://www.havocsim.in' + req.originalUrl);
+        }
+    }
+    next();
+});
+
 
 app.use(helmet({
     referrerPolicy: { policy: 'no-referrer-when-downgrade' },
@@ -1849,15 +1861,19 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
         });
 
         async function createIciciOrder() {
-            // Build Request Payload as per Step Wise Doc
-            const now = new Date();
-            const yyyy = now.getFullYear();
-            const MM = String(now.getMonth() + 1).padStart(2, '0');
-            const dd = String(now.getDate()).padStart(2, '0');
-            const HH = String(now.getHours()).padStart(2, '0');
-            const mm = String(now.getMinutes()).padStart(2, '0');
-            const ss = String(now.getSeconds()).padStart(2, '0');
-            const txnDate = `${yyyy}${MM}${dd}${HH}${mm}${ss}`; // YYYYMMDDHHMMSS
+            // Build Request Payload as per Step Wise Doc using India Standard Time (IST / Asia/Kolkata)
+            const istDateStr = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Kolkata',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false
+            }).format(new Date());
+            // istDateStr returns "YYYY-MM-DD, HH:mm:ss" or "YYYY-MM-DD HH:mm:ss"
+            const txnDate = istDateStr.replace(/\D/g, ''); // YYYYMMDDHHMMSS in IST
 
             // ICICI expects a clean 10-digit mobile number without + or spaces
             const rawPhone = customer_details.phone || "9999999999";
