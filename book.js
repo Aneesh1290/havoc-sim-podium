@@ -562,10 +562,10 @@ document.addEventListener("DOMContentLoaded", () => {
             if (cart.itemName) cart = [cart];
             else cart = [];
         }
-        // Sanitize: remove huge base64 images from existing cart items to fix QuotaExceededError
+        // Sanitize: only remove huge base64 images to prevent QuotaExceededError
         let modified = false;
         cart.forEach(item => {
-            if (item.itemImage) {
+            if (item.itemImage && typeof item.itemImage === 'string' && item.itemImage.startsWith('data:')) {
                 delete item.itemImage;
                 modified = true;
             }
@@ -659,6 +659,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
             const products = await productsRes.json();
             window.havocProducts = products; // Save globally for cart rendering
+            // Save lightweight name -> image map in localStorage for instant 0ms images on checkout
+            try {
+                const imgCache = {};
+                products.forEach(p => {
+                    if (p.image_url && !p.image_url.startsWith('data:')) {
+                        imgCache[p.name] = p.image_url;
+                    }
+                });
+                localStorage.setItem("havoc_product_images", JSON.stringify(imgCache));
+            } catch(e) {}
             const productGrid = document.getElementById('publicProductGrid');
             if (productGrid) {
                 productGrid.innerHTML = products.map(p => {
@@ -969,10 +979,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const activeItemPrice = pendingProduct.activePrice ? `₹${pendingProduct.activePrice.toFixed(2)}` : pendingProduct.price;
         const playerTwoNameVal = document.getElementById("playerTwoNameInput")?.value.trim() || "";
 
+        const productImg = (pendingProduct.imgSrc && !pendingProduct.imgSrc.startsWith('data:')) 
+            ? pendingProduct.imgSrc 
+            : ((pendingProduct.image_url && !pendingProduct.image_url.startsWith('data:')) ? pendingProduct.image_url : null);
+
         const cartItem = {
             id: Date.now().toString(),
             itemName: pendingProduct.name,
             itemPrice: activeItemPrice,
+            itemImage: productImg,
             players: selectedPlayerCount,
             playerTwoName: selectedPlayerCount === 2 ? playerTwoNameVal : "",
             date: selectedDate.iso,

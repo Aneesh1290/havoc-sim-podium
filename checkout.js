@@ -93,9 +93,16 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
-    // Render immediately using local cart info (0ms latency!)
-    renderCartItems();
-    // Fetch products catalog and payment settings in background without blocking Order Summary
+    // Read cached product images from localStorage for instant 0ms photo display
+    let cachedImages = {};
+    try {
+        cachedImages = JSON.parse(localStorage.getItem("havoc_product_images")) || {};
+    } catch(e) {}
+
+    // Render immediately using local cart info + cached images (0ms latency!)
+    renderCartItems(cachedImages);
+
+    // Fetch fresh products catalog and payment settings in background without blocking Order Summary
     Promise.all([
         fetch(BACKEND_URL + "/api/products").then(r => r.ok ? r.json() : []).catch(() => []),
         fetch(BACKEND_URL + "/api/settings/payment").then(r => r.ok ? r.json() : { cod: true, upi: true }).catch(() => ({ cod: true, upi: true }))
