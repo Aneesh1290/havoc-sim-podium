@@ -1833,7 +1833,11 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                 if (data.responseCode !== "R1000") {
                     console.error('ICICI initiateSale error response:', data);
                     db.run("DELETE FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`]);
-                    return res.status(500).json({ error: 'Failed to initiate ICICI PG order' });
+                    return res.status(500).json({ 
+                        error: data.responseDescription || 'Failed to initiate ICICI PG order',
+                        code: data.responseCode,
+                        details: data
+                    });
                 }
 
                 // Return redirectURI and tranCtx
