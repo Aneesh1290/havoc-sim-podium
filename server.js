@@ -1216,9 +1216,28 @@ app.get('/api/availability/:date', (req, res) => {
     db.all(query, params, (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         const bookedSlots = rows.map(r => r.booking_time);
-        res.json({ bookedSlots });
+
+        // Also merge slot locks from shared simulator_slot_locks table (including RC Fun Zone combo passes)
+        let lockQuery = "SELECT booking_time FROM simulator_slot_locks WHERE (booking_date = ? OR booking_date = ?) AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
+        let lockParams = [date, date.replace(/ \([A-Za-z]+\)/, '')];
+        if (item) {
+            lockQuery += " AND simulator_name = ?";
+            lockParams.push(item);
+        }
+
+        db.all(lockQuery, lockParams, (lockErr, lockRows) => {
+            if (!lockErr && lockRows) {
+                lockRows.forEach(lr => {
+                    if (!bookedSlots.includes(lr.booking_time)) {
+                        bookedSlots.push(lr.booking_time);
+                    }
+                });
+            }
+            res.json({ bookedSlots });
+        });
     });
 });
+
 // Get Analytics (Protected)
 app.get('/api/admin/analytics', verifyToken, (req, res) => {
     let days = req.query.days || 30;
@@ -1426,7 +1445,29 @@ app.get('/api/admin/bookings/date/:date', verifyToken, (req, res) => {
     // Exclude CANCELLED (freed) bookings from the schedule view; PENDING = Pay-at-Desk holds
     db.all("SELECT * FROM bookings WHERE booking_date = ? AND status != 'CANCELLED'", [date], (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error' });
-        res.json(rows);
+        const allRows = rows ? [...rows] : [];
+
+        // Also include locks from external platforms (e.g. Havoc RC Fun Zone)
+        const altDate = date.replace(/ \([A-Za-z]+\)/, '');
+        db.all("SELECT * FROM simulator_slot_locks WHERE (booking_date = ? OR booking_date = ?) AND status != 'CANCELLED' AND source_platform != 'HAVOC_SIM_PODIUM'", [date, altDate], (lockErr, lockRows) => {
+            if (!lockErr && lockRows) {
+                lockRows.forEach(lr => {
+                    allRows.push({
+                        id: `lock_${lr.id}`,
+                        order_id: lr.source_order_id,
+                        name: `${lr.customer_name || 'Combo Pass'} [${lr.source_platform}]`,
+                        phone: lr.customer_phone || '',
+                        email: '',
+                        item_name: lr.simulator_name,
+                        booking_date: lr.booking_date,
+                        booking_time: lr.booking_time,
+                        status: lr.status,
+                        is_external_lock: true
+                    });
+                });
+            }
+            res.json(allRows);
+        });
     });
 });
 
@@ -1549,9 +1590,17 @@ app.post('/api/bookings/cod', async (req, res) => {
                 
                 db.get(query, params, (err, row) => {
                     if (err) return reject(err);
-                    if (row.count > 0) hasConflict = true;
-                    checkCount++;
-                    if (checkCount === items.length) resolve(hasConflict);
+                    if (row && row.count > 0) hasConflict = true;
+
+                    // Also check shared simulator_slot_locks (for locks from RC Fun Zone or other channels)
+                    const lockQuery = "SELECT COUNT(*) as count FROM simulator_slot_locks WHERE simulator_name = ? AND (booking_date = ? OR booking_date = ?) AND booking_time = ? AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
+                    const lockParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
+
+                    db.get(lockQuery, lockParams, (lockErr, lockRow) => {
+                        if (!lockErr && lockRow && lockRow.count > 0) hasConflict = true;
+                        checkCount++;
+                        if (checkCount === items.length) resolve(hasConflict);
+                    });
                 });
             });
         });
@@ -1679,9 +1728,17 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                     
                     db.get(query, params, (err, row) => {
                         if (err) return reject(err);
-                        if (row.count > 0) hasConflict = true;
-                        checkCount++;
-                        if (checkCount === items.length) resolve(hasConflict);
+                        if (row && row.count > 0) hasConflict = true;
+
+                        // Also check shared simulator_slot_locks (for locks from RC Fun Zone or other channels)
+                        const lockQuery = "SELECT COUNT(*) as count FROM simulator_slot_locks WHERE simulator_name = ? AND (booking_date = ? OR booking_date = ?) AND booking_time = ? AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
+                        const lockParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
+
+                        db.get(lockQuery, lockParams, (lockErr, lockRow) => {
+                            if (!lockErr && lockRow && lockRow.count > 0) hasConflict = true;
+                            checkCount++;
+                            if (checkCount === items.length) resolve(hasConflict);
+                        });
                     });
                 });
             });
@@ -1946,9 +2003,17 @@ app.post('/api/upi/collect', async (req, res) => {
                     
                     db.get(query, params, (err, row) => {
                         if (err) return reject(err);
-                        if (row.count > 0) hasConflict = true;
-                        checkCount++;
-                        if (checkCount === items.length) resolve(hasConflict);
+                        if (row && row.count > 0) hasConflict = true;
+
+                        // Also check shared simulator_slot_locks (for locks from RC Fun Zone or other channels)
+                        const lockQuery = "SELECT COUNT(*) as count FROM simulator_slot_locks WHERE simulator_name = ? AND (booking_date = ? OR booking_date = ?) AND booking_time = ? AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
+                        const lockParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
+
+                        db.get(lockQuery, lockParams, (lockErr, lockRow) => {
+                            if (!lockErr && lockRow && lockRow.count > 0) hasConflict = true;
+                            checkCount++;
+                            if (checkCount === items.length) resolve(hasConflict);
+                        });
                     });
                 });
             });
