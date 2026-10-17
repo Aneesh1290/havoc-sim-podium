@@ -41,11 +41,10 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'havoc-super-secret-key-123';
 
-// Redirect all domains to primary canonical domain (www.havocsim.in)
+// Redirect secondary domains to primary domain (havocsim.in)
 app.use((req, res, next) => {
     const host = req.hostname;
     if (host && (
-        host === 'havocsim.in' || 
         host === 'havocsim.com' || 
         host === 'www.havocsim.com' || 
         host === 'havocsimpodium.in' || 
@@ -53,7 +52,7 @@ app.use((req, res, next) => {
         host === 'havocsimpodium.com' || 
         host === 'www.havocsimpodium.com'
     )) {
-        return res.redirect(301, 'https://www.havocsim.in' + req.originalUrl);
+        return res.redirect(301, 'https://havocsim.in' + req.originalUrl);
     }
     next();
 });
