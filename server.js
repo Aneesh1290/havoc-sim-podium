@@ -1829,10 +1829,10 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
         }
 
         const orderNo = await getNextOrderNumber();
-        // ICICI requires merchantTxnNo to be globally unique across all attempts (max length 20).
-        // e.g. P_10OCT_40_3829 (<= 20 chars)
-        const uniqueSuffix = Date.now().toString().slice(-4);
-        const baseOrderId = `P_${formattedDate}_${orderNo}_${uniqueSuffix}`.slice(0, 20);
+        // ICICI requires merchantTxnNo to be globally unique across all attempts (strictly <= 20 chars).
+        // Format: PAID_29NOV26_43_123 (exact length 19 chars)
+        const uniqueSuffix = Date.now().toString().slice(-3);
+        const baseOrderId = `PAID_${formattedDate}_${orderNo}_${uniqueSuffix}`.slice(0, 20);
 
         let insertedCount = 0;
         const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
