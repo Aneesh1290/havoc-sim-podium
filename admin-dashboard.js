@@ -508,7 +508,9 @@ window.openOrderDetails = (baseOrderId) => {
                 <div class="custom-dropdown-item" onclick="markOrderAsFulfilled('${baseOrderId}')">✓ Mark as fulfilled</div>
                 <div class="custom-dropdown-item" onclick="markOrderAsUnfulfilled('${baseOrderId}')">✗ Mark as unfulfilled</div>
                 <div class="custom-dropdown-item" onclick="cancelOrder('${baseOrderId}')">✗ Cancel order</div>
+                ${paymentBadge !== 'REFUNDED' && (paymentBadge === 'PAID' || fulfillBadge === 'ATTENDED') ? `
                 <div class="custom-dropdown-item" style="color: #ef4444; border-top: 1px solid rgba(255,255,255,0.08);" onclick="refundOrder('${baseOrderId}', '${priceFormatted}')">💸 Refund Payment (ICICI)</div>
+                ` : ''}
             </div>
         </div>
         <div class="custom-dropdown">

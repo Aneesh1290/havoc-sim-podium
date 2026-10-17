@@ -1517,6 +1517,13 @@ app.post('/api/admin/bookings/:order_id/refund', verifyToken, async (req, res) =
         }
 
         const booking = rows[0];
+        if (booking.status === 'REFUNDED') {
+            return res.status(400).json({ error: 'This order has already been refunded.' });
+        }
+        if (booking.status !== 'PAID' && booking.status !== 'ATTENDED') {
+            return res.status(400).json({ error: `Cannot refund an order with status "${booking.status}". Only PAID orders can be refunded.` });
+        }
+
         const totalAmount = refundAmount || rows.reduce((sum, r) => sum + (parseFloat(r.price) || 0), 0).toFixed(2);
         const originalTxnNo = booking.order_id;
         const refundTxnNo = ('REF_' + Date.now().toString().slice(-8) + Math.floor(100 + Math.random() * 900)).slice(0, 20);
