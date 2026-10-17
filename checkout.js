@@ -7,36 +7,7 @@ const BACKEND_URL = "";
 
 document.addEventListener("DOMContentLoaded", async () => {
 
-
-
-    // Fetch product catalog to map item names to images
-    let productMap = {};
-    try {
-        const res = await fetch(BACKEND_URL + "/api/products");
-        if (res.ok) {
-            const products = await res.json();
-            products.forEach(p => {
-                productMap[p.name] = p.image_url || 'havoc_logo.png';
-            });
-        }
-    } catch (err) {
-        console.error("Failed to fetch product catalog:", err);
-    }
-
-    // Fetch payment settings
-    let paymentSettings = { cod: true, upi: true };
-    try {
-        const settingsRes = await fetch(BACKEND_URL + "/api/settings/payment");
-        if (settingsRes.ok) {
-            paymentSettings = await settingsRes.json();
-        }
-    } catch (err) {
-        console.error("Failed to fetch payment settings:", err);
-    }
-
-
-
-    // ---- 1. Load cart from localStorage ----
+    // ---- 1. Load cart from localStorage & Render IMMEDIATELY (Instant 0ms display) ----
     let raw = localStorage.getItem("havoc_cart");
     let cart = raw ? JSON.parse(raw) : [];
     
@@ -51,16 +22,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         return;
     }
 
-    // Populate Order Summary
+    // Populate Order Summary immediately
     const itemsContainer = document.getElementById("co-items-container");
     const subtotalEl     = document.getElementById("co-subtotal");
+    const gstEl          = document.getElementById("co-gst");
     const totalEl        = document.getElementById("co-total");
     const payBtnLabelEl  = document.getElementById("payBtnLabel");
 
     let originalPrice = 0;
-    
-    if (itemsContainer) {
+    let appliedDiscount = 0;
+    let finalAmount = 0;
+    let selectedPaymentMethod = 'cod'; // default
+
+    function renderCartItems(productMap = {}) {
+        if (!itemsContainer) return;
         itemsContainer.innerHTML = "";
+        originalPrice = 0;
         cart.forEach((item, index) => {
             const priceVal = parseFloat((item.itemPrice || "0").replace(/[^\d.]/g, ""));
             const instFee = item.instructorFee ? parseFloat(item.instructorFee) : 0;
@@ -93,13 +70,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             `;
             itemsContainer.appendChild(div);
         });
+        updatePricing();
     }
-
-    // ---- 1.5 Discount Logic (Dynamic) ----
-    const gstEl = document.getElementById("co-gst");
-    let appliedDiscount = 0;
-    let finalAmount = originalPrice;
-    let selectedPaymentMethod = 'cod'; // default
 
     function updatePricing() {
         let taxableAmount = originalPrice - appliedDiscount;
@@ -120,9 +92,70 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         }
     }
+
+    // Render immediately using local cart info (0ms latency!)
+    renderCartItems();
     
-    // Call initially
-    updatePricing();
+    if (itemsContainer) {
+        itemsContainer.innerHTML = "";
+        cart.forEach((item, index) => {
+            const priceVal = parseFloat((item.itemPrice || "0").replace(/[^\d.]/g, ""));
+            const instFee = item.instructorFee ? parseFloat(item.instructorFee) : 0;
+            const itemTotal = (isNaN(priceVal) ? 0 : priceVal) + instFee;
+            originalPrice += itemTotal;
+            
+            const div = document.createElement("div");
+            div.className = "summary-item";
+            div.innerHTML = `
+                <img id="co-item-img-${index}" src="${productMap[item.itemName] || item.itemImage || 'havoc_logo.png'}" alt="Simulator" class="summary-img">
+                <div class="summary-details" style="width: 100%;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.2rem;">
+                        <strong id="co-item-name-${index}">${item.itemName}</strong>
+                        <span class="summary-price" style="font-size: 1rem; white-space: nowrap; margin-left: 0.5rem;">₹${(isNaN(priceVal) ? 0 : priceVal).toFixed(2)}</span>
+                    </div>
+                    <span id="co-item-date-${index}" class="summary-meta">Date: ${item.dateLabel}</span>
+                    <span id="co-item-time-${index}" class="summary-meta">Slot: ${item.slot}</span>
+                    ${item.players === 2 ? `
+                    <div style="display:flex; align-items:center; gap:0.4rem; margin:0.3rem 0;">
+                        <span style="color:var(--gold); font-size:0.75rem; background:rgba(229,184,105,0.12); border:1px solid rgba(229,184,105,0.3); padding:2px 8px; border-radius:12px; font-weight:600;">👥 2 Players (Combo)</span>
+                        ${item.playerTwoName ? `<span style="font-size:0.75rem; color:#aaa;">P2: ${item.playerTwoName}</span>` : ''}
+                    </div>` : ''}
+    // Fetch products catalog and payment settings in background without blocking Order Summary
+    Promise.all([
+        fetch(BACKEND_URL + "/api/products").then(r => r.ok ? r.json() : []).catch(() => []),
+        fetch(BACKEND_URL + "/api/settings/payment").then(r => r.ok ? r.json() : { cod: true, upi: true }).catch(() => ({ cod: true, upi: true }))
+    ]).then(([products, settings]) => {
+        const productMap = {};
+        products.forEach(p => {
+            productMap[p.name] = p.image_url || 'havoc_logo.png';
+        });
+        // Update images if available
+        cart.forEach((item, index) => {
+            const imgEl = document.getElementById(`co-item-img-${index}`);
+            if (imgEl && productMap[item.itemName]) {
+                imgEl.src = productMap[item.itemName];
+            }
+        });
+
+        // Update payment options visibility
+        const paymentOptions = document.querySelectorAll('.payment-option');
+        let firstAvail = null;
+        paymentOptions.forEach(opt => {
+            const m = opt.getAttribute('data-method');
+            const isEnabled = m === 'icici' ? (settings.upi !== false) : (settings[m] !== false);
+            if (!isEnabled) {
+                opt.style.display = 'none';
+                opt.classList.remove('selected');
+            } else {
+                opt.style.display = 'flex';
+                if (!firstAvail) firstAvail = opt;
+            }
+        });
+        const currentlySelected = document.querySelector('.payment-option.selected');
+        if (!currentlySelected && firstAvail) {
+            firstAvail.click();
+        }
+    });
 
     const applyBtn = document.getElementById("apply-discount-btn");
     const codeInput = document.getElementById("co-discount-code");
@@ -174,42 +207,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // ---- 1.6 Payment Option Selection ----
     const paymentOptions = document.querySelectorAll('.payment-option');
-    const upiOption = document.querySelector('.payment-option[data-method="icici"]');
-    const codOption = document.querySelector('.payment-option[data-method="cod"]');
-
     let firstAvailable = null;
     paymentOptions.forEach(option => {
-        const method = option.getAttribute('data-method');
-        const isEnabled = method === 'icici' ? (paymentSettings.upi !== false && paymentSettings.icici !== false) : (paymentSettings[method] !== false);
-        // Check if the method is disabled in settings
-        if (!isEnabled) {
-            option.style.display = 'none';
-            option.classList.remove('selected');
-        } else {
-            option.style.display = 'flex';
-            if (!firstAvailable) firstAvailable = option;
-            
-            option.addEventListener("click", () => {
-                document.querySelectorAll(".payment-option").forEach(opt => {
-                    opt.classList.remove("selected");
-                });
-                option.classList.add("selected");
-                selectedPaymentMethod = option.getAttribute("data-method");
-                updatePricing();
-            });
-        }
+        option.addEventListener("click", () => {
+            document.querySelectorAll(".payment-option").forEach(opt => opt.classList.remove("selected"));
+            option.classList.add("selected");
+            selectedPaymentMethod = option.getAttribute("data-method");
+            updatePricing();
+        });
     });
 
-    // Auto-select the first available if the currently selected one was hidden
-    const currentlySelected = document.querySelector('.payment-option.selected');
-    if (!currentlySelected && firstAvailable) {
-        firstAvailable.click();
-    } else if (!firstAvailable) {
-        // If NO methods are available, disable checkout
-        selectedPaymentMethod = null;
-        document.getElementById("checkoutBtn").disabled = true;
-        document.getElementById("checkoutBtn").textContent = "No Payment Methods Available";
-        document.getElementById("checkoutBtn").style.opacity = "0.5";
+    // Auto-select first option
+    const defaultSelected = document.querySelector('.payment-option.selected') || paymentOptions[0];
+    if (defaultSelected) {
+        defaultSelected.click();
     }
 
     // ---- 2. PAY NOW button ----
