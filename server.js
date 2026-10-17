@@ -79,15 +79,15 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname), { extensions: ['html'] }));
 
 
-// ICICI PG Direct UAT Credentials & Environment
-const ICICI_MERCHANT_ID = process.env.ICICI_MERCHANT_ID || '100000000007164';
+// ICICI PG Direct Credentials & Environment
+const ICICI_MERCHANT_ID = process.env.ICICI_MERCHANT_ID || '100000000531583';
 const ICICI_SECRET_KEY = process.env.ICICI_SECRET_KEY || 'db06cca0-838b-4e01-8b20-6ac446ffb6bd';
-const ICICI_AGGREGATOR_ID = process.env.ICICI_AGGREGATOR_ID || 'A100000000007164';
-const ICICI_ENV = process.env.ICICI_ENV || 'uat'; // 'uat' or 'live'
+const ICICI_AGGREGATOR_ID = process.env.ICICI_AGGREGATOR_ID || '100000000531582';
+const ICICI_ENV = process.env.ICICI_ENV || 'live'; // 'uat' or 'live'
 
 const getIciciBaseUrl = () => {
     return ICICI_ENV === 'live' 
-        ? 'https://pgpay.icicibank.com/pg/api/v2' 
+        ? 'https://pgpay.icici.bank.in/pg/api/v2' 
         : 'https://pgpayuat.icicibank.com/tsp/pg/api/v2';
 };
 
@@ -1802,6 +1802,16 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
             const ss = String(now.getSeconds()).padStart(2, '0');
             const txnDate = `${yyyy}${MM}${dd}${HH}${mm}${ss}`; // YYYYMMDDHHMMSS
 
+            // ICICI expects a clean 10-digit mobile number without + or spaces
+            const rawPhone = customer_details.phone || "9999999999";
+            const digitsOnly = rawPhone.replace(/\D/g, '');
+            const cleanMobile = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly.padStart(10, '9');
+
+            // In production, ICICI Bank enforces strict domain whitelisting (DOMAIL VALIDATION)
+            // It must match the registered domain (https://havocsim.in)
+            const isProd = process.env.NODE_ENV === 'production' || ICICI_ENV === 'live';
+            const returnBase = isProd ? 'https://havocsim.in' : `${req.protocol}://${req.get('host')}`;
+
             const payload = {
                 "merchantId": ICICI_MERCHANT_ID,
                 "merchantTxnNo": baseOrderId,
@@ -1812,8 +1822,8 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                 "customerEmailID": customer_details.email || "dummy@gmail.com",
                 "transactionType": "SALE",
                 "txnDate": txnDate,
-                "returnURL": `${req.protocol}://${req.get('host')}/api/payment/icici/callback`,
-                "customerMobileNo": customer_details.phone || "9999999999",
+                "returnURL": `${returnBase}/api/payment/icici/callback`,
+                "customerMobileNo": cleanMobile,
                 "customerName": customer_details.name || "Customer"
             };
 
