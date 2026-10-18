@@ -173,12 +173,28 @@ function renderBookings(bookingsToRender) {
     if (countToolbar) countToolbar.textContent = `(${groupedArray.length})`;
 
     groupedArray.forEach(b => {
-        const isPending = (b.status || 'PENDING').toUpperCase() === 'PENDING';
-        const isCancelled = (b.status || '').toUpperCase() === 'CANCELLED';
-        const isAttended = (b.status || '').toUpperCase() === 'ATTENDED';
-        
-        let paymentBadge = isPending ? 'UNPAID' : (isCancelled ? 'REFUNDED' : 'PAID');
-        let fulfillBadge = isAttended ? 'FULFILLED' : (isCancelled ? 'CANCELED' : 'UNFULFILLED');
+        const itemStatuses = b.items.map(i => (i.status || '').toUpperCase());
+        const hasAttended = itemStatuses.some(s => s === 'ATTENDED');
+        const hasPaid = itemStatuses.some(s => s === 'PAID' || s === 'SUCCESS');
+        const hasPending = itemStatuses.some(s => s === 'PENDING');
+        const allCancelled = itemStatuses.length > 0 && itemStatuses.every(s => s === 'CANCELLED' || s === 'REFUNDED' || s === 'FAILED');
+
+        let paymentBadge = 'PAID';
+        let fulfillBadge = 'UNFULFILLED';
+
+        if (allCancelled) {
+            paymentBadge = 'REFUNDED';
+            fulfillBadge = 'CANCELED';
+        } else if (hasAttended) {
+            paymentBadge = 'PAID';
+            fulfillBadge = 'FULFILLED';
+        } else if (hasPaid) {
+            paymentBadge = 'PAID';
+            fulfillBadge = 'UNFULFILLED';
+        } else if (hasPending) {
+            paymentBadge = 'UNPAID';
+            fulfillBadge = 'UNFULFILLED';
+        }
         
         // Pick CSS classes for the badges based on the text
         const getBadgeClass = (text) => {
@@ -447,12 +463,28 @@ window.openOrderDetails = (baseOrderId) => {
     // Hide table, show details
     tab.style.display = 'none';
     
-    const isPending = (order.status || 'PENDING').toUpperCase() === 'PENDING';
-    const isCancelled = (order.status || '').toUpperCase() === 'CANCELLED';
-    const isAttended = (order.status || '').toUpperCase() === 'ATTENDED';
-    
-    let paymentBadge = isPending ? 'UNPAID' : (isCancelled ? 'REFUNDED' : 'PAID');
-    let fulfillBadge = isAttended ? 'FULFILLED' : (isCancelled ? 'CANCELED' : 'UNFULFILLED');
+    const itemStatuses = items.map(i => (i.status || '').toUpperCase());
+    const hasAttended = itemStatuses.some(s => s === 'ATTENDED');
+    const hasPaid = itemStatuses.some(s => s === 'PAID' || s === 'SUCCESS');
+    const hasPending = itemStatuses.some(s => s === 'PENDING');
+    const allCancelled = itemStatuses.length > 0 && itemStatuses.every(s => s === 'CANCELLED' || s === 'REFUNDED' || s === 'FAILED');
+
+    let paymentBadge = 'PAID';
+    let fulfillBadge = 'UNFULFILLED';
+
+    if (allCancelled) {
+        paymentBadge = 'REFUNDED';
+        fulfillBadge = 'CANCELED';
+    } else if (hasAttended) {
+        paymentBadge = 'PAID';
+        fulfillBadge = 'FULFILLED';
+    } else if (hasPaid) {
+        paymentBadge = 'PAID';
+        fulfillBadge = 'UNFULFILLED';
+    } else if (hasPending) {
+        paymentBadge = 'UNPAID';
+        fulfillBadge = 'UNFULFILLED';
+    }
 
     const getBadgeClass = (text) => {
         if (text === 'PAID') return 'badge-paid';
