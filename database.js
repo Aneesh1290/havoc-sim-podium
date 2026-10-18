@@ -103,8 +103,8 @@ if (DB_URL) {
                         await pool.query(`DELETE FROM simulator_slot_locks WHERE source_order_id LIKE $1`, [`${cleanPrefix}%`]);
                     }
                 } else {
-                    // Expired pending bookings cleanup
-                    await pool.query(`DELETE FROM simulator_slot_locks WHERE status = 'PENDING' AND created_at <= NOW() - INTERVAL '15 minutes'`);
+                    // Expired pending bookings cleanup (exclude PAYDUE desk bookings)
+                    await pool.query(`DELETE FROM simulator_slot_locks WHERE status = 'PENDING' AND source_order_id NOT LIKE 'PAYDUE%' AND created_at <= NOW() - INTERVAL '15 minutes'`);
                 }
             }
         } catch (lockErr) {

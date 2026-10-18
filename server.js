@@ -2061,8 +2061,8 @@ app.get('/', (req, res) => {
 setInterval(() => {
     const isProd = process.env.NODE_ENV === 'production';
     const query = isProd 
-        ? `DELETE FROM bookings WHERE status = 'PENDING' AND created_at <= NOW() - INTERVAL '15 minutes'`
-        : `DELETE FROM bookings WHERE status = 'PENDING' AND datetime(created_at) <= datetime('now', '-15 minutes')`;
+        ? `DELETE FROM bookings WHERE status = 'PENDING' AND order_id NOT LIKE 'PAYDUE%' AND created_at <= NOW() - INTERVAL '15 minutes'`
+        : `DELETE FROM bookings WHERE status = 'PENDING' AND order_id NOT LIKE 'PAYDUE%' AND datetime(created_at) <= datetime('now', '-15 minutes')`;
         
     db.run(query, function(err) {
         if (err) console.error("Cleanup Job Error:", err);
