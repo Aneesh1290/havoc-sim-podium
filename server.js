@@ -1645,8 +1645,15 @@ const getNextOrderNumber = () => {
             let maxNum = 0;
             rows.forEach(r => {
                 const parts = (r.order_id || '').split('_');
-                // Format: PREFIX_DATE_ORDERNO (e.g. PAYDUE_10OCT26_21 or PAYDUE_10OCT26_21_0)
-                if (parts.length >= 3) {
+                // Format could be:
+                // New: PAYDUE_SP_40 or PAID_SP_40_123 or PAYDUE_SP_40_0
+                // Old: PAYDUE_10OCT26_21 or PAYDUE_10OCT26_21_0 or PAID_18OCT26_39_123
+                if (parts[1] === 'SP' && parts[2]) {
+                    const num = parseInt(parts[2], 10);
+                    if (!isNaN(num) && num > maxNum) {
+                        maxNum = num;
+                    }
+                } else if (parts.length >= 3) {
                     const num = parseInt(parts[2], 10);
                     if (!isNaN(num) && num > maxNum) {
                         maxNum = num;
@@ -1730,7 +1737,7 @@ app.post('/api/bookings/cod', async (req, res) => {
     }
 
     const orderNo = await getNextOrderNumber();
-    const baseOrderId = `PAYDUE_${formattedDate}_${orderNo}`;
+    const baseOrderId = `PAYDUE_SP_${orderNo}`;
 
     let insertedCount = 0;
     let hasError = false;
@@ -1911,9 +1918,8 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
 
         const orderNo = await getNextOrderNumber();
         // ICICI requires merchantTxnNo to be globally unique across all attempts (strictly <= 20 chars).
-        // Format: PAID_29NOV26_43_123 (exact length 19 chars)
-        const uniqueSuffix = Date.now().toString().slice(-3);
-        const baseOrderId = `PAID_${formattedDate}_${orderNo}_${uniqueSuffix}`.slice(0, 20);
+        // Format: PAID_SP_40 (length ~10 chars)
+        const baseOrderId = `PAID_SP_${orderNo}`;
 
         let insertedCount = 0;
         const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);

@@ -137,10 +137,17 @@ function renderBookings(bookingsToRender) {
     
     const groupedMap = new Map();
     bookingsToRender.forEach(b => {
-        // Multi-item bookings have order_id like PREFIX_DATE_ORDERNO_INDEX (4 parts).
-        // Only strip the last item index if there are at least 4 underscore-separated parts.
-        const parts = (b.order_id || '').split('_');
-        const baseId = parts.length >= 4 ? parts.slice(0, 3).join('_') : b.order_id;
+        // Multi-item bookings have order_id ending in _0, _1, etc.
+        // Formats:
+        // New: PAYDUE_SP_40 or PAYDUE_SP_40_0, PAID_SP_40 or PAID_SP_40_0
+        // Old: PAYDUE_18OCT26_39 or PAYDUE_18OCT26_39_0
+        let baseId = b.order_id || '';
+        const parts = baseId.split('_');
+        if (parts[1] === 'SP' && parts.length >= 4) {
+            baseId = parts.slice(0, 3).join('_');
+        } else if (parts.length >= 4) {
+            baseId = parts.slice(0, 3).join('_');
+        }
         if (!groupedMap.has(baseId)) {
             groupedMap.set(baseId, {
                 order_id: baseId,
@@ -282,8 +289,13 @@ function updateAnalyticsSummary(bookings) {
     // Group bookings by baseOrderId so we count actual orders and their total prices
     const orderMap = new Map();
     bookings.forEach(b => {
-        const parts = (b.order_id || '').split('_');
-        const baseId = parts.length >= 4 ? parts.slice(0, 3).join('_') : b.order_id;
+        let baseId = b.order_id || '';
+        const parts = baseId.split('_');
+        if (parts[1] === 'SP' && parts.length >= 4) {
+            baseId = parts.slice(0, 3).join('_');
+        } else if (parts.length >= 4) {
+            baseId = parts.slice(0, 3).join('_');
+        }
         if (!orderMap.has(baseId)) {
             orderMap.set(baseId, {
                 order_id: baseId,
@@ -416,8 +428,13 @@ window.closeOrderDetails = () => {
 
 window.openOrderDetails = (baseOrderId) => {
     const items = window.allBookings.filter(b => {
-        const parts = (b.order_id || '').split('_');
-        const base = parts.length >= 4 ? parts.slice(0, 3).join('_') : b.order_id;
+        let base = b.order_id || '';
+        const parts = base.split('_');
+        if (parts[1] === 'SP' && parts.length >= 4) {
+            base = parts.slice(0, 3).join('_');
+        } else if (parts.length >= 4) {
+            base = parts.slice(0, 3).join('_');
+        }
         return base === baseOrderId;
     });
     if(!items.length) return;
