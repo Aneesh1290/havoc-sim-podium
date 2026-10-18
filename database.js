@@ -1,9 +1,9 @@
 const { Pool } = require('pg');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-const bcrypt = require('bcrypt');
+require('dotenv').config();
 
-const DB_URL = process.env.DATABASE_URL || "postgresql://slots_db_yqvv_user:feguu4oTsGEZ2TVGok9U0ylcphlCftjh@dpg-db941hft5n8s73e7qt1g-a.singapore-postgres.render.com/slots_db_yqvv";
+const DB_URL = process.env.DATABASE_URL;
 
 let db = null;
 
