@@ -1254,6 +1254,24 @@ window.deleteBulkCoupons = async (groupId) => {
 // ==========================================
 // STAFF MANAGEMENT LOGIC
 // ==========================================
+// Helper to toggle create account permissions box
+window.togglePermBoxes = function(role) {
+    const box = document.getElementById('staffPermissionsBox');
+    if (box) box.style.display = role === 'super_admin' ? 'none' : 'block';
+};
+
+// Map of permission keys to labels and navigation selectors
+const PERMISSION_CONFIG = [
+    { key: 'bookings', label: '📅 Bookings', navId: 'tab-bookings' },
+    { key: 'inventory_matrix', label: '📦 Inventory', navId: 'tab-inventory-matrix' },
+    { key: 'availability', label: '📅 Availability', navId: 'tab-availability' },
+    { key: 'coupons', label: '🎟️ Coupons', navId: 'nav-coupons' },
+    { key: 'instructors', label: '🎓 Instructors', navId: 'nav-instructors' },
+    { key: 'products', label: '📦 Products', navId: 'nav-inventory' },
+    { key: 'newsletter', label: '📧 Newsletter', navId: 'nav-newsletter' },
+    { key: 'settings', label: '⚙️ Settings', navId: 'nav-settings' }
+];
+
 async function loadStaff() {
     const tbody = document.getElementById('staffTableBody');
     const res = await fetchAuth('/api/admin/users');
@@ -1261,13 +1279,35 @@ async function loadStaff() {
 
     tbody.innerHTML = '';
     if (!users.length) {
-        tbody.innerHTML = '<tr><td colspan="3" class="empty-state">No staff accounts</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">No staff accounts</td></tr>';
         return;
     }
 
     users.forEach(u => {
         const tr = document.createElement('tr');
         const isMainAdmin = u.username === 'admin';
+        const isSuperAdmin = u.role === 'super_admin';
+        const currentPerms = (u.permissions || 'bookings,availability').split(',').map(p => p.trim());
+
+        let permsHtml = '';
+        if (isMainAdmin || isSuperAdmin) {
+            permsHtml = `<span style="color:var(--gold); font-size:0.8rem; font-weight:700; background:rgba(229,184,105,0.12); padding:4px 10px; border-radius:20px; border:1px solid rgba(229,184,105,0.3);">✨ Full Access (All Tabs)</span>`;
+        } else {
+            permsHtml = `
+                <div style="display:flex; flex-wrap:wrap; gap:0.4rem; max-width:420px;">
+                    ${PERMISSION_CONFIG.map(p => {
+                        const isChecked = currentPerms.includes(p.key);
+                        return `
+                            <label style="display:inline-flex; align-items:center; gap:4px; font-size:0.75rem; background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:6px; border:1px solid ${isChecked ? 'rgba(229,184,105,0.4)' : 'rgba(255,255,255,0.1)'}; color:${isChecked ? '#fff' : 'var(--muted)'}; cursor:pointer;">
+                                <input type="checkbox" onchange="toggleUserPerm(${u.id}, '${u.username}', '${p.key}', this.checked)" ${isChecked ? 'checked' : ''}>
+                                ${p.label}
+                            </label>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
         tr.innerHTML = `
             <td style="font-family:monospace; color:rgba(255,255,255,0.6);">${u.id}</td>
             <td style="font-weight:600">
@@ -1275,12 +1315,13 @@ async function loadStaff() {
                 ${isMainAdmin ? `
                     <span style="color:var(--gold);font-size:0.75rem;margin-left:0.5rem; text-transform:uppercase; font-weight:700;">(Primary)</span>
                 ` : `
-                    <select onchange="updateStaffRole(${u.id}, '${u.username}', this.value)" style="margin-left: 0.5rem; padding: 0.3rem 0.6rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 0.75rem; font-weight: 600; outline: none; cursor: pointer;">
-                        <option value="staff" style="color: #000;" ${u.role === 'staff' ? 'selected' : ''}>Staff</option>
-                        <option value="super_admin" style="color: #000;" ${u.role === 'super_admin' ? 'selected' : ''}>Super Admin</option>
+                    <select onchange="updateStaffRole(${u.id}, '${u.username}', this.value)" style="margin-top:0.3rem; display:block; padding: 0.3rem 0.6rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 0.75rem; font-weight: 600; outline: none; cursor: pointer;">
+                        <option value="staff" style="color: #000;" ${!isSuperAdmin ? 'selected' : ''}>Staff (Custom Access)</option>
+                        <option value="super_admin" style="color: #000;" ${isSuperAdmin ? 'selected' : ''}>Super Admin (All Tabs)</option>
                     </select>
                 `}
             </td>
+            <td>${permsHtml}</td>
             <td>
                 ${!isMainAdmin ? `
                     <button class="btn btn-gold" style="padding: 0.4rem 0.8rem; font-size: 0.8rem; margin-right: 0.5rem;" onclick="resetStaffPassword(${u.id}, '${u.username}')">Reset</button>
@@ -1292,20 +1333,59 @@ async function loadStaff() {
     });
 }
 
+window.toggleUserPerm = async (id, username, permKey, isChecked) => {
+    try {
+        const res = await fetchAuth('/api/admin/users');
+        const users = await res.json();
+        const user = users.find(u => u.id === id);
+        if (!user) return;
+
+        let perms = (user.permissions || '').split(',').map(p => p.trim()).filter(Boolean);
+        if (isChecked) {
+            if (!perms.includes(permKey)) perms.push(permKey);
+        } else {
+            perms = perms.filter(p => p !== permKey);
+        }
+
+        const updateRes = await fetchAuth(`/api/admin/users/${encodeURIComponent(id)}/role`, {
+            method: 'PUT',
+            body: JSON.stringify({ role: user.role, permissions: perms.join(',') })
+        });
+        if (updateRes.ok) {
+            loadStaff();
+        } else {
+            alert('Failed to update staff permissions');
+        }
+    } catch(e) {
+        console.error(e);
+    }
+};
+
 document.getElementById('addStaffForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = document.getElementById('staffUsername').value.trim();
     const role = document.getElementById('staffRole').value;
     const password = "sabharwal@65"; // Default password for new accounts
 
+    const selectedPerms = [];
+    document.querySelectorAll('input[name="newStaffPerm"]:checked').forEach(cb => {
+        selectedPerms.push(cb.value);
+    });
+
     const res = await fetchAuth('/api/admin/users', {
         method: 'POST',
-        body: JSON.stringify({ username, password, role })
+        body: JSON.stringify({ 
+            username, 
+            password, 
+            role, 
+            permissions: role === 'super_admin' ? 'all' : selectedPerms.join(',')
+        })
     });
 
     const data = await res.json();
     if (data.success) {
         document.getElementById('addStaffForm').reset();
+        window.togglePermBoxes('staff');
         loadStaff();
     } else {
         alert(data.error || 'Failed to add user');
@@ -1335,11 +1415,10 @@ window.updateStaffRole = async (id, username, newRole) => {
     
     const data = await res.json();
     if (res.ok) {
-        // Success
-        console.log(`Role for ${username} updated to ${newRole}`);
+        loadStaff();
     } else {
         alert(data.error || 'Failed to update role');
-        loadStaff(); // Reset UI
+        loadStaff();
     }
 };
 
@@ -1359,7 +1438,7 @@ window.resetStaffPassword = async (id, username) => {
 };
 
 // ==========================================
-// ROLE BASED ACCESS
+// ROLE & PERMISSIONS BASED ACCESS
 // ==========================================
 async function checkRole() {
     try {
@@ -1367,17 +1446,48 @@ async function checkRole() {
         const user = await res.json();
         
         const isSuperAdmin = user.username === 'admin' || user.role === 'super_admin';
+        const userPerms = (user.permissions || '').split(',').map(p => p.trim());
         
+        // Always hide staff management tab for non-superadmins
+        const navStaff = document.getElementById('nav-staff');
         if (!isSuperAdmin) {
-            // Hide the Coupons and Staff tabs for non-admin staff
-            const navCoupons = document.getElementById('nav-coupons');
-            const navStaff = document.getElementById('nav-staff');
-            if (navCoupons) navCoupons.style.display = 'none';
             if (navStaff) navStaff.style.display = 'none';
         } else {
-            // Load these tabs for super admins
             loadCoupons();
             loadStaff();
+        }
+
+        // Granular sidebar button controls based on assigned permissions
+        const tabMappings = {
+            'bookings': document.querySelector('.nav-btn[data-target="tab-bookings"]'),
+            'inventory_matrix': document.querySelector('.nav-btn[data-target="tab-inventory-matrix"]'),
+            'availability': document.querySelector('.nav-btn[data-target="tab-availability"]'),
+            'coupons': document.getElementById('nav-coupons'),
+            'instructors': document.getElementById('nav-instructors'),
+            'products': document.getElementById('nav-inventory'),
+            'newsletter': document.getElementById('nav-newsletter'),
+            'settings': document.getElementById('nav-settings')
+        };
+
+        if (!isSuperAdmin) {
+            let firstActive = null;
+            Object.keys(tabMappings).forEach(key => {
+                const btn = tabMappings[key];
+                if (!btn) return;
+                const hasAccess = userPerms.includes(key) || user.permissions === 'all';
+                if (!hasAccess) {
+                    btn.style.display = 'none';
+                } else {
+                    btn.style.display = 'flex';
+                    if (!firstActive) firstActive = btn;
+                }
+            });
+
+            // If active tab was hidden, auto-select first allowed tab
+            const currentActiveBtn = document.querySelector('.nav-btn.active');
+            if (currentActiveBtn && currentActiveBtn.style.display === 'none' && firstActive) {
+                firstActive.click();
+            }
         }
     } catch (e) {
         console.error('Failed to check role', e);

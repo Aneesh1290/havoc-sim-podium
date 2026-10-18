@@ -114,8 +114,12 @@ const verifySuperAdmin = (req, res, next) => {
 };
 
 app.get('/api/admin/me', verifyToken, (req, res) => {
-    // We could query DB for latest role, but JWT role is usually fine for session
-    res.json({ username: req.user.username, role: req.user.role });
+    db.get("SELECT username, role, permissions FROM admin_auth WHERE id = ?", [req.user.id], (err, user) => {
+        if (!err && user) {
+            return res.json({ username: user.username, role: user.role, permissions: user.permissions || 'all' });
+        }
+        res.json({ username: req.user.username, role: req.user.role, permissions: 'all' });
+    });
 });
 
 // Newsletter Subscription
@@ -318,7 +322,7 @@ app.post('/api/admin/change-my-password', verifyToken, async (req, res) => {
 
 // Get all staff users (Protected, Admin only)
 app.get('/api/admin/users', verifyToken, verifySuperAdmin, (req, res) => {
-    db.all("SELECT id, username, role FROM admin_auth", [], (err, rows) => {
+    db.all("SELECT id, username, role, permissions FROM admin_auth ORDER BY id ASC", [], (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         res.json(rows);
     });
@@ -326,17 +330,18 @@ app.get('/api/admin/users', verifyToken, verifySuperAdmin, (req, res) => {
 
 // Add a new staff user (Protected, Admin only)
 app.post('/api/admin/users', verifyToken, verifySuperAdmin, async (req, res) => {
-    const { username, password, role } = req.body;
+    const { username, password, role, permissions } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
     
     const userRole = role === 'super_admin' ? 'super_admin' : 'staff';
+    const userPerms = userRole === 'super_admin' ? 'all' : (Array.isArray(permissions) ? permissions.join(',') : (permissions || 'bookings,availability'));
     
     try {
         const saltRounds = 10;
         const hash = await bcrypt.hash(password, saltRounds);
-        db.run("INSERT INTO admin_auth (username, password_hash, must_change_password, role) VALUES (?, ?, 1, ?)", [username, hash, userRole], function(err) {
+        db.run("INSERT INTO admin_auth (username, password_hash, must_change_password, role, permissions) VALUES (?, ?, 1, ?, ?)", [username, hash, userRole, userPerms], function(err) {
             if (err) {
-                if (err.message.includes('UNIQUE constraint failed')) {
+                if (err.message.includes('UNIQUE constraint failed') || (err.message.includes('duplicate key') && err.message.includes('username'))) {
                     return res.status(400).json({ error: 'Username already exists' });
                 }
                 return res.status(500).json({ error: 'Database error' });
@@ -348,10 +353,10 @@ app.post('/api/admin/users', verifyToken, verifySuperAdmin, async (req, res) => 
     }
 });
 
-// Update a staff user's role (Protected, Admin only)
+// Update a staff user's role and permissions (Protected, Admin only)
 app.put('/api/admin/users/:id/role', verifyToken, verifySuperAdmin, (req, res) => {
     const { id } = req.params;
-    const { role } = req.body;
+    const { role, permissions } = req.body;
     
     if (role !== 'super_admin' && role !== 'staff') {
         return res.status(400).json({ error: 'Invalid role' });
@@ -363,7 +368,9 @@ app.put('/api/admin/users/:id/role', verifyToken, verifySuperAdmin, (req, res) =
             return res.status(403).json({ error: 'Cannot change the primary admin account role' });
         }
         
-        db.run("UPDATE admin_auth SET role = ? WHERE id = ?", [role, id], (err) => {
+        const userPerms = role === 'super_admin' ? 'all' : (Array.isArray(permissions) ? permissions.join(',') : (permissions !== undefined ? permissions : 'bookings,availability'));
+        
+        db.run("UPDATE admin_auth SET role = ?, permissions = ? WHERE id = ?", [role, userPerms, id], (err) => {
             if (err) return res.status(500).json({ error: 'Error updating role' });
             res.json({ success: true });
         });

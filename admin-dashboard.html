@@ -1623,7 +1623,8 @@
                             <tr>
                                 <th>User ID</th>
                                 <th>Username</th>
-                                <th>Role & Action</th>
+                                <th>Assigned Permissions / Access</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody id="staffTableBody">
@@ -1649,13 +1650,44 @@
                             </div>
                         </div>
                         
-                        <div class="field" style="margin-bottom: 1.5rem;">
+                        <div class="field" style="margin-bottom: 1.2rem;">
                             <label>Role</label>
                             <div class="input-wrap">
-                                <select id="staffRole" style="width:100%; padding: 0.9rem 1.1rem; background: transparent !important; border: none !important; outline: none; color: #fff; font-family: 'Outfit', sans-serif; font-size: 0.95rem; display: block; appearance: none; -webkit-appearance: none;">
-                                    <option value="staff">Staff (Bookings & Availability)</option>
-                                    <option value="super_admin">Super Admin (Full Access)</option>
+                                <select id="staffRole" onchange="togglePermBoxes(this.value)" style="width:100%; padding: 0.9rem 1.1rem; background: transparent !important; border: none !important; outline: none; color: #fff; font-family: 'Outfit', sans-serif; font-size: 0.95rem; display: block; appearance: none; -webkit-appearance: none;">
+                                    <option value="staff">Custom Staff Access</option>
+                                    <option value="super_admin">Super Admin (All Permissions)</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        <!-- Permissions Checklist for Staff -->
+                        <div id="staffPermissionsBox" style="margin-bottom: 1.5rem; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 10px; padding: 1rem;">
+                            <label style="font-size: 0.75rem; text-transform: uppercase; color: var(--gold); font-weight: 700; letter-spacing: 1px; display: block; margin-bottom: 0.8rem;">Select Allowed Tabs & Modules</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; font-size: 0.85rem;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="newStaffPerm" value="bookings" checked> <span>📅 Bookings</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="newStaffPerm" value="inventory_matrix" checked> <span>📦 Inventory</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="newStaffPerm" value="availability" checked> <span>📅 Availability</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="newStaffPerm" value="coupons"> <span>🎟️ Coupons</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="newStaffPerm" value="instructors"> <span>🎓 Instructors</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="newStaffPerm" value="products"> <span>📦 Products</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="newStaffPerm" value="newsletter"> <span>📧 Newsletter</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="newStaffPerm" value="settings"> <span>⚙️ Settings</span>
+                                </label>
                             </div>
                         </div>
                         
