@@ -1210,7 +1210,7 @@ app.get('/api/availability/:date', (req, res) => {
     const { date } = req.params;
     const { item } = req.query;
 
-    let query = "SELECT booking_time FROM bookings WHERE booking_date = ? AND status IN ('PAID', 'ATTENDED', 'CASH', 'PENDING')";
+    let query = "SELECT booking_time, status, order_id, created_at FROM bookings WHERE booking_date = ? AND status IN ('PAID', 'ATTENDED', 'CASH', 'PENDING')";
     let params = [date];
 
     if (item) {
@@ -1220,10 +1220,25 @@ app.get('/api/availability/:date', (req, res) => {
 
     db.all(query, params, (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error' });
-        const bookedSlots = rows.map(r => r.booking_time);
+        
+        const now = Date.now();
+        const bookedSlots = [];
+
+        (rows || []).forEach(r => {
+            // Keep hard bookings (PAID, ATTENDED, CASH, or PAYDUE desk reservations)
+            if (r.status === 'PAID' || r.status === 'ATTENDED' || r.status === 'CASH' || (r.order_id && r.order_id.startsWith('PAYDUE_'))) {
+                if (!bookedSlots.includes(r.booking_time)) bookedSlots.push(r.booking_time);
+            } else if (r.status === 'PENDING') {
+                // Online pending: only block if under 5 minutes old
+                const ageMs = now - new Date(r.created_at).getTime();
+                if (ageMs <= 5 * 60 * 1000) {
+                    if (!bookedSlots.includes(r.booking_time)) bookedSlots.push(r.booking_time);
+                }
+            }
+        });
 
         // Also merge slot locks from shared simulator_slot_locks table (including RC Fun Zone combo passes)
-        let lockQuery = "SELECT booking_time FROM simulator_slot_locks WHERE (booking_date = ? OR booking_date = ?) AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
+        let lockQuery = "SELECT booking_time, status, source_order_id, created_at FROM simulator_slot_locks WHERE (booking_date = ? OR booking_date = ?) AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
         let lockParams = [date, date.replace(/ \([A-Za-z]+\)/, '')];
         if (item) {
             lockQuery += " AND simulator_name = ?";
@@ -1233,8 +1248,13 @@ app.get('/api/availability/:date', (req, res) => {
         db.all(lockQuery, lockParams, (lockErr, lockRows) => {
             if (!lockErr && lockRows) {
                 lockRows.forEach(lr => {
-                    if (!bookedSlots.includes(lr.booking_time)) {
-                        bookedSlots.push(lr.booking_time);
+                    if (lr.status === 'PAID' || lr.status === 'ATTENDED' || lr.status === 'CONFIRMED' || (lr.source_order_id && lr.source_order_id.startsWith('PAYDUE_'))) {
+                        if (!bookedSlots.includes(lr.booking_time)) bookedSlots.push(lr.booking_time);
+                    } else if (lr.status === 'PENDING') {
+                        const ageMs = now - new Date(lr.created_at).getTime();
+                        if (ageMs <= 5 * 60 * 1000) {
+                            if (!bookedSlots.includes(lr.booking_time)) bookedSlots.push(lr.booking_time);
+                        }
                     }
                 });
             }
@@ -1796,24 +1816,73 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                 if (!items || items.length === 0) return resolve(false);
                 let checkCount = 0;
                 let hasConflict = false;
+                const custEmail = (customer_details && customer_details.email) ? customer_details.email.trim().toLowerCase() : '';
+                const custPhone = (customer_details && customer_details.phone) ? customer_details.phone.replace(/[^\d]/g, '') : '';
+
                 items.forEach(item => {
-                    let query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND item_name = ?";
+                    let query = "SELECT id, status, email, phone, created_at, order_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND item_name = ?";
                     let params = [item.date, item.time, item.item_name];
                     if (item.instructor_id) {
-                        query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
+                        query = "SELECT id, status, email, phone, created_at, order_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
                         params = [item.date, item.time, item.item_name, item.instructor_id];
                     }
                     
-                    db.get(query, params, (err, row) => {
+                    db.all(query, params, (err, rows) => {
                         if (err) return reject(err);
-                        if (row && row.count > 0) hasConflict = true;
+                        if (rows && rows.length > 0) {
+                            for (const r of rows) {
+                                // Confirmed/paid/attended/desk bookings are always a hard block
+                                if (r.status === 'PAID' || r.status === 'SUCCESS' || r.status === 'CASH' || (r.order_id && r.order_id.startsWith('PAYDUE_'))) {
+                                    hasConflict = true;
+                                    break;
+                                }
+                                
+                                // For online PENDING attempts:
+                                const rEmail = (r.email || '').trim().toLowerCase();
+                                const rPhone = (r.phone || '').replace(/[^\d]/g, '');
+                                const isSameCustomer = (custEmail && rEmail === custEmail) || (custPhone && rPhone && rPhone === custPhone);
+                                
+                                if (isSameCustomer) {
+                                    // It's the same customer's prior abandoned pending attempt! Allow them to supersede it
+                                    continue;
+                                }
+
+                                // If pending attempt was by someone else, check if older than 5 minutes
+                                const bookingAgeMs = Date.now() - new Date(r.created_at).getTime();
+                                if (bookingAgeMs > 5 * 60 * 1000) {
+                                    // Expired abandoned attempt, ignore conflict
+                                    continue;
+                                }
+
+                                hasConflict = true;
+                                break;
+                            }
+                        }
 
                         // Also check shared simulator_slot_locks (for locks from RC Fun Zone or other channels)
-                        const lockQuery = "SELECT COUNT(*) as count FROM simulator_slot_locks WHERE simulator_name = ? AND (booking_date = ? OR booking_date = ?) AND booking_time = ? AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
+                        const lockQuery = "SELECT simulator_name, booking_date, booking_time, status, customer_phone, source_order_id, created_at FROM simulator_slot_locks WHERE simulator_name = ? AND (booking_date = ? OR booking_date = ?) AND booking_time = ? AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
                         const lockParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
 
-                        db.get(lockQuery, lockParams, (lockErr, lockRow) => {
-                            if (!lockErr && lockRow && lockRow.count > 0) hasConflict = true;
+                        db.all(lockQuery, lockParams, (lockErr, lockRows) => {
+                            if (!lockErr && lockRows && lockRows.length > 0) {
+                                for (const lr of lockRows) {
+                                    if (lr.status === 'PAID' || lr.status === 'ATTENDED' || lr.status === 'CONFIRMED' || (lr.source_order_id && lr.source_order_id.startsWith('PAYDUE_'))) {
+                                        hasConflict = true;
+                                        break;
+                                    }
+                                    const lockPhone = (lr.customer_phone || '').replace(/[^\d]/g, '');
+                                    if (custPhone && lockPhone && lockPhone === custPhone) {
+                                        // Same customer's prior pending lock
+                                        continue;
+                                    }
+                                    const lockAgeMs = Date.now() - new Date(lr.created_at).getTime();
+                                    if (lockAgeMs > 5 * 60 * 1000) {
+                                        continue;
+                                    }
+                                    hasConflict = true;
+                                    break;
+                                }
+                            }
                             checkCount++;
                             if (checkCount === items.length) resolve(hasConflict);
                         });
@@ -2062,12 +2131,12 @@ app.get('/', (req, res) => {
 });
 
 // ---- Background Cleanup Job ----
-// Auto-delete pending bookings older than 15 minutes
+// Auto-delete abandoned online pending bookings older than 5 minutes (runs every 60 seconds)
 setInterval(() => {
     const isProd = process.env.NODE_ENV === 'production';
     const query = isProd 
-        ? `DELETE FROM bookings WHERE status = 'PENDING' AND order_id NOT LIKE 'PAYDUE%' AND created_at <= NOW() - INTERVAL '15 minutes'`
-        : `DELETE FROM bookings WHERE status = 'PENDING' AND order_id NOT LIKE 'PAYDUE%' AND datetime(created_at) <= datetime('now', '-15 minutes')`;
+        ? `DELETE FROM bookings WHERE status = 'PENDING' AND order_id NOT LIKE 'PAYDUE%' AND created_at <= NOW() - INTERVAL '5 minutes'`
+        : `DELETE FROM bookings WHERE status = 'PENDING' AND order_id NOT LIKE 'PAYDUE%' AND datetime(created_at) <= datetime('now', '-5 minutes')`;
         
     db.run(query, function(err) {
         if (err) console.error("Cleanup Job Error:", err);
@@ -2075,7 +2144,7 @@ setInterval(() => {
             console.log(`[${new Date().toISOString()}] Cleanup: Auto-deleted ${this.changes} expired pending booking(s)`);
         }
     });
-}, 5 * 60 * 1000); // Run every 5 minutes
+}, 60 * 1000); // Check every minute so abandoned slots release promptly
 
 // ==========================================
 // ICICI UPI PAYMENT ROUTES

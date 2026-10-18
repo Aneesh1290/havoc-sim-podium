@@ -24,7 +24,8 @@ if (DB_URL) {
         let converted = sql.replace(/\?/g, () => `$${paramIndex++}`);
 
         // SQLite date/time conversions to PostgreSQL
-        converted = converted.replace(/datetime\(created_at\)\s*<=\s*datetime\('now',\s*'-15 minutes'\)/gi, "created_at <= NOW() - INTERVAL '15 minutes'");
+        converted = converted.replace(/datetime\(created_at\)\s*<=\s*datetime\('now',\s*'-5 minutes'\)/gi, "created_at <= NOW() - INTERVAL '5 minutes'");
+        converted = converted.replace(/datetime\(created_at\)\s*<=\s*datetime\('now',\s*'-15 minutes'\)/gi, "created_at <= NOW() - INTERVAL '5 minutes'");
         converted = converted.replace(/created_at\s*>=\s*date\('now',\s*\$([0-9]+)\)/gi, (m, g1) => `created_at >= NOW() - ($${g1}::text || ' days')::interval`);
         converted = converted.replace(/booking_date\s*>=\s*date\('now',\s*'-1 day'\)/gi, "1=1");
         converted = converted.replace(/date_str\s*>=\s*date\('now',\s*'-1 day'\)/gi, "1=1");
@@ -84,12 +85,18 @@ if (DB_URL) {
                     const cleanPrefix = String(match).replace(/%/g, '');
                     await pool.query(`UPDATE simulator_slot_locks SET status = 'ATTENDED' WHERE source_order_id LIKE $1`, [`${cleanPrefix}%`]);
                 }
+            } else if (lower.includes("update bookings set status = 'failed'") || lower.includes("update bookings set status = 'cancelled'")) {
+                const match = params && params[0];
+                if (match) {
+                    const cleanPrefix = String(match).replace(/%/g, '');
+                    await pool.query(`DELETE FROM simulator_slot_locks WHERE source_order_id LIKE $1`, [`${cleanPrefix}%`]);
+                }
             } else if (lower.includes('update bookings set status = ?')) {
                 const newStatus = (params[0] || '').toUpperCase();
                 const match = params[1];
                 if (match) {
                     const cleanPrefix = String(match).replace(/%/g, '');
-                    if (newStatus === 'CANCELLED') {
+                    if (newStatus === 'CANCELLED' || newStatus === 'FAILED') {
                         await pool.query(`DELETE FROM simulator_slot_locks WHERE source_order_id LIKE $1`, [`${cleanPrefix}%`]);
                     } else {
                         await pool.query(`UPDATE simulator_slot_locks SET status = $1 WHERE source_order_id LIKE $2`, [newStatus, `${cleanPrefix}%`]);
@@ -104,7 +111,7 @@ if (DB_URL) {
                     }
                 } else {
                     // Expired pending bookings cleanup (exclude PAYDUE desk bookings)
-                    await pool.query(`DELETE FROM simulator_slot_locks WHERE status = 'PENDING' AND source_order_id NOT LIKE 'PAYDUE%' AND created_at <= NOW() - INTERVAL '15 minutes'`);
+                    await pool.query(`DELETE FROM simulator_slot_locks WHERE status = 'PENDING' AND source_order_id NOT LIKE 'PAYDUE%' AND created_at <= NOW() - INTERVAL '5 minutes'`);
                 }
             }
         } catch (lockErr) {
