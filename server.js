@@ -1732,12 +1732,12 @@ app.post('/api/bookings/cod', async (req, res) => {
                     if (insertedCount === items.length) {
                         if (hasError) return res.status(500).json({ error: 'Database error while inserting items' });
                         
-                        // Send confirmation email for the first row as proxy
+                        // Send confirmation email for all booked items
                         db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`], (err, rows) => {
                             if (!err && rows && rows.length > 0) {
-                                if (rows[0].email) {
-                                    sendConfirmationEmail(rows[0]);
-                                }
+                                rows.forEach(r => {
+                                    if (r.email) sendConfirmationEmail(r);
+                                });
                                 rows.forEach(row => {
                                     if (row.instructor_id) {
                                         db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
@@ -1974,7 +1974,9 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                     if (!err && rows && rows.length > 0) {
                         try {
                             const mailer = require('./mailer');
-                            mailer.sendConfirmationEmail(rows[0]);
+                            rows.forEach(r => {
+                                if (r.email) mailer.sendConfirmationEmail(r);
+                            });
                             
                             if (rows[0].instructor_id) {
                                 db.get("SELECT * FROM instructors WHERE id = ?", [rows[0].instructor_id], (err, inst) => {
