@@ -1739,12 +1739,10 @@ app.post('/api/bookings/cod', async (req, res) => {
                     if (insertedCount === items.length) {
                         if (hasError) return res.status(500).json({ error: 'Database error while inserting items' });
                         
-                        // Send confirmation email for all booked items
+                        // Send single consolidated confirmation email for all booked items
                         db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`], (err, rows) => {
                             if (!err && rows && rows.length > 0) {
-                                rows.forEach(r => {
-                                    if (r.email) sendConfirmationEmail(r);
-                                });
+                                sendConfirmationEmail(rows);
                                 rows.forEach(row => {
                                     if (row.instructor_id) {
                                         db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
@@ -1981,9 +1979,7 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                     if (!err && rows && rows.length > 0) {
                         try {
                             const mailer = require('./mailer');
-                            rows.forEach(r => {
-                                if (r.email) mailer.sendConfirmationEmail(r);
-                            });
+                            mailer.sendConfirmationEmail(rows);
                             
                             if (rows[0].instructor_id) {
                                 db.get("SELECT * FROM instructors WHERE id = ?", [rows[0].instructor_id], (err, inst) => {
@@ -2212,9 +2208,7 @@ app.post('/api/upi/callback', async (req, res) => {
             db.run("UPDATE bookings SET status = 'PAID' WHERE order_id LIKE ?", [`${orderId}%`], () => {
                 db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${orderId}%`], (err, rows) => {
                     if (!err && rows && rows.length > 0) {
-                        if (rows[0].email) {
-                            sendConfirmationEmail(rows[0]);
-                        }
+                        sendConfirmationEmail(rows);
                         rows.forEach(row => {
                             if (row.instructor_id) {
                                 db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
