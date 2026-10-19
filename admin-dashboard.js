@@ -249,15 +249,23 @@ function renderBookings(bookingsToRender) {
             openOrderDetails(b.order_id);
         };
         let placedDateObj = new Date();
-        if(b.items[0].created_at) {
-            let dStr = b.items[0].created_at;
-            if(!dStr.includes('Z') && !dStr.includes('T')) dStr = dStr.replace(' ', 'T') + 'Z';
-            placedDateObj = new Date(dStr);
+        const firstCreated = b.items[0]?.created_at;
+        if(firstCreated) {
+            if (firstCreated instanceof Date) {
+                placedDateObj = firstCreated;
+            } else if (typeof firstCreated === 'string') {
+                let dStr = firstCreated;
+                if(!dStr.includes('Z') && !dStr.includes('T')) dStr = dStr.replace(' ', 'T') + 'Z';
+                placedDateObj = new Date(dStr);
+            } else {
+                placedDateObj = new Date(firstCreated);
+            }
         }
-        else if(b.items[0].booking_date) {
+        else if(b.items[0]?.booking_date) {
             placedDateObj = new Date(b.items[0].booking_date);
         }
         
+        if (isNaN(placedDateObj.getTime())) placedDateObj = new Date();
         const placedDateStr = placedDateObj.toLocaleString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'});
 
         tr.innerHTML = `
@@ -503,14 +511,21 @@ window.openOrderDetails = (baseOrderId) => {
     // Fallback date
     let placedDateObj = new Date();
     if(order.created_at) {
-        let dStr = order.created_at;
-        if(!dStr.includes('Z') && !dStr.includes('T')) dStr = dStr.replace(' ', 'T') + 'Z';
-        placedDateObj = new Date(dStr);
+        if (order.created_at instanceof Date) {
+            placedDateObj = order.created_at;
+        } else if (typeof order.created_at === 'string') {
+            let dStr = order.created_at;
+            if(!dStr.includes('Z') && !dStr.includes('T')) dStr = dStr.replace(' ', 'T') + 'Z';
+            placedDateObj = new Date(dStr);
+        } else {
+            placedDateObj = new Date(order.created_at);
+        }
     }
     else if(order.booking_date) {
         placedDateObj = new Date(order.booking_date);
     }
     
+    if (isNaN(placedDateObj.getTime())) placedDateObj = new Date();
     const placedDateStr = placedDateObj.toLocaleString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'});
     
     let itemsHtml = '';
