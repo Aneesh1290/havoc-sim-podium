@@ -3518,7 +3518,7 @@ document.getElementById("savePaymentSettingsBtn")?.addEventListener("click", asy
 });
 
 // ==========================================
-// PAYMENT LINKS UI CONTROLLERS
+// PAYMENT LINKS UI CONTROLLERS (PAGE & MODAL)
 // ==========================================
 
 let activeGeneratedPayUrl = '';
@@ -3526,75 +3526,21 @@ let activeGeneratedPayPhone = '';
 let activeGeneratedPayAmount = '';
 let activeGeneratedPayDesc = '';
 
-window.openPaymentLinkModal = () => {
-    const modal = document.getElementById('paymentLinkModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        switchPaymentLinkTab('create');
-        const form = document.getElementById('paymentLinkForm');
-        if (form) form.reset();
-        const successBox = document.getElementById('plSuccessBox');
-        if (successBox) successBox.style.display = 'none';
-        const submitBtn = document.getElementById('plSubmitBtn');
-        if (submitBtn) {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<span>Generate Link</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>';
-        }
-    }
-};
-
-window.closePaymentLinkModal = () => {
-    const modal = document.getElementById('paymentLinkModal');
-    if (modal) modal.style.display = 'none';
-};
-
-window.switchPaymentLinkTab = (tab) => {
-    const tabCreateBtn = document.getElementById('plTabCreate');
-    const tabHistoryBtn = document.getElementById('plTabHistory');
-    const viewCreate = document.getElementById('plViewCreate');
-    const viewHistory = document.getElementById('plViewHistory');
-
-    if (tab === 'create') {
-        if (tabCreateBtn) {
-            tabCreateBtn.style.background = 'rgba(229,184,105,0.15)';
-            tabCreateBtn.style.color = 'var(--gold)';
-            tabCreateBtn.style.border = '1px solid rgba(229,184,105,0.4)';
-            tabCreateBtn.style.fontWeight = '600';
-        }
-        if (tabHistoryBtn) {
-            tabHistoryBtn.style.background = 'transparent';
-            tabHistoryBtn.style.color = 'var(--muted)';
-            tabHistoryBtn.style.border = '1px solid var(--border)';
-            tabHistoryBtn.style.fontWeight = 'normal';
-        }
-        if (viewCreate) viewCreate.style.display = 'block';
-        if (viewHistory) viewHistory.style.display = 'none';
-    } else {
-        if (tabHistoryBtn) {
-            tabHistoryBtn.style.background = 'rgba(229,184,105,0.15)';
-            tabHistoryBtn.style.color = 'var(--gold)';
-            tabHistoryBtn.style.border = '1px solid rgba(229,184,105,0.4)';
-            tabHistoryBtn.style.fontWeight = '600';
-        }
-        if (tabCreateBtn) {
-            tabCreateBtn.style.background = 'transparent';
-            tabCreateBtn.style.color = 'var(--muted)';
-            tabCreateBtn.style.border = '1px solid var(--border)';
-            tabCreateBtn.style.fontWeight = 'normal';
-        }
-        if (viewCreate) viewCreate.style.display = 'none';
-        if (viewHistory) viewHistory.style.display = 'block';
-        loadPaymentLinksHistory();
-    }
-};
-
-window.submitCreatePaymentLink = async (e) => {
+// Dedicated Page Handlers
+window.submitCreatePaymentLinkPage = async (e) => {
     e.preventDefault();
-    const amount = document.getElementById('plAmount').value;
+    const amountInput = document.getElementById('plPageAmount');
+    const amount = amountInput ? amountInput.value : '';
+    if (!amount || parseFloat(amount) <= 0) {
+        alert('Please enter a valid amount.');
+        return;
+    }
 
-    const btn = document.getElementById('plSubmitBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span>Creating Link...</span>';
+    const btn = document.getElementById('plPageSubmitBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>Creating Link...</span>';
+    }
 
     try {
         const res = await fetchAuth('/api/admin/payment-links', {
@@ -3610,33 +3556,44 @@ window.submitCreatePaymentLink = async (e) => {
         activeGeneratedPayUrl = data.pay_url;
         activeGeneratedPayAmount = data.amount;
 
-        document.getElementById('plGeneratedUrl').value = data.pay_url;
-        document.getElementById('plPreviewLink').href = data.pay_url;
-        document.getElementById('plSuccessBox').style.display = 'block';
-        btn.innerHTML = '<span>✓ Link Generated</span>';
+        const urlInput = document.getElementById('plPageGeneratedUrl');
+        if (urlInput) urlInput.value = data.pay_url;
+
+        const successBox = document.getElementById('plPageSuccessBox');
+        if (successBox) successBox.style.display = 'block';
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span>Generate Another Link</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+        }
+
+        // Refresh list immediately so the new link appears on the right
+        loadPaymentLinksPageHistory();
 
     } catch (err) {
         console.error('Payment link creation error:', err);
         alert('Error: ' + err.message);
-        btn.disabled = false;
-        btn.innerHTML = '<span>Generate Link</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span>Generate Link</span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+        }
     }
 };
 
-window.copyPaymentLink = () => {
-    const input = document.getElementById('plGeneratedUrl');
-    if (input) {
+window.copyPaymentLinkPage = () => {
+    const input = document.getElementById('plPageGeneratedUrl');
+    if (input && input.value) {
         navigator.clipboard.writeText(input.value).then(() => {
-            const copyBtn = document.getElementById('plCopyBtn');
+            const copyBtn = document.getElementById('plPageCopyBtn');
             if (copyBtn) {
                 copyBtn.textContent = '✓ Copied!';
-                setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+                setTimeout(() => { copyBtn.textContent = '📋 Copy Link'; }, 2000);
             }
         });
     }
 };
 
-window.shareOnWhatsApp = () => {
+window.shareOnWhatsAppPage = () => {
     if (!activeGeneratedPayUrl) return;
     const msg = `Hi! Here is your secure payment link for Havoc Sim Podium:
 Amount: ₹${parseFloat(activeGeneratedPayAmount || 0).toFixed(2)}
@@ -3648,16 +3605,16 @@ ${activeGeneratedPayUrl}`;
     window.open(waUrl, '_blank');
 };
 
-async function loadPaymentLinksHistory() {
-    const list = document.getElementById('plHistoryList');
+window.loadPaymentLinksPageHistory = async () => {
+    const list = document.getElementById('plPageHistoryList');
     if (!list) return;
-    list.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 2rem 0;">Loading payment links...</div>';
+    list.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 2.5rem 0;">Loading payment links...</div>';
 
     try {
         const res = await fetchAuth('/api/admin/payment-links');
         const links = await res.json();
         if (!links || !links.length) {
-            list.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 2rem 0;">No payment links created yet.</div>';
+            list.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 2.5rem 0;">No payment links created yet. Fill the amount on the left to generate one.</div>';
             return;
         }
 
@@ -3672,17 +3629,20 @@ async function loadPaymentLinksHistory() {
             const fullUrl = `${base}/pay.html?id=${pl.link_id}`;
 
             html += `
-                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.2rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
                     <div>
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-weight: 700; color: #fff; font-size: 1.05rem;">₹${parseFloat(pl.amount).toFixed(2)}</span>
-                            <span style="background: ${statusBg}; color: ${statusColor}; border-radius: 12px; font-size: 0.7rem; font-weight: 700; padding: 2px 8px;">${pl.status}</span>
+                            <span style="font-weight: 700; color: #fff; font-size: 1.15rem;">₹${parseFloat(pl.amount).toFixed(2)}</span>
+                            <span style="background: ${statusBg}; color: ${statusColor}; border-radius: 12px; font-size: 0.72rem; font-weight: 700; padding: 2px 9px;">${pl.status}</span>
                         </div>
-                        <div style="font-size: 0.85rem; color: #fff; margin-top: 3px;"><span style="color: var(--gold); font-family: monospace;">#${pl.link_id}</span> • ${createdDate}</div>
+                        <div style="font-size: 0.85rem; color: #aaa; margin-top: 4px;">
+                            <span style="color: var(--gold); font-family: monospace;">#${pl.link_id}</span> • ${createdDate}
+                        </div>
                     </div>
-                    <div style="display: flex; gap: 6px; flex-shrink: 0;">
-                        <button class="btn" onclick="navigator.clipboard.writeText('${fullUrl}').then(() => alert('Link copied!'))" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid var(--border); font-size: 0.78rem; padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer;">Copy Link</button>
-                        <a href="${fullUrl}" target="_blank" style="padding: 0.4rem 0.7rem; background: rgba(229,184,105,0.15); color: var(--gold); border: 1px solid rgba(229,184,105,0.3); border-radius: 6px; text-decoration: none; font-size: 0.78rem; font-weight: 600;">Open ↗</a>
+                    <div style="display: flex; gap: 8px; flex-shrink: 0;">
+                        <button class="btn" onclick="navigator.clipboard.writeText('${fullUrl}').then(() => alert('Link copied to clipboard!'))" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid var(--border); font-size: 0.82rem; padding: 0.45rem 0.85rem; border-radius: 8px; cursor: pointer;">📋 Copy</button>
+                        <a href="https://api.whatsapp.com/send?text=${encodeURIComponent(`Hi! Here is your payment link for Havoc Sim Podium: ₹${parseFloat(pl.amount).toFixed(2)}\n${fullUrl}`)}" target="_blank" style="padding: 0.45rem 0.85rem; background: rgba(37,211,102,0.15); color: #25D366; border: 1px solid rgba(37,211,102,0.3); border-radius: 8px; text-decoration: none; font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">💬 WhatsApp</a>
+                        <a href="${fullUrl}" target="_blank" style="padding: 0.45rem 0.85rem; background: rgba(229,184,105,0.15); color: var(--gold); border: 1px solid rgba(229,184,105,0.3); border-radius: 8px; text-decoration: none; font-size: 0.82rem; font-weight: 600;">Open ↗</a>
                     </div>
                 </div>
             `;
@@ -3691,7 +3651,13 @@ async function loadPaymentLinksHistory() {
         list.innerHTML = html;
     } catch (e) {
         console.error('Load history error:', e);
-        list.innerHTML = '<div style="color: #ef4444; text-align: center; padding: 2rem 0;">Error loading payment links.</div>';
+        list.innerHTML = '<div style="color: #ef4444; text-align: center; padding: 2.5rem 0;">Error loading payment links.</div>';
     }
-}
+};
+
+// Wire up sidebar tab click listener to automatically load history
+document.getElementById('nav-payment-links')?.addEventListener('click', () => {
+    window.loadPaymentLinksPageHistory();
+});
+
 
