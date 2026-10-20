@@ -49,6 +49,44 @@ db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS whatsapp_consent INTEGER D
     }
 });
 
+// Ensure payment_links table exists for custom admin payment requests
+db.run(`
+    CREATE TABLE IF NOT EXISTS payment_links (
+        id SERIAL PRIMARY KEY,
+        link_id TEXT UNIQUE NOT NULL,
+        customer_name TEXT,
+        customer_phone TEXT,
+        customer_email TEXT,
+        amount REAL NOT NULL,
+        description TEXT,
+        status TEXT DEFAULT 'PENDING',
+        icici_order_id TEXT,
+        icici_txn_id TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        paid_at TIMESTAMP
+    )
+`, [], (err) => {
+    if (err) {
+        // SQLite fallback
+        db.run(`
+            CREATE TABLE IF NOT EXISTS payment_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                link_id TEXT UNIQUE NOT NULL,
+                customer_name TEXT,
+                customer_phone TEXT,
+                customer_email TEXT,
+                amount REAL NOT NULL,
+                description TEXT,
+                status TEXT DEFAULT 'PENDING',
+                icici_order_id TEXT,
+                icici_txn_id TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                paid_at TIMESTAMP
+            )
+        `, [], () => {});
+    }
+});
+
 // Redirect all secondary domains to canonical https://www.havocsim.in
 app.use((req, res, next) => {
     const host = req.hostname;
@@ -2058,6 +2096,35 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
         if (body.responseCode === "0000") {
             // Payment success!
             const txnID = body.txnID || body.paymentID || null;
+
+            // Check if this was a custom payment link (starts with PL_)
+            if (baseOrderId.startsWith('PL_')) {
+                db.run("UPDATE payment_links SET status = 'PAID', icici_txn_id = ?, paid_at = CURRENT_TIMESTAMP WHERE link_id = ?", [txnID, baseOrderId], () => {
+                    db.get("SELECT * FROM payment_links WHERE link_id = ?", [baseOrderId], (err, plRow) => {
+                        if (!err && plRow && plRow.customer_email) {
+                            try {
+                                const mailer = require('./mailer');
+                                // Send payment receipt email if email exists
+                                mailer.sendConfirmationEmail([{
+                                    order_id: plRow.link_id,
+                                    name: plRow.customer_name || 'Customer',
+                                    email: plRow.customer_email,
+                                    phone: plRow.customer_phone,
+                                    item_name: plRow.description || 'Custom Payment',
+                                    price: plRow.amount,
+                                    booking_date: new Date().toLocaleDateString('en-GB'),
+                                    booking_time: 'Completed',
+                                    status: 'PAID'
+                                }]);
+                            } catch (e) {
+                                console.error("Payment link email failed:", e);
+                            }
+                        }
+                    });
+                });
+                return res.redirect(`/pay.html?id=${baseOrderId}&status=success`);
+            }
+
             db.run("UPDATE bookings SET status = 'PAID', icici_txn_id = ? WHERE order_id LIKE ?", [txnID, `${baseOrderId}%`], () => {
                 // Fetch booking details and send confirmation email
                 db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`], (err, rows) => {
@@ -2083,6 +2150,10 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
         } else {
             // Payment Failed or Cancelled
             console.error('ICICI Payment Failed:', body.respDescription);
+            if (baseOrderId.startsWith('PL_')) {
+                db.run("UPDATE payment_links SET status = 'FAILED' WHERE link_id = ?", [baseOrderId]);
+                return res.redirect(`/pay.html?id=${baseOrderId}&status=failed&error=${encodeURIComponent(body.respDescription || 'Payment Failed')}`);
+            }
             db.run("UPDATE bookings SET status = 'FAILED' WHERE order_id LIKE ?", [`${baseOrderId}%`]);
             return res.redirect('/checkout.html?error=Payment Failed or Cancelled');
         }
@@ -2093,12 +2164,174 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
 });
 
 // ==========================================
+// PAYMENT LINKS (Custom Admin Payment Requests)
+// ==========================================
+
+// Create a new Payment Link (Protected - Admin only)
+app.post('/api/admin/payment-links', verifyToken, async (req, res) => {
+    try {
+        const { amount, customer_name, customer_phone, customer_email, description } = req.body;
+        const numAmount = parseFloat(amount);
+        if (!numAmount || isNaN(numAmount) || numAmount <= 0) {
+            return res.status(400).json({ error: 'Valid amount is required' });
+        }
+
+        // Generate clean unique link ID (e.g. PL_A8F2K9) - within 15 chars for ICICI compatibility
+        const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const linkId = `PL_${shortCode}`;
+
+        const finalName = (customer_name || '').trim();
+        const finalPhone = (customer_phone || '').trim();
+        const finalEmail = (customer_email || '').trim();
+        const finalDesc = (description || 'Custom Payment').trim();
+
+        db.run(
+            `INSERT INTO payment_links (link_id, customer_name, customer_phone, customer_email, amount, description, status)
+             VALUES (?, ?, ?, ?, ?, ?, 'PENDING')`,
+            [linkId, finalName, finalPhone, finalEmail, numAmount, finalDesc],
+            function(err) {
+                if (err) {
+                    console.error("Create payment link error:", err);
+                    return res.status(500).json({ error: 'Failed to create payment link in database' });
+                }
+
+                const isProd = process.env.NODE_ENV === 'production' || ICICI_ENV === 'live';
+                const baseUrl = isProd ? 'https://www.havocsim.in' : `${req.protocol}://${req.get('host')}`;
+                const payUrl = `${baseUrl}/pay.html?id=${linkId}`;
+
+                res.json({
+                    success: true,
+                    link_id: linkId,
+                    amount: numAmount,
+                    customer_name: finalName,
+                    customer_phone: finalPhone,
+                    customer_email: finalEmail,
+                    description: finalDesc,
+                    pay_url: payUrl
+                });
+            }
+        );
+    } catch (e) {
+        console.error("Create payment link exception:", e);
+        res.status(500).json({ error: 'Internal server error creating payment link' });
+    }
+});
+
+// Get all Payment Links (Protected - Admin only)
+app.get('/api/admin/payment-links', verifyToken, (req, res) => {
+    db.all("SELECT * FROM payment_links ORDER BY created_at DESC LIMIT 100", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error fetching payment links' });
+        res.json(rows || []);
+    });
+});
+
+// Public: Get details of a Payment Link for the payer page
+app.get('/api/pay-link/:linkId', (req, res) => {
+    const { linkId } = req.params;
+    db.get("SELECT link_id, customer_name, customer_phone, customer_email, amount, description, status, created_at, paid_at FROM payment_links WHERE link_id = ?", [linkId], (err, row) => {
+        if (err || !row) return res.status(404).json({ error: 'Payment link not found or expired' });
+        res.json(row);
+    });
+});
+
+// Public: Initiate ICICI gateway payment for a Payment Link
+app.post('/api/pay-link/:linkId/initiate', async (req, res) => {
+    const { linkId } = req.params;
+    const { customer_name, customer_phone, customer_email } = req.body || {};
+
+    db.get("SELECT * FROM payment_links WHERE link_id = ?", [linkId], async (err, plRow) => {
+        if (err || !plRow) {
+            return res.status(404).json({ error: 'Payment link not found' });
+        }
+        if (plRow.status === 'PAID') {
+            return res.status(400).json({ error: 'This payment link has already been paid.' });
+        }
+
+        const finalName = (customer_name || plRow.customer_name || 'Customer').trim();
+        const finalEmail = (customer_email || plRow.customer_email || 'guest@havocsim.in').trim();
+        const rawPhone = (customer_phone || plRow.customer_phone || '9999999999').trim();
+        const digitsOnly = rawPhone.replace(/\D/g, '');
+        const cleanMobile = digitsOnly.length >= 10 ? digitsOnly.slice(-10) : digitsOnly.padStart(10, '9');
+
+        const orderAmount = parseFloat(plRow.amount).toFixed(2);
+
+        // Build Request Payload using IST
+        const istDateStr = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        }).format(new Date());
+        const txnDate = istDateStr.replace(/\D/g, '');
+
+        const isProd = process.env.NODE_ENV === 'production' || ICICI_ENV === 'live';
+        const returnBase = isProd ? 'https://www.havocsim.in' : `${req.protocol}://${req.get('host')}`;
+
+        const payload = {
+            "merchantId": ICICI_MERCHANT_ID,
+            "merchantTxnNo": plRow.link_id,
+            "amount": orderAmount,
+            "aggregatorID": ICICI_AGGREGATOR_ID,
+            "currencyCode": "356",
+            "payType": "0",
+            "customerEmailID": finalEmail,
+            "transactionType": "SALE",
+            "txnDate": txnDate,
+            "returnURL": `${returnBase}/api/payment/icici/callback`,
+            "customerMobileNo": cleanMobile,
+            "customerName": finalName
+        };
+
+        payload.secureHash = generateIciciHash(payload);
+
+        try {
+            const response = await fetch(`${getIciciBaseUrl()}/initiateSale`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await response.json();
+            if (data.responseCode !== "R1000") {
+                console.error('ICICI initiateSale error response for pay link:', data);
+                return res.status(500).json({ 
+                    error: data.responseDescription || 'Failed to initiate ICICI PG payment link',
+                    code: data.responseCode
+                });
+            }
+
+            res.json({
+                redirectURI: data.redirectURI,
+                tranCtx: data.tranCtx,
+                order_id: plRow.link_id
+            });
+        } catch (gatewayErr) {
+            console.error('Create ICICI payment link API error:', gatewayErr);
+            res.status(500).json({ error: 'Failed to communicate with ICICI Gateway' });
+        }
+    });
+});
+
+// ==========================================
 
 // ---- POST /verify-payment ----
 app.post('/verify-payment', (req, res) => {
     const { order_id } = req.body;
 
     // First check the database. For ICICI, the callback updates the DB before redirecting here.
+    if (order_id && order_id.startsWith('PL_')) {
+        return db.get("SELECT status FROM payment_links WHERE link_id = ?", [order_id], (err, row) => {
+            if (!err && row && row.status === 'PAID') {
+                return res.json({ success: true, status: 'PAID' });
+            }
+            return res.json({ success: false, status: (row && row.status) || 'PENDING' });
+        });
+    }
+
     db.get("SELECT status FROM bookings WHERE order_id LIKE ?", [`${order_id}%`], async (err, row) => {
         if (!err && row && row.status === 'PAID') {
             return res.json({ success: true, status: 'PAID' });

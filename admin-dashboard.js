@@ -3516,3 +3516,198 @@ document.getElementById("savePaymentSettingsBtn")?.addEventListener("click", asy
         btn.disabled = false;
     }
 });
+
+// ==========================================
+// PAYMENT LINKS UI CONTROLLERS
+// ==========================================
+
+let activeGeneratedPayUrl = '';
+let activeGeneratedPayPhone = '';
+let activeGeneratedPayAmount = '';
+let activeGeneratedPayDesc = '';
+
+window.openPaymentLinkModal = () => {
+    const modal = document.getElementById('paymentLinkModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        switchPaymentLinkTab('create');
+        const form = document.getElementById('paymentLinkForm');
+        if (form) form.reset();
+        const successBox = document.getElementById('plSuccessBox');
+        if (successBox) successBox.style.display = 'none';
+        const submitBtn = document.getElementById('plSubmitBtn');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span>Generate Link</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+        }
+    }
+};
+
+window.closePaymentLinkModal = () => {
+    const modal = document.getElementById('paymentLinkModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.switchPaymentLinkTab = (tab) => {
+    const tabCreateBtn = document.getElementById('plTabCreate');
+    const tabHistoryBtn = document.getElementById('plTabHistory');
+    const viewCreate = document.getElementById('plViewCreate');
+    const viewHistory = document.getElementById('plViewHistory');
+
+    if (tab === 'create') {
+        if (tabCreateBtn) {
+            tabCreateBtn.style.background = 'rgba(229,184,105,0.15)';
+            tabCreateBtn.style.color = 'var(--gold)';
+            tabCreateBtn.style.border = '1px solid rgba(229,184,105,0.4)';
+            tabCreateBtn.style.fontWeight = '600';
+        }
+        if (tabHistoryBtn) {
+            tabHistoryBtn.style.background = 'transparent';
+            tabHistoryBtn.style.color = 'var(--muted)';
+            tabHistoryBtn.style.border = '1px solid var(--border)';
+            tabHistoryBtn.style.fontWeight = 'normal';
+        }
+        if (viewCreate) viewCreate.style.display = 'block';
+        if (viewHistory) viewHistory.style.display = 'none';
+    } else {
+        if (tabHistoryBtn) {
+            tabHistoryBtn.style.background = 'rgba(229,184,105,0.15)';
+            tabHistoryBtn.style.color = 'var(--gold)';
+            tabHistoryBtn.style.border = '1px solid rgba(229,184,105,0.4)';
+            tabHistoryBtn.style.fontWeight = '600';
+        }
+        if (tabCreateBtn) {
+            tabCreateBtn.style.background = 'transparent';
+            tabCreateBtn.style.color = 'var(--muted)';
+            tabCreateBtn.style.border = '1px solid var(--border)';
+            tabCreateBtn.style.fontWeight = 'normal';
+        }
+        if (viewCreate) viewCreate.style.display = 'none';
+        if (viewHistory) viewHistory.style.display = 'block';
+        loadPaymentLinksHistory();
+    }
+};
+
+window.submitCreatePaymentLink = async (e) => {
+    e.preventDefault();
+    const amount = document.getElementById('plAmount').value;
+    const name = document.getElementById('plName').value;
+    const phone = document.getElementById('plPhone').value;
+    const email = document.getElementById('plEmail').value;
+    const desc = document.getElementById('plDescription').value;
+
+    const btn = document.getElementById('plSubmitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span>Creating Link...</span>';
+
+    try {
+        const res = await fetchAuth('/api/admin/payment-links', {
+            method: 'POST',
+            body: JSON.stringify({
+                amount,
+                customer_name: name,
+                customer_phone: phone,
+                customer_email: email,
+                description: desc
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.error || 'Failed to create payment link');
+        }
+
+        activeGeneratedPayUrl = data.pay_url;
+        activeGeneratedPayPhone = data.customer_phone;
+        activeGeneratedPayAmount = data.amount;
+        activeGeneratedPayDesc = data.description || 'Havoc Sim Podium Experience';
+
+        document.getElementById('plGeneratedUrl').value = data.pay_url;
+        document.getElementById('plPreviewLink').href = data.pay_url;
+        document.getElementById('plSuccessBox').style.display = 'block';
+        btn.innerHTML = '<span>✓ Link Generated</span>';
+
+    } catch (err) {
+        console.error('Payment link creation error:', err);
+        alert('Error: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = '<span>Generate Link</span><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+    }
+};
+
+window.copyPaymentLink = () => {
+    const input = document.getElementById('plGeneratedUrl');
+    if (input) {
+        navigator.clipboard.writeText(input.value).then(() => {
+            const copyBtn = document.getElementById('plCopyBtn');
+            if (copyBtn) {
+                copyBtn.textContent = '✓ Copied!';
+                setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+            }
+        });
+    }
+};
+
+window.shareOnWhatsApp = () => {
+    if (!activeGeneratedPayUrl) return;
+    const cleanPhone = (activeGeneratedPayPhone || '').replace(/\D/g, '');
+    const phoneParam = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+    const msg = `Hi! Here is your secure payment link for Havoc Sim Podium:
+Amount: ₹${parseFloat(activeGeneratedPayAmount || 0).toFixed(2)}
+Purpose: ${activeGeneratedPayDesc}
+
+Click here to complete payment online:
+${activeGeneratedPayUrl}`;
+
+    const waUrl = `https://wa.me/${phoneParam}?text=${encodeURIComponent(msg)}`;
+    window.open(waUrl, '_blank');
+};
+
+async function loadPaymentLinksHistory() {
+    const list = document.getElementById('plHistoryList');
+    if (!list) return;
+    list.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 2rem 0;">Loading payment links...</div>';
+
+    try {
+        const res = await fetchAuth('/api/admin/payment-links');
+        const links = await res.json();
+        if (!links || !links.length) {
+            list.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 2rem 0;">No payment links created yet.</div>';
+            return;
+        }
+
+        let html = '';
+        links.forEach(pl => {
+            const isPaid = pl.status === 'PAID';
+            const statusColor = isPaid ? '#22c55e' : (pl.status === 'FAILED' ? '#ef4444' : '#f59e0b');
+            const statusBg = isPaid ? 'rgba(34,197,94,0.12)' : (pl.status === 'FAILED' ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)');
+            const createdDate = pl.created_at ? new Date(pl.created_at).toLocaleDateString('en-IN', {month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : '-';
+            const isProd = window.location.hostname !== 'localhost';
+            const base = isProd ? 'https://www.havocsim.in' : window.location.origin;
+            const fullUrl = `${base}/pay.html?id=${pl.link_id}`;
+
+            html += `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-weight: 700; color: #fff; font-size: 1.05rem;">₹${parseFloat(pl.amount).toFixed(2)}</span>
+                            <span style="background: ${statusBg}; color: ${statusColor}; border-radius: 12px; font-size: 0.7rem; font-weight: 700; padding: 2px 8px;">${pl.status}</span>
+                        </div>
+                        <div style="font-size: 0.85rem; color: #fff; margin-top: 3px;">${pl.customer_name || 'Customer'} • <span style="color: var(--muted);">${pl.customer_phone || 'No phone'}</span></div>
+                        <div style="font-size: 0.75rem; color: var(--muted); margin-top: 2px;">${pl.description || 'Custom payment'} • ${createdDate}</div>
+                    </div>
+                    <div style="display: flex; gap: 6px; flex-shrink: 0;">
+                        <button class="btn" onclick="navigator.clipboard.writeText('${fullUrl}').then(() => alert('Link copied!'))" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid var(--border); font-size: 0.78rem; padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer;">Copy Link</button>
+                        <a href="${fullUrl}" target="_blank" style="padding: 0.4rem 0.7rem; background: rgba(229,184,105,0.15); color: var(--gold); border: 1px solid rgba(229,184,105,0.3); border-radius: 6px; text-decoration: none; font-size: 0.78rem; font-weight: 600;">Open ↗</a>
+                    </div>
+                </div>
+            `;
+        });
+
+        list.innerHTML = html;
+    } catch (e) {
+        console.error('Load history error:', e);
+        list.innerHTML = '<div style="color: #ef4444; text-align: center; padding: 2rem 0;">Error loading payment links.</div>';
+    }
+}
+
