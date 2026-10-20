@@ -77,11 +77,36 @@ db.run(`
                 customer_email TEXT,
                 amount REAL NOT NULL,
                 description TEXT,
-                status TEXT DEFAULT 'PENDING',
-                icici_order_id TEXT,
-                icici_txn_id TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 paid_at TIMESTAMP
+            )
+        `, [], () => {});
+    }
+});
+
+// Ensure blocked_slots table exists for global/date/simulator slot blocking
+db.run(`
+    CREATE TABLE IF NOT EXISTS blocked_slots (
+        id SERIAL PRIMARY KEY,
+        simulator_name TEXT DEFAULT 'ALL',
+        booking_date TEXT NOT NULL,
+        time_slot TEXT NOT NULL,
+        reason TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        CONSTRAINT unique_sim_block UNIQUE (simulator_name, booking_date, time_slot)
+    )
+`, [], (err) => {
+    if (err) {
+        // SQLite fallback
+        db.run(`
+            CREATE TABLE IF NOT EXISTS blocked_slots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                simulator_name TEXT DEFAULT 'ALL',
+                booking_date TEXT NOT NULL,
+                time_slot TEXT NOT NULL,
+                reason TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(simulator_name, booking_date, time_slot)
             )
         `, [], () => {});
     }
@@ -1304,7 +1329,29 @@ app.get('/api/availability/:date', (req, res) => {
                     }
                 });
             }
-            res.json({ bookedSlots });
+
+            // Also merge admin-blocked slots/dates from blocked_slots table
+            const altDate = date.replace(/ \([A-Za-z]+\)/, '');
+            let blockQuery = "SELECT time_slot, simulator_name FROM blocked_slots WHERE (booking_date = ? OR booking_date = ? OR booking_date = 'ALL')";
+            let blockParams = [date, altDate];
+            if (item) {
+                blockQuery += " AND (simulator_name = ? OR simulator_name = 'ALL')";
+                blockParams.push(item);
+            }
+
+            db.all(blockQuery, blockParams, (blockErr, blockRows) => {
+                if (!blockErr && blockRows) {
+                    blockRows.forEach(br => {
+                        if (br.time_slot === 'ALL_DAY') {
+                            // If entire day is blocked, add all standard slots or mark with ALL_DAY
+                            if (!bookedSlots.includes('ALL_DAY')) bookedSlots.push('ALL_DAY');
+                        } else {
+                            if (!bookedSlots.includes(br.time_slot)) bookedSlots.push(br.time_slot);
+                        }
+                    });
+                }
+                res.json({ bookedSlots });
+            });
         });
     });
 });
@@ -1537,8 +1584,97 @@ app.get('/api/admin/bookings/date/:date', verifyToken, (req, res) => {
                     });
                 });
             }
-            res.json(allRows);
+
+            // Also include admin-blocked slots so availability grid displays them as Unavailable / Blocked
+            db.all("SELECT * FROM blocked_slots WHERE (booking_date = ? OR booking_date = ? OR booking_date = 'ALL')", [date, altDate], (blockErr, blockRows) => {
+                if (!blockErr && blockRows) {
+                    blockRows.forEach(br => {
+                        allRows.push({
+                            id: `block_${br.id}`,
+                            order_id: `BLOCKED_${br.id}`,
+                            name: br.reason ? `Blocked: ${br.reason}` : 'Admin Blocked',
+                            phone: '',
+                            email: '',
+                            item_name: br.simulator_name === 'ALL' ? '' : br.simulator_name,
+                            booking_date: date,
+                            booking_time: br.time_slot,
+                            status: 'BLOCKED',
+                            is_admin_blocked: true,
+                            reason: br.reason || ''
+                        });
+                    });
+                }
+                res.json(allRows);
+            });
         });
+    });
+});
+
+// ==========================================
+// BLOCKED SLOTS MANAGEMENT ROUTES
+// ==========================================
+
+// Get all blocked slots (Protected)
+app.get('/api/admin/blocked-slots', verifyToken, (req, res) => {
+    db.all("SELECT * FROM blocked_slots ORDER BY id DESC", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows || []);
+    });
+});
+
+// Block slot(s) or dates (Protected)
+app.post('/api/admin/blocked-slots', verifyToken, (req, res) => {
+    const { simulator_name, booking_date, time_slots, reason } = req.body;
+
+    if (!booking_date) {
+        return res.status(400).json({ error: 'booking_date is required.' });
+    }
+
+    const simName = simulator_name || 'ALL';
+    const slots = Array.isArray(time_slots) ? time_slots : (time_slots ? [time_slots] : ['ALL_DAY']);
+    const cleanReason = (reason || '').trim();
+
+    let completed = 0;
+    let errors = [];
+
+    slots.forEach(slot => {
+        const query = `
+            INSERT INTO blocked_slots (simulator_name, booking_date, time_slot, reason)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (simulator_name, booking_date, time_slot)
+            DO UPDATE SET reason = excluded.reason
+        `;
+        db.run(query, [simName, booking_date, slot, cleanReason], function(err) {
+            if (err) {
+                // SQLite fallback if ON CONFLICT syntax differs
+                db.run("DELETE FROM blocked_slots WHERE simulator_name = ? AND booking_date = ? AND time_slot = ?", [simName, booking_date, slot], () => {
+                    db.run("INSERT INTO blocked_slots (simulator_name, booking_date, time_slot, reason) VALUES (?, ?, ?, ?)", [simName, booking_date, slot, cleanReason], (insErr) => {
+                        if (insErr) errors.push(insErr.message);
+                        completed++;
+                        if (completed === slots.length) {
+                            if (errors.length > 0 && completed === errors.length) {
+                                return res.status(500).json({ error: 'Failed to block slots' });
+                            }
+                            res.json({ success: true, count: completed });
+                        }
+                    });
+                });
+                return;
+            }
+            completed++;
+            if (completed === slots.length) {
+                res.json({ success: true, count: completed });
+            }
+        });
+    });
+});
+
+// Unblock a slot by id (Protected)
+app.delete('/api/admin/blocked-slots/:id', verifyToken, (req, res) => {
+    const { id } = req.params;
+    db.run("DELETE FROM blocked_slots WHERE id = ?", [id], function(err) {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json({ success: true, deleted: this.changes });
     });
 });
 
@@ -1751,8 +1887,15 @@ app.post('/api/bookings/cod', async (req, res) => {
 
                     db.get(lockQuery, lockParams, (lockErr, lockRow) => {
                         if (!lockErr && lockRow && lockRow.count > 0) hasConflict = true;
-                        checkCount++;
-                        if (checkCount === items.length) resolve(hasConflict);
+
+                        // Also check admin blocked_slots
+                        const bQuery = "SELECT COUNT(*) as count FROM blocked_slots WHERE (simulator_name = ? OR simulator_name = 'ALL') AND (booking_date = ? OR booking_date = ? OR booking_date = 'ALL') AND (time_slot = ? OR time_slot = 'ALL_DAY')";
+                        const bParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
+                        db.get(bQuery, bParams, (bErr, bRow) => {
+                            if (!bErr && bRow && bRow.count > 0) hasConflict = true;
+                            checkCount++;
+                            if (checkCount === items.length) resolve(hasConflict);
+                        });
                     });
                 });
             });
@@ -1937,8 +2080,15 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                                     break;
                                 }
                             }
-                            checkCount++;
-                            if (checkCount === items.length) resolve(hasConflict);
+
+                            // Also check admin blocked_slots
+                            const bQuery = "SELECT COUNT(*) as count FROM blocked_slots WHERE (simulator_name = ? OR simulator_name = 'ALL') AND (booking_date = ? OR booking_date = ? OR booking_date = 'ALL') AND (time_slot = ? OR time_slot = 'ALL_DAY')";
+                            const bParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
+                            db.get(bQuery, bParams, (bErr, bRow) => {
+                                if (!bErr && bRow && bRow.count > 0) hasConflict = true;
+                                checkCount++;
+                                if (checkCount === items.length) resolve(hasConflict);
+                            });
                         });
                     });
                 });
@@ -2429,8 +2579,15 @@ app.post('/api/upi/collect', async (req, res) => {
 
                         db.get(lockQuery, lockParams, (lockErr, lockRow) => {
                             if (!lockErr && lockRow && lockRow.count > 0) hasConflict = true;
-                            checkCount++;
-                            if (checkCount === items.length) resolve(hasConflict);
+
+                            // Also check admin blocked_slots
+                            const bQuery = "SELECT COUNT(*) as count FROM blocked_slots WHERE (simulator_name = ? OR simulator_name = 'ALL') AND (booking_date = ? OR booking_date = ? OR booking_date = 'ALL') AND (time_slot = ? OR time_slot = 'ALL_DAY')";
+                            const bParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
+                            db.get(bQuery, bParams, (bErr, bRow) => {
+                                if (!bErr && bRow && bRow.count > 0) hasConflict = true;
+                                checkCount++;
+                                if (checkCount === items.length) resolve(hasConflict);
+                            });
                         });
                     });
                 });

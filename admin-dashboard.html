@@ -1551,32 +1551,183 @@
         </div>
 
         <div id="tab-availability" class="tab-content">
-            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <h1 class="page-title">Slot <span>Availability</span></h1>
-                <div style="display: flex; align-items: center; gap: 1rem;">
-                    <label style="color: var(--muted); font-size: 0.9rem; font-weight: 600;">Select Date:</label>
-                    <select id="availDateSelect" style="padding: 0.6rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit'; font-size: 1rem; outline: none; cursor: pointer; min-width: 150px;">
-                        <!-- Populated by JS with dates like Aug 31 -->
-                    </select>
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h1 class="page-title">Slot <span>Availability & Blocking</span></h1>
+                    <p style="color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem;">View live schedule availability across simulators, or block custom dates & time slots.</p>
+                </div>
+                
+                <!-- Sub Tab Switcher: Schedule vs Block Slots -->
+                <div style="display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 12px; border: 1px solid var(--border);">
+                    <button type="button" id="availSubTabSchedule" onclick="switchAvailSubTab('schedule')" class="btn" style="padding: 0.5rem 1.1rem; border-radius: 8px; font-size: 0.88rem; font-weight: 600; background: rgba(229,184,105,0.15); color: var(--gold); border: 1px solid rgba(229,184,105,0.4); cursor: pointer;">
+                        📅 Live Schedule
+                    </button>
+                    <button type="button" id="availSubTabBlock" onclick="switchAvailSubTab('block')" class="btn" style="padding: 0.5rem 1.1rem; border-radius: 8px; font-size: 0.88rem; font-weight: 500; background: transparent; color: var(--muted); border: 1px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                        <span>🛡️</span> Block / Disable Slots
+                    </button>
                 </div>
             </div>
 
-            <div class="sim-filters" id="simFilters" style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap; background: var(--card-bg); padding: 0.5rem; border-radius: 12px; border: 1px solid var(--border);">
-                <!-- Buttons injected by JS -->
+            <!-- SUB VIEW 1: LIVE SCHEDULE -->
+            <div id="availViewSchedule">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 0.8rem;">
+                    <div class="sim-filters" id="simFilters" style="display: flex; gap: 0.5rem; flex-wrap: wrap; background: var(--card-bg); padding: 0.5rem; border-radius: 12px; border: 1px solid var(--border);">
+                        <!-- Buttons injected by JS -->
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.8rem;">
+                        <label style="color: var(--muted); font-size: 0.88rem; font-weight: 600;">Date:</label>
+                        <select id="availDateSelect" style="padding: 0.55rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none; cursor: pointer; min-width: 170px;">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                </div>
+
+                <div id="availGridContainer" class="availability-grid">
+                    <!-- Cards injected by JS -->
+                </div>
+                
+                <div style="margin-top: 1.5rem; display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--muted);">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 16px; height: 16px; border-radius: 4px; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3);"></div>
+                        Available for Booking
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <div style="width: 16px; height: 16px; border-radius: 4px; background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3);"></div>
+                        Booked / Unavailable / Admin Blocked
+                    </div>
+                </div>
             </div>
 
-            <div id="availGridContainer" class="availability-grid">
-                <!-- Cards injected by JS -->
-            </div>
-            
-            <div style="margin-top: 1.5rem; display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--muted);">
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <div style="width: 16px; height: 16px; border-radius: 4px; background: rgba(74,222,128,0.1); border: 1px solid rgba(74,222,128,0.3);"></div>
-                    Available for Walk-ins
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <div style="width: 16px; height: 16px; border-radius: 4px; background: rgba(248,113,113,0.15); border: 1px solid rgba(248,113,113,0.3);"></div>
-                    Booked / Unavailable
+            <!-- SUB VIEW 2: BLOCK / DISABLE SLOTS -->
+            <div id="availViewBlock" style="display: none;">
+                <div style="display: grid; grid-template-columns: 460px 1fr; gap: 2rem; align-items: start;">
+                    
+                    <!-- Left: Block Form -->
+                    <div class="data-card" style="background: var(--card2); border: 1px solid var(--border); border-radius: 16px; padding: 1.8rem;">
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1.4rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--border);">
+                            <span style="font-size: 1.3rem;">🛡️</span>
+                            <h2 style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #fff;">Block / Disable Slot</h2>
+                        </div>
+
+                        <form id="blockSlotForm" onsubmit="submitBlockSlots(event)">
+                            <!-- Scope Selector -->
+                            <div style="margin-bottom: 1.3rem;">
+                                <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 0.6rem;">
+                                    WHAT WOULD YOU LIKE TO BLOCK?
+                                </label>
+                                <div style="display: flex; flex-direction: column; gap: 0.55rem;">
+                                    <label id="blockScopeCardSpecific" class="block-scope-label" style="display: flex; align-items: flex-start; gap: 12px; padding: 0.85rem 1rem; border-radius: 12px; border: 1px solid var(--gold); background: rgba(229,184,105,0.08); cursor: pointer; transition: all 0.2s;">
+                                        <input type="radio" name="blockScope" value="specific_slot" checked onchange="handleBlockScopeChange(this.value)" style="margin-top: 3px; accent-color: var(--gold);">
+                                        <div>
+                                            <div style="font-size: 0.92rem; font-weight: 700; color: #fff;">Specific Slot(s) on Date</div>
+                                            <div style="font-size: 0.78rem; color: var(--muted); margin-top: 2px;">Pick any combination of hourly/half-hourly slots</div>
+                                        </div>
+                                    </label>
+
+                                    <label id="blockScopeCardDay" class="block-scope-label" style="display: flex; align-items: flex-start; gap: 12px; padding: 0.85rem 1rem; border-radius: 12px; border: 1px solid var(--border); background: rgba(255,255,255,0.02); cursor: pointer; transition: all 0.2s;">
+                                        <input type="radio" name="blockScope" value="entire_day" onchange="handleBlockScopeChange(this.value)" style="margin-top: 3px; accent-color: var(--gold);">
+                                        <div>
+                                            <div style="font-size: 0.92rem; font-weight: 700; color: #fff;">Entire Day (Close Sim Podium Date)</div>
+                                            <div style="font-size: 0.78rem; color: var(--muted); margin-top: 2px;">Locks all slots for that entire date</div>
+                                        </div>
+                                    </label>
+
+                                    <label id="blockScopeCardRecurring" class="block-scope-label" style="display: flex; align-items: flex-start; gap: 12px; padding: 0.85rem 1rem; border-radius: 12px; border: 1px solid var(--border); background: rgba(255,255,255,0.02); cursor: pointer; transition: all 0.2s;">
+                                        <input type="radio" name="blockScope" value="slot_all_dates" onchange="handleBlockScopeChange(this.value)" style="margin-top: 3px; accent-color: var(--gold);">
+                                        <div>
+                                            <div style="font-size: 0.92rem; font-weight: 700; color: #fff;">Recurring Slot Across All Dates</div>
+                                            <div style="font-size: 0.78rem; color: var(--muted); margin-top: 2px;">Block a specific hour permanently</div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Simulator Target -->
+                            <div style="margin-bottom: 1.2rem;">
+                                <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 0.5rem;">
+                                    APPLIES TO SIMULATOR
+                                </label>
+                                <select id="blockSimulatorSelect" style="width: 100%; padding: 0.75rem 1rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                                    <option value="ALL">All Simulators (Entire Center)</option>
+                                    <option value="RC Flying Sim">RC Flying Sim</option>
+                                    <option value="Flight Sim Pro (Airbus Edition)">Flight Sim Pro (Airbus Edition)</option>
+                                    <option value="Flight Sim Pro (Boeing Edition)">Flight Sim Pro (Boeing Edition)</option>
+                                    <option value="Race Sim GT">Race Sim GT</option>
+                                    <option value="Race Sim F1">Race Sim F1</option>
+                                    <option value="Race Sim Jr.">Race Sim Jr.</option>
+                                    <option value="Race Sim Beginner">Race Sim Beginner</option>
+                                </select>
+                            </div>
+
+                            <!-- Date Picker Row -->
+                            <div id="blockDateRow" style="margin-bottom: 1.2rem;">
+                                <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 0.5rem;">
+                                    SELECT DATE *
+                                </label>
+                                <select id="blockDateSelect" required style="width: 100%; padding: 0.75rem 1rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: inherit; font-size: 0.95rem; font-weight: 600; outline: none;">
+                                    <!-- Populated by JS -->
+                                </select>
+                            </div>
+
+                            <!-- Slots Multi-Select Grid -->
+                            <div id="blockSlotsSection" style="margin-bottom: 1.2rem;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                                    <label style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted);">
+                                        SELECT TIME SLOT(S) *
+                                    </label>
+                                    <div style="display: flex; gap: 8px; font-size: 0.78rem;">
+                                        <button type="button" onclick="selectAllBlockSlots()" style="background: transparent; border: none; color: var(--gold); font-weight: 700; cursor: pointer;">Select All</button>
+                                        <span style="color: var(--border);">•</span>
+                                        <button type="button" onclick="clearBlockSlots()" style="background: transparent; border: none; color: var(--muted); cursor: pointer;">Reset</button>
+                                    </div>
+                                </div>
+
+                                <div id="blockSlotsGrid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 220px; overflow-y: auto; padding: 8px; background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 12px;">
+                                    <!-- Slots buttons injected by JS -->
+                                </div>
+                                <p style="font-size: 0.75rem; color: var(--muted); margin-top: 0.5rem;">
+                                    💡 Click on slots to toggle them. You have selected <strong id="blockSelectedCountText" style="color: #ef4444;">0 slots</strong> to block together.
+                                </p>
+                            </div>
+
+                            <!-- Reason / Note -->
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 0.5rem;">
+                                    REASON / NOTE (OPTIONAL)
+                                </label>
+                                <input type="text" id="blockReasonInput" placeholder="e.g. Maintenance, Private corporate event, Track cleaning" style="width: 100%; padding: 0.75rem 1rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: inherit; font-size: 0.88rem; outline: none;">
+                            </div>
+
+                            <button type="submit" id="blockSubmitBtn" class="btn" style="width: 100%; padding: 0.9rem; background: #dc2626; color: #fff; font-weight: 700; font-size: 0.95rem; border: none; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(220,38,38,0.3); transition: all 0.2s;">
+                                <span>🚫</span>
+                                <span>CONFIRM & BLOCK SLOT(S)</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Right: Currently Blocked Slots List -->
+                    <div class="data-card" style="background: var(--card2); border: 1px solid var(--border); border-radius: 16px; padding: 1.8rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 0.8rem; padding-bottom: 0.9rem; border-bottom: 1px solid var(--border);">
+                            <div>
+                                <h3 style="margin: 0; font-size: 1.2rem; font-weight: 700; color: #fff;">
+                                    Currently Blocked Slots (<span id="blockedListCount">0</span>)
+                                </h3>
+                                <p style="margin: 3px 0 0; font-size: 0.8rem; color: var(--muted);">
+                                    These slots or dates will display as "(Unavailable)" on the public booking page.
+                                </p>
+                            </div>
+
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input type="text" id="blockedSearchInput" oninput="filterBlockedSlotsList()" placeholder="Filter by date or slot..." style="padding: 0.45rem 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 0.82rem; outline: none; width: 180px;">
+                                <button type="button" onclick="loadBlockedSlotsList()" style="background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 8px; padding: 0.45rem 0.75rem; font-size: 0.82rem; cursor: pointer;">↻</button>
+                            </div>
+                        </div>
+
+                        <!-- Blocked List Container -->
+                        <div id="blockedSlotsItemsContainer" style="display: flex; flex-direction: column; gap: 10px; max-height: 580px; overflow-y: auto; padding-right: 4px;">
+                            <div style="color: var(--muted); text-align: center; padding: 3rem 0;">Loading blocked slots...</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2452,6 +2603,6 @@
             </div>
         </div>
     </div>
-    <script src="admin-dashboard.js?v=10"></script>
+    <script src="admin-dashboard.js?v=11"></script>
 </body>
 </html>

@@ -953,6 +953,351 @@ async function loadAvailability() {
 }
 
 // ==========================================
+// BLOCK / DISABLE SLOTS CONTROLLER LOGIC
+// ==========================================
+
+let currentBlockScope = 'specific_slot'; // 'specific_slot' | 'entire_day' | 'slot_all_dates'
+let selectedBlockSlots = [];
+let allBlockedSlotsCache = [];
+
+window.switchAvailSubTab = (tab) => {
+    const tabSched = document.getElementById('availSubTabSchedule');
+    const tabBlock = document.getElementById('availSubTabBlock');
+    const viewSched = document.getElementById('availViewSchedule');
+    const viewBlock = document.getElementById('availViewBlock');
+
+    if (tab === 'schedule') {
+        if (tabSched) {
+            tabSched.style.background = 'rgba(229,184,105,0.15)';
+            tabSched.style.color = 'var(--gold)';
+            tabSched.style.border = '1px solid rgba(229,184,105,0.4)';
+            tabSched.style.fontWeight = '600';
+        }
+        if (tabBlock) {
+            tabBlock.style.background = 'transparent';
+            tabBlock.style.color = 'var(--muted)';
+            tabBlock.style.border = '1px solid transparent';
+            tabBlock.style.fontWeight = 'normal';
+        }
+        if (viewSched) viewSched.style.display = 'block';
+        if (viewBlock) viewBlock.style.display = 'none';
+        loadAvailability();
+    } else {
+        if (tabBlock) {
+            tabBlock.style.background = 'rgba(229,184,105,0.15)';
+            tabBlock.style.color = 'var(--gold)';
+            tabBlock.style.border = '1px solid rgba(229,184,105,0.4)';
+            tabBlock.style.fontWeight = '600';
+        }
+        if (tabSched) {
+            tabSched.style.background = 'transparent';
+            tabSched.style.color = 'var(--muted)';
+            tabSched.style.border = '1px solid transparent';
+            tabSched.style.fontWeight = 'normal';
+        }
+        if (viewSched) viewSched.style.display = 'none';
+        if (viewBlock) viewBlock.style.display = 'block';
+        initBlockSlotForm();
+        loadBlockedSlotsList();
+    }
+};
+
+window.handleBlockScopeChange = (scope) => {
+    currentBlockScope = scope;
+
+    const cardSpecific = document.getElementById('blockScopeCardSpecific');
+    const cardDay = document.getElementById('blockScopeCardDay');
+    const cardRecurring = document.getElementById('blockScopeCardRecurring');
+
+    [cardSpecific, cardDay, cardRecurring].forEach(c => {
+        if (!c) return;
+        c.style.border = '1px solid var(--border)';
+        c.style.background = 'rgba(255,255,255,0.02)';
+    });
+
+    if (scope === 'specific_slot' && cardSpecific) {
+        cardSpecific.style.border = '1px solid var(--gold)';
+        cardSpecific.style.background = 'rgba(229,184,105,0.08)';
+    } else if (scope === 'entire_day' && cardDay) {
+        cardDay.style.border = '1px solid var(--gold)';
+        cardDay.style.background = 'rgba(229,184,105,0.08)';
+    } else if (scope === 'slot_all_dates' && cardRecurring) {
+        cardRecurring.style.border = '1px solid var(--gold)';
+        cardRecurring.style.background = 'rgba(229,184,105,0.08)';
+    }
+
+    const dateRow = document.getElementById('blockDateRow');
+    const slotsSection = document.getElementById('blockSlotsSection');
+
+    if (scope === 'entire_day') {
+        if (dateRow) dateRow.style.display = 'block';
+        if (slotsSection) slotsSection.style.display = 'none';
+    } else if (scope === 'slot_all_dates') {
+        if (dateRow) dateRow.style.display = 'none';
+        if (slotsSection) slotsSection.style.display = 'block';
+    } else {
+        if (dateRow) dateRow.style.display = 'block';
+        if (slotsSection) slotsSection.style.display = 'block';
+    }
+};
+
+window.initBlockSlotForm = () => {
+    const dateSelect = document.getElementById('blockDateSelect');
+    if (dateSelect && dateSelect.options.length === 0) {
+        const today = new Date();
+        const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        for (let i = 0; i < 90; i++) {
+            const d = new Date(today);
+            d.setDate(today.getDate() + i);
+            const label = `${monthNames[d.getMonth()]} ${d.getDate()} (${dayNames[d.getDay()]})`;
+            const option = document.createElement('option');
+            option.value = label;
+            option.textContent = i === 0 ? `Today (${label})` : label;
+            dateSelect.appendChild(option);
+        }
+    }
+
+    renderBlockSlotsGrid();
+};
+
+window.renderBlockSlotsGrid = () => {
+    const grid = document.getElementById('blockSlotsGrid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    TIME_SLOTS.forEach(slot => {
+        const isSelected = selectedBlockSlots.includes(slot);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.onclick = () => toggleBlockSlot(slot);
+        btn.style.padding = '0.6rem 0.4rem';
+        btn.style.borderRadius = '8px';
+        btn.style.border = isSelected ? '1px solid #ef4444' : '1px solid var(--border)';
+        btn.style.background = isSelected ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.03)';
+        btn.style.color = isSelected ? '#ef4444' : '#fff';
+        btn.style.cursor = 'pointer';
+        btn.style.display = 'flex';
+        btn.style.flexDirection = 'column';
+        btn.style.alignItems = 'center';
+        btn.style.gap = '2px';
+        btn.style.fontSize = '0.78rem';
+        btn.style.fontWeight = '700';
+
+        btn.innerHTML = `
+            <span>${slot}</span>
+            <span style="font-size: 0.65rem; text-transform: uppercase; color: ${isSelected ? '#f87171' : 'var(--muted)'}; font-weight: 600;">
+                ${isSelected ? 'Selected' : 'Available'}
+            </span>
+        `;
+        grid.appendChild(btn);
+    });
+
+    updateBlockSelectedCount();
+};
+
+window.toggleBlockSlot = (slot) => {
+    if (selectedBlockSlots.includes(slot)) {
+        selectedBlockSlots = selectedBlockSlots.filter(s => s !== slot);
+    } else {
+        selectedBlockSlots.push(slot);
+    }
+    renderBlockSlotsGrid();
+};
+
+window.selectAllBlockSlots = () => {
+    selectedBlockSlots = [...TIME_SLOTS];
+    renderBlockSlotsGrid();
+};
+
+window.clearBlockSlots = () => {
+    selectedBlockSlots = [];
+    renderBlockSlotsGrid();
+};
+
+function updateBlockSelectedCount() {
+    const el = document.getElementById('blockSelectedCountText');
+    if (el) {
+        el.textContent = `${selectedBlockSlots.length} slot${selectedBlockSlots.length !== 1 ? 's' : ''}`;
+    }
+}
+
+window.submitBlockSlots = async (e) => {
+    e.preventDefault();
+
+    const simSelect = document.getElementById('blockSimulatorSelect');
+    const simName = simSelect ? simSelect.value : 'ALL';
+    const dateSelect = document.getElementById('blockDateSelect');
+    const reasonInput = document.getElementById('blockReasonInput');
+    const reason = reasonInput ? reasonInput.value.trim() : '';
+
+    let booking_date = dateSelect ? dateSelect.value : '';
+    let time_slots = [];
+
+    if (currentBlockScope === 'entire_day') {
+        time_slots = ['ALL_DAY'];
+    } else if (currentBlockScope === 'slot_all_dates') {
+        booking_date = 'ALL';
+        if (selectedBlockSlots.length === 0) {
+            alert('Please select at least 1 slot to block.');
+            return;
+        }
+        time_slots = [...selectedBlockSlots];
+    } else {
+        // specific_slot
+        if (selectedBlockSlots.length === 0) {
+            alert('Please select at least 1 slot to block.');
+            return;
+        }
+        time_slots = [...selectedBlockSlots];
+    }
+
+    const btn = document.getElementById('blockSubmitBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>Blocking Slots...</span>';
+    }
+
+    try {
+        const res = await fetchAuth('/api/admin/blocked-slots', {
+            method: 'POST',
+            body: JSON.stringify({
+                simulator_name: simName,
+                booking_date,
+                time_slots,
+                reason
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+            throw new Error(data.error || 'Failed to block slots');
+        }
+
+        alert('✓ Selected slots/dates have been blocked successfully!');
+        if (reasonInput) reasonInput.value = '';
+        selectedBlockSlots = [];
+        renderBlockSlotsGrid();
+        loadBlockedSlotsList();
+
+    } catch (err) {
+        console.error('Error blocking slot:', err);
+        alert('Error: ' + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span>🚫</span><span>CONFIRM & BLOCK SLOT(S)</span>';
+        }
+    }
+};
+
+window.loadBlockedSlotsList = async () => {
+    const container = document.getElementById('blockedSlotsItemsContainer');
+    const countEl = document.getElementById('blockedListCount');
+    if (!container) return;
+
+    container.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 3rem 0;">Loading blocked slots...</div>';
+
+    try {
+        const res = await fetchAuth('/api/admin/blocked-slots');
+        const list = await res.json();
+        allBlockedSlotsCache = list || [];
+        if (countEl) countEl.textContent = allBlockedSlotsCache.length;
+        renderFilteredBlockedSlots(allBlockedSlotsCache);
+    } catch (err) {
+        console.error('Failed to load blocked slots:', err);
+        container.innerHTML = '<div style="color: #ef4444; text-align: center; padding: 2rem 0;">Failed to load blocked slots.</div>';
+    }
+};
+
+window.filterBlockedSlotsList = () => {
+    const q = (document.getElementById('blockedSearchInput')?.value || '').toLowerCase().trim();
+    if (!q) {
+        renderFilteredBlockedSlots(allBlockedSlotsCache);
+        return;
+    }
+    const filtered = allBlockedSlotsCache.filter(item => {
+        return (item.booking_date || '').toLowerCase().includes(q) ||
+               (item.time_slot || '').toLowerCase().includes(q) ||
+               (item.simulator_name || '').toLowerCase().includes(q) ||
+               (item.reason || '').toLowerCase().includes(q);
+    });
+    renderFilteredBlockedSlots(filtered);
+};
+
+function renderFilteredBlockedSlots(list) {
+    const container = document.getElementById('blockedSlotsItemsContainer');
+    if (!container) return;
+
+    if (!list || list.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 3.5rem 1rem; color: var(--muted); border: 1px dashed var(--border); border-radius: 14px;">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">✓</div>
+                <div style="font-weight: 700; color: #fff; font-size: 1rem;">No Blocked Slots Found</div>
+                <p style="font-size: 0.8rem; margin: 4px 0 0; color: var(--muted);">All operating slots are open for customer booking.</p>
+            </div>
+        `;
+        return;
+    }
+
+    let html = '';
+    list.forEach(item => {
+        const isAllDay = item.time_slot === 'ALL_DAY';
+        const isAllDates = item.booking_date === 'ALL';
+        const simLabel = (item.simulator_name && item.simulator_name !== 'ALL') ? item.simulator_name : 'All Simulators';
+
+        let dateDisplay = isAllDates ? 'All Dates (Recurring)' : item.booking_date;
+        let slotDisplay = isAllDay ? 'Entire Day Locked' : item.time_slot;
+
+        html += `
+            <div style="padding: 1rem 1.2rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 36px; height: 36px; border-radius: 50%; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #ef4444; display: flex; align-items: center; justify-content: center; font-size: 1rem; flex-shrink: 0;">
+                        ⏰
+                    </div>
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                            <span style="font-weight: 700; color: #fff; font-size: 0.95rem;">${dateDisplay}</span>
+                            <span style="background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); border-radius: 10px; font-size: 0.72rem; font-weight: 700; padding: 2px 8px;">
+                                ${slotDisplay}
+                            </span>
+                            <span style="background: rgba(229,184,105,0.12); color: var(--gold); border-radius: 10px; font-size: 0.7rem; font-weight: 600; padding: 2px 7px;">
+                                ${simLabel}
+                            </span>
+                        </div>
+                        <div style="font-size: 0.8rem; color: #aaa; margin-top: 3px;">
+                            ${item.reason ? `<em>"${item.reason}"</em>` : '<span style="color:var(--muted)">No reason specified</span>'}
+                        </div>
+                    </div>
+                </div>
+
+                <button type="button" onclick="unblockSlotItem(${item.id})" style="background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); border-radius: 8px; padding: 0.45rem 0.9rem; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+                    <span>🗑️</span> Unblock
+                </button>
+            </div>
+        `;
+    });
+
+    container.innerHTML = html;
+}
+
+window.unblockSlotItem = async (id) => {
+    if (!confirm('Are you sure you want to unblock this slot/date and make it available for booking again?')) return;
+
+    try {
+        const res = await fetchAuth(`/api/admin/blocked-slots/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+            loadBlockedSlotsList();
+        } else {
+            alert(data.error || 'Failed to unblock slot');
+        }
+    } catch (err) {
+        alert('Network error unblocking slot: ' + err.message);
+    }
+};
+
+// ==========================================
 // WALK-IN MODAL LOGIC
 // ==========================================
 window.openWalkinModal = (sim, time, date) => {
