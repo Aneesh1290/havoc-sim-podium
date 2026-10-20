@@ -1359,6 +1359,7 @@ window.togglePermBoxes = function(role) {
 // Map of permission keys to labels and navigation selectors
 const PERMISSION_CONFIG = [
     { key: 'bookings', label: '📅 Bookings', navId: 'tab-bookings' },
+    { key: 'payment_links', label: '🔗 Payment Links', navId: 'tab-payment-links' },
     { key: 'inventory_matrix', label: '📦 Inventory', navId: 'tab-inventory-matrix' },
     { key: 'availability', label: '📅 Availability', navId: 'tab-availability' },
     { key: 'coupons', label: '🎟️ Coupons', navId: 'nav-coupons' },
@@ -1556,6 +1557,7 @@ async function checkRole() {
         // Granular sidebar button controls based on assigned permissions
         const tabMappings = {
             'bookings': document.querySelector('.nav-btn[data-target="tab-bookings"]'),
+            'payment_links': document.getElementById('nav-payment-links'),
             'inventory_matrix': document.querySelector('.nav-btn[data-target="tab-inventory-matrix"]'),
             'availability': document.querySelector('.nav-btn[data-target="tab-availability"]'),
             'coupons': document.getElementById('nav-coupons'),
