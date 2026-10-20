@@ -2114,9 +2114,12 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
         }
 
         const orderNo = await getNextOrderNumber();
-        // ICICI requires merchantTxnNo to be globally unique across all attempts (strictly <= 20 chars).
-        // Format: PAID_SP_40 (length ~10 chars)
-        const baseOrderId = `PAID_SP_${orderNo}`;
+        // ICICI requires merchantTxnNo to be globally unique across ALL attempts (strictly <= 20 chars).
+        // If an attempt fails, is cancelled, or was deleted from DB, ICICI permanently rejects reusing the same reference.
+        // We append a compact 4-digit timestamp suffix so every attempt is guaranteed unique.
+        // Format: PAID_SP_41_5821 (length ~15 chars <= 20 chars)
+        const attemptSuffix = Date.now().toString().slice(-4);
+        const baseOrderId = `PAID_SP_${orderNo}_${attemptSuffix}`;
 
         let insertedCount = 0;
         const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
@@ -2249,8 +2252,12 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
 
             // Check if this was a custom payment link (starts with PL_)
             if (baseOrderId.startsWith('PL_')) {
-                db.run("UPDATE payment_links SET status = 'PAID', icici_txn_id = ?, paid_at = CURRENT_TIMESTAMP WHERE link_id = ?", [txnID, baseOrderId], () => {
-                    db.get("SELECT * FROM payment_links WHERE link_id = ?", [baseOrderId], (err, plRow) => {
+                // If merchantTxnNo is e.g. PL_A8F2K9_5821, extract original link_id: PL_A8F2K9
+                const parts = baseOrderId.split('_');
+                const linkId = parts.length >= 3 ? `${parts[0]}_${parts[1]}` : baseOrderId;
+
+                db.run("UPDATE payment_links SET status = 'PAID', icici_txn_id = ?, paid_at = CURRENT_TIMESTAMP WHERE link_id = ?", [txnID, linkId], () => {
+                    db.get("SELECT * FROM payment_links WHERE link_id = ?", [linkId], (err, plRow) => {
                         if (!err && plRow && plRow.customer_email) {
                             try {
                                 const mailer = require('./mailer');
@@ -2272,7 +2279,7 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                         }
                     });
                 });
-                return res.redirect(`/pay.html?id=${baseOrderId}&status=success`);
+                return res.redirect(`/pay.html?id=${linkId}&status=success`);
             }
 
             db.run("UPDATE bookings SET status = 'PAID', icici_txn_id = ? WHERE order_id LIKE ?", [txnID, `${baseOrderId}%`], () => {
@@ -2301,8 +2308,10 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
             // Payment Failed or Cancelled
             console.error('ICICI Payment Failed:', body.respDescription);
             if (baseOrderId.startsWith('PL_')) {
-                db.run("UPDATE payment_links SET status = 'FAILED' WHERE link_id = ?", [baseOrderId]);
-                return res.redirect(`/pay.html?id=${baseOrderId}&status=failed&error=${encodeURIComponent(body.respDescription || 'Payment Failed')}`);
+                const parts = baseOrderId.split('_');
+                const linkId = parts.length >= 3 ? `${parts[0]}_${parts[1]}` : baseOrderId;
+                db.run("UPDATE payment_links SET status = 'FAILED' WHERE link_id = ?", [linkId]);
+                return res.redirect(`/pay.html?id=${linkId}&status=failed&error=${encodeURIComponent(body.respDescription || 'Payment Failed')}`);
             }
             db.run("UPDATE bookings SET status = 'FAILED' WHERE order_id LIKE ?", [`${baseOrderId}%`]);
             return res.redirect('/checkout.html?error=Payment Failed or Cancelled');
@@ -2421,9 +2430,13 @@ app.post('/api/pay-link/:linkId/initiate', async (req, res) => {
         const isProd = process.env.NODE_ENV === 'production' || ICICI_ENV === 'live';
         const returnBase = isProd ? 'https://www.havocsim.in' : `${req.protocol}://${req.get('host')}`;
 
+        // ICICI requires merchantTxnNo to be unique across all attempts (strictly <= 20 chars).
+        // plRow.link_id is ~9 chars (e.g. PL_A8F2K9). Append 4-digit timestamp: PL_A8F2K9_5821 (~14 chars).
+        const attemptTxnNo = `${plRow.link_id}_${Date.now().toString().slice(-4)}`;
+
         const payload = {
             "merchantId": ICICI_MERCHANT_ID,
-            "merchantTxnNo": plRow.link_id,
+            "merchantTxnNo": attemptTxnNo,
             "amount": orderAmount,
             "aggregatorID": ICICI_AGGREGATOR_ID,
             "currencyCode": "356",
