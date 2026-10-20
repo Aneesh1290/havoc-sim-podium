@@ -919,11 +919,7 @@ async function loadAvailability() {
                 const badgeClass = isBooked ? 'badge-red' : 'badge-green';
                 const badgeText = isBooked ? 'Unavailable' : 'Available';
                 
-                if (!isBooked) {
-                    card.classList.add('is-available');
-                    card.onclick = () => openWalkinModal(sim, slot, selectedDate);
-                }
-                
+                // View-only mode for availability slots (no walk-in popup)
                 card.innerHTML = `
                     <div class="card-header">
                         <div class="card-title">${sim}</div>
