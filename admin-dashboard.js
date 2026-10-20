@@ -636,6 +636,13 @@ window.openOrderDetails = (baseOrderId) => {
                     </div>
                     <div class="od-info-value">${order.email || 'No email'}</div>
                     <div class="od-info-value">${order.phone || 'No phone'}</div>
+                    <div style="margin-top: 0.5rem; display: flex; align-items: center; gap: 6px; font-size: 0.78rem;">
+                        ${order.whatsapp_consent === 0 ? `
+                        <span style="color: #ef4444; display: inline-flex; align-items: center; gap: 4px;">✕ WhatsApp Promo: <strong>Opted Out</strong></span>
+                        ` : `
+                        <span style="color: #22c55e; display: inline-flex; align-items: center; gap: 4px;">✓ WhatsApp Promo: <strong>Consent Given</strong></span>
+                        `}
+                    </div>
                     ${items.some(i => Number(i.players) === 2 || i.player_two_name) ? `
                     <div style="margin-top: 0.8rem; padding-top: 0.8rem; border-top: 1px dashed rgba(255,255,255,0.1);">
                         <div class="od-info-label" style="color: var(--gold); display: flex; align-items: center; gap: 4px;">👥 2-Player Pass (Multiplayer)</div>

@@ -41,6 +41,14 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'havoc-super-secret-key-123';
 
+// Ensure whatsapp_consent column exists in bookings table
+db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS whatsapp_consent INTEGER DEFAULT 1", [], (err) => {
+    if (err && !err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+        // Fallback for SQLite which doesn't support IF NOT EXISTS in ADD COLUMN
+        db.run("ALTER TABLE bookings ADD COLUMN whatsapp_consent INTEGER DEFAULT 1", [], () => {});
+    }
+});
+
 // Redirect all secondary domains to canonical https://www.havocsim.in
 app.use((req, res, next) => {
     const host = req.hostname;
@@ -1753,9 +1761,10 @@ app.post('/api/bookings/cod', async (req, res) => {
                 itemPrice = (parseFloat(amount) * itemRatio).toFixed(2);
             }
             
-            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null, item.players || 1, item.player_two_name || null], 
+            const whatsappConsentVal = (customer_details && customer_details.whatsapp_consent === false) ? 0 : 1;
+            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, whatsapp_consent) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null, item.players || 1, item.player_two_name || null, whatsappConsentVal], 
                 function(err) {
                     if (err) {
                         console.error("DB Insert Error (COD):", err);
@@ -1934,9 +1943,10 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
             }
             
             // Save pending booking to DB
-            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null, item.players || 1, item.player_two_name || null], 
+            const whatsappConsentVal = (customer_details && customer_details.whatsapp_consent === false) ? 0 : 1;
+            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, whatsapp_consent) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
+                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null, item.players || 1, item.player_two_name || null, whatsappConsentVal], 
                 function(err) {
                     if (err) console.error("DB Insert Error:", err);
                     insertedCount++;

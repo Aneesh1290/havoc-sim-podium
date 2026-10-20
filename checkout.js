@@ -226,6 +226,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             return;
         }
 
+        const whatsappConsentCheckbox = document.getElementById("co-whatsapp-promo");
+        const whatsappConsent = !!(whatsappConsentCheckbox && whatsappConsentCheckbox.checked);
+
         const amount = parseFloat(finalAmount.toFixed(2));
 
         payBtn.disabled         = true;
@@ -235,6 +238,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             // Save booking details to localStorage for the success page (pending status)
             const bookingDetails = {
                 name, email, phone,
+                whatsapp_consent: whatsappConsent,
                 items: cart, // save the entire array
                 price: `₹${amount.toFixed(2)}`,
                 status: 'pending'
@@ -263,7 +267,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     headers: { "Content-Type": "application/json" },
                     body:    JSON.stringify({ 
                         amount, 
-                        customer_details: { name, email, phone },
+                        customer_details: { name, email, phone, whatsapp_consent: whatsappConsent },
                         booking_data
                     })
                 });
@@ -299,7 +303,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     headers: { "Content-Type": "application/json" },
                     body:    JSON.stringify({ 
                         amount, 
-                        customer_details: { name, email, phone },
+                        customer_details: { name, email, phone, whatsapp_consent: whatsappConsent },
                         booking_data
                     })
                 });
