@@ -3591,10 +3591,6 @@ window.switchPaymentLinkTab = (tab) => {
 window.submitCreatePaymentLink = async (e) => {
     e.preventDefault();
     const amount = document.getElementById('plAmount').value;
-    const name = document.getElementById('plName').value;
-    const phone = document.getElementById('plPhone').value;
-    const email = document.getElementById('plEmail').value;
-    const desc = document.getElementById('plDescription').value;
 
     const btn = document.getElementById('plSubmitBtn');
     btn.disabled = true;
@@ -3603,13 +3599,7 @@ window.submitCreatePaymentLink = async (e) => {
     try {
         const res = await fetchAuth('/api/admin/payment-links', {
             method: 'POST',
-            body: JSON.stringify({
-                amount,
-                customer_name: name,
-                customer_phone: phone,
-                customer_email: email,
-                description: desc
-            })
+            body: JSON.stringify({ amount })
         });
 
         const data = await res.json();
@@ -3618,9 +3608,7 @@ window.submitCreatePaymentLink = async (e) => {
         }
 
         activeGeneratedPayUrl = data.pay_url;
-        activeGeneratedPayPhone = data.customer_phone;
         activeGeneratedPayAmount = data.amount;
-        activeGeneratedPayDesc = data.description || 'Havoc Sim Podium Experience';
 
         document.getElementById('plGeneratedUrl').value = data.pay_url;
         document.getElementById('plPreviewLink').href = data.pay_url;
@@ -3650,16 +3638,13 @@ window.copyPaymentLink = () => {
 
 window.shareOnWhatsApp = () => {
     if (!activeGeneratedPayUrl) return;
-    const cleanPhone = (activeGeneratedPayPhone || '').replace(/\D/g, '');
-    const phoneParam = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
     const msg = `Hi! Here is your secure payment link for Havoc Sim Podium:
 Amount: ₹${parseFloat(activeGeneratedPayAmount || 0).toFixed(2)}
-Purpose: ${activeGeneratedPayDesc}
 
 Click here to complete payment online:
 ${activeGeneratedPayUrl}`;
 
-    const waUrl = `https://wa.me/${phoneParam}?text=${encodeURIComponent(msg)}`;
+    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
     window.open(waUrl, '_blank');
 };
 
@@ -3693,8 +3678,7 @@ async function loadPaymentLinksHistory() {
                             <span style="font-weight: 700; color: #fff; font-size: 1.05rem;">₹${parseFloat(pl.amount).toFixed(2)}</span>
                             <span style="background: ${statusBg}; color: ${statusColor}; border-radius: 12px; font-size: 0.7rem; font-weight: 700; padding: 2px 8px;">${pl.status}</span>
                         </div>
-                        <div style="font-size: 0.85rem; color: #fff; margin-top: 3px;">${pl.customer_name || 'Customer'} • <span style="color: var(--muted);">${pl.customer_phone || 'No phone'}</span></div>
-                        <div style="font-size: 0.75rem; color: var(--muted); margin-top: 2px;">${pl.description || 'Custom payment'} • ${createdDate}</div>
+                        <div style="font-size: 0.85rem; color: #fff; margin-top: 3px;"><span style="color: var(--gold); font-family: monospace;">#${pl.link_id}</span> • ${createdDate}</div>
                     </div>
                     <div style="display: flex; gap: 6px; flex-shrink: 0;">
                         <button class="btn" onclick="navigator.clipboard.writeText('${fullUrl}').then(() => alert('Link copied!'))" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid var(--border); font-size: 0.78rem; padding: 0.4rem 0.7rem; border-radius: 6px; cursor: pointer;">Copy Link</button>
