@@ -154,22 +154,38 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/products');
             const products = await response.json();
 
-            // Extract unique categories
-            const categoryMap = {}; products.forEach(p => { if (p.type && categoryMap[p.type] === undefined) { categoryMap[p.type] = p.hide_suffix; } else if (p.type && p.hide_suffix) { categoryMap[p.type] = 1; } }); const types = Object.keys(categoryMap);
+            // Extract unique categories and counts
+            const categoryCounts = { 'all': products.length };
+            const categoryMap = {};
+            products.forEach(p => {
+                if (p.type) {
+                    const t = p.type;
+                    if (categoryMap[t] === undefined) {
+                        categoryMap[t] = p.hide_suffix;
+                    } else if (p.hide_suffix) {
+                        categoryMap[t] = 1;
+                    }
+                    const lower = t.toLowerCase();
+                    categoryCounts[lower] = (categoryCounts[lower] || 0) + 1;
+                }
+            });
+            const types = Object.keys(categoryMap);
             
-            // Generate Tabs
-            let tabsHtml = '';
-            types.forEach((type, index) => {
-                const activeClass = index === 0 ? 'active' : '';
-                const hideSuffix = categoryMap[type]; const label = hideSuffix ? type.toUpperCase() : `${type.toUpperCase()} SIMULATORS`; tabsHtml += `<button class="tab-btn ${activeClass}" data-category="${type.toLowerCase()}">${label}</button>`;
+            // Generate Tabs: ALL first, then categories with count badges
+            let tabsHtml = `<button class="tab-btn active" data-category="all">ALL EXPERIENCES <span class="tab-badge">${products.length}</span></button>`;
+            types.forEach((type) => {
+                const hideSuffix = categoryMap[type];
+                const label = hideSuffix ? type.toUpperCase() : `${type.toUpperCase()} SIMS`;
+                const count = categoryCounts[type.toLowerCase()] || 0;
+                tabsHtml += `<button class="tab-btn" data-category="${type.toLowerCase()}">${label} <span class="tab-badge">${count}</span></button>`;
             });
             dynamicTabsContainer.innerHTML = tabsHtml;
 
-            // Generate Cards
+            // Generate Cards (all visible initially since default tab is 'all')
             let cardsHtml = '';
             products.forEach(p => {
-                const category = p.type.toLowerCase();
-                const displayStyle = category === types[0]?.toLowerCase() ? 'block' : 'none';
+                const category = p.type ? p.type.toLowerCase() : '';
+                const displayStyle = 'block';
                 
                 let images = [];
                 try {
@@ -337,7 +353,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // Show/hide cards
                     simCards.forEach(card => {
-                        if (card.getAttribute('data-category') === selectedCategory) {
+                        if (selectedCategory === 'all' || card.getAttribute('data-category') === selectedCategory) {
                             card.style.display = 'block';
                         } else {
                             card.style.display = 'none';

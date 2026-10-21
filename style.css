@@ -515,16 +515,45 @@ a {
     background: #1a1a20;
     border: 1px solid rgba(255,255,255,0.1);
     color: var(--text-muted);
-    padding: 0.6rem 1.5rem;
-    border-radius: 4px;
+    padding: 0.6rem 1.4rem;
+    border-radius: 24px;
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.25s ease;
+}
+.tab-btn .tab-badge {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+    padding: 1px 7px;
+    border-radius: 12px;
+    font-size: 0.72rem;
+    font-weight: 700;
 }
 .tab-btn.active {
     background: var(--accent-gold);
     color: var(--text-dark);
     border-color: var(--accent-gold);
+    box-shadow: 0 4px 14px rgba(229, 184, 105, 0.35);
+}
+.tab-btn.active .tab-badge {
+    background: rgba(0, 0, 0, 0.2);
+    color: #000;
+}
+
+.carousel-mobile-hint {
+    display: none;
+    text-align: center;
+    padding-top: 0.8rem;
+    color: var(--accent-gold);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    opacity: 0.9;
 }
 
 .carousel-container {
@@ -1045,10 +1074,50 @@ a {
     .footer-top { grid-template-columns: 1fr; gap: 2rem; margin-bottom: 2rem; }
     .footer-bottom { flex-direction: column; align-items: flex-start; justify-content: center; text-align: left; }
     
-    .carousel-container { margin: 0; width: 100%; padding: 0; }
+    .carousel-container { margin: 0; width: 100%; padding: 0; overflow: hidden; }
     .nav-btn { display: none; /* Hide carousel arrows on mobile, rely on native swipe */ }
-    .simulator-cards { padding-left: 0; padding-right: 0; width: 100%; }
-    .sim-card { min-width: 240px; }
+    
+    /* Horizontal pill scroll on mobile with smooth touch inertia */
+    .experience-tabs {
+        display: flex;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        gap: 0.6rem;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1.2rem;
+        scrollbar-width: none;
+    }
+    .experience-tabs::-webkit-scrollbar { display: none; }
+    .tab-btn {
+        flex-shrink: 0;
+        padding: 0.55rem 1rem;
+        font-size: 0.76rem;
+    }
+
+    /* Cards container with smooth momentum scroll and peek width */
+    .simulator-cards { 
+        padding-left: 0.2rem; 
+        padding-right: 1.5rem; 
+        width: 100%; 
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        gap: 1rem;
+    }
+    /* Set card width so the next card peeks into view from the right */
+    .sim-card { 
+        min-width: 82vw;
+        max-width: 85vw;
+        scroll-snap-align: center;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+
+    .carousel-mobile-hint {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+    }
 }
 
 /* Modals & Booking UI */
