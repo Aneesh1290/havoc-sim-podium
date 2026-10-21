@@ -2383,11 +2383,28 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('exportModal').style.display = 'none';
             const fileName = `Havoc_Bookings_Report_${new Date().toISOString().split('T')[0]}`;
 
-            // Fallback to CSV if ExcelJS is not loaded
+            // Ensure ExcelJS is available (load dynamically if needed)
             if (typeof ExcelJS === 'undefined') {
-                const wsRows = generateReportDataset();
-                downloadCsvFromRows(wsRows, fileName);
-                return;
+                try {
+                    await new Promise((resolve, reject) => {
+                        const s = document.createElement('script');
+                        s.src = 'exceljs.min.js';
+                        s.onload = resolve;
+                        s.onerror = () => {
+                            // Fallback to CDN if local fails
+                            const sCdn = document.createElement('script');
+                            sCdn.src = 'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js';
+                            sCdn.onload = resolve;
+                            sCdn.onerror = reject;
+                            document.head.appendChild(sCdn);
+                        };
+                        document.head.appendChild(s);
+                    });
+                } catch (e) {
+                    console.error("Could not load Excel library:", e);
+                    alert("Could not load Excel library. Please check your internet connection or use Download CSV.");
+                    return;
+                }
             }
 
             try {
