@@ -2364,9 +2364,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return wsRows;
     }
 
-    // Export Excel (.xlsx) Handler with full styling matching reference sheet
+    // Export Excel (.xlsx) Handler with ExcelJS for 100% genuine styled .xlsx files
     if (confirmExportBtn) {
-        confirmExportBtn.addEventListener('click', () => {
+        confirmExportBtn.addEventListener('click', async () => {
             const dataToExport = window.currentBookings || window.allBookings;
             if (!dataToExport || dataToExport.length === 0) {
                 alert("No bookings available to export.");
@@ -2383,110 +2383,76 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('exportModal').style.display = 'none';
             const fileName = `Havoc_Bookings_Report_${new Date().toISOString().split('T')[0]}`;
 
-            // Sort data by booking_date then booking_time
-            const sorted = [...dataToExport].sort((a, b) => {
-                const dateA = new Date(a.booking_date || 0);
-                const dateB = new Date(b.booking_date || 0);
-                if (dateA - dateB !== 0) return dateA - dateB;
-                const timeA = a.booking_time || '';
-                const timeB = b.booking_time || '';
-                return timeA.localeCompare(timeB);
-            });
-
-            // Group by date
-            const grouped = {};
-            sorted.forEach(b => {
-                const d = b.booking_date || 'UNKNOWN DATE';
-                if (!grouped[d]) grouped[d] = [];
-                grouped[d].push(b);
-            });
-
-            // If XLSX library is not available, fallback to CSV
-            if (typeof XLSX === 'undefined') {
+            // Fallback to CSV if ExcelJS is not loaded
+            if (typeof ExcelJS === 'undefined') {
                 const wsRows = generateReportDataset();
                 downloadCsvFromRows(wsRows, fileName);
                 return;
             }
 
             try {
-                // Determine active headers and styling rules
+                // Sort data by booking_date then booking_time
+                const sorted = [...dataToExport].sort((a, b) => {
+                    const dateA = new Date(a.booking_date || 0);
+                    const dateB = new Date(b.booking_date || 0);
+                    if (dateA - dateB !== 0) return dateA - dateB;
+                    const timeA = a.booking_time || '';
+                    const timeB = b.booking_time || '';
+                    return timeA.localeCompare(timeB);
+                });
+
+                // Group by date
+                const grouped = {};
+                sorted.forEach(b => {
+                    const d = b.booking_date || 'UNKNOWN DATE';
+                    if (!grouped[d]) grouped[d] = [];
+                    grouped[d].push(b);
+                });
+
+                // Setup ExcelJS workbook and worksheet
+                const workbook = new ExcelJS.Workbook();
+                workbook.creator = 'Havoc Sim Podium';
+                const sheet = workbook.addWorksheet('Bookings Report', {
+                    views: [{ showGridLines: true }]
+                });
+
+                // Determine active headers
                 const headersConfig = [];
                 if (cols.showSn) {
-                    headersConfig.push({ title: "TOTAL SL", type: "green", align: "center", wch: 10 });
-                    headersConfig.push({ title: "SN", type: "green", align: "center", wch: 6 });
+                    headersConfig.push({ title: "TOTAL SL", type: "green", align: "center", width: 12 });
+                    headersConfig.push({ title: "SN", type: "green", align: "center", width: 8 });
                 }
-                if (cols.showOrder) headersConfig.push({ title: "ORDER NO", type: "pink", align: "center", wch: 24 });
-                if (cols.showName) headersConfig.push({ title: "NAME", type: "pink", align: "left", wch: 26 });
-                if (cols.showPhone) headersConfig.push({ title: "PHONE NO", type: "green", align: "center", wch: 16 });
-                if (cols.showEmail) headersConfig.push({ title: "E-MAIL ID", type: "green", align: "left", wch: 30 });
-                if (cols.showDate) headersConfig.push({ title: "DATE", type: "green", align: "center", wch: 14 });
-                if (cols.showTime) headersConfig.push({ title: "TIME/SLOT", type: "green", align: "center", wch: 16 });
+                if (cols.showOrder) headersConfig.push({ title: "ORDER NO", type: "pink", align: "center", width: 26 });
+                if (cols.showName) headersConfig.push({ title: "NAME", type: "pink", align: "left", width: 28 });
+                if (cols.showPhone) headersConfig.push({ title: "PHONE NO", type: "green", align: "center", width: 18 });
+                if (cols.showEmail) headersConfig.push({ title: "E-MAIL ID", type: "green", align: "left", width: 32 });
+                if (cols.showDate) headersConfig.push({ title: "DATE", type: "green", align: "center", width: 15 });
+                if (cols.showTime) headersConfig.push({ title: "TIME/SLOT", type: "green", align: "center", width: 16 });
                 if (cols.showType) {
-                    headersConfig.push({ title: "TYPE OF SIM PODIUM", type: "green", align: "left", wch: 32 });
-                    headersConfig.push({ title: "PPT", type: "green", align: "center", wch: 6 });
+                    headersConfig.push({ title: "TYPE OF SIM PODIUM", type: "green", align: "left", width: 35 });
+                    headersConfig.push({ title: "PPT", type: "green", align: "center", width: 8 });
                 }
-                if (cols.showAmount) headersConfig.push({ title: "AMOUNT DUE", type: "green", align: "right", wch: 16 });
-                if (cols.showStatus) headersConfig.push({ title: "STATUS", type: "green", align: "center", wch: 22 });
+                if (cols.showAmount) headersConfig.push({ title: "AMOUNT DUE", type: "green", align: "right", width: 18 });
+                if (cols.showStatus) headersConfig.push({ title: "STATUS", type: "green", align: "center", width: 25 });
 
                 const totalCols = headersConfig.length;
 
-                // Border styles
-                const borderThin = {
-                    top: { style: "thin", color: { rgb: "000000" } },
-                    bottom: { style: "thin", color: { rgb: "000000" } },
-                    left: { style: "thin", color: { rgb: "000000" } },
-                    right: { style: "thin", color: { rgb: "000000" } }
+                // Set column widths
+                sheet.columns = headersConfig.map(h => ({ width: h.width }));
+
+                const thinBorder = {
+                    top: { style: 'thin', color: { argb: 'FF000000' } },
+                    left: { style: 'thin', color: { argb: 'FF000000' } },
+                    bottom: { style: 'thin', color: { argb: 'FF000000' } },
+                    right: { style: 'thin', color: { argb: 'FF000000' } }
                 };
 
-                // Styles
-                const dateBannerStyle = {
-                    font: { name: "Arial", sz: 10, bold: true, color: { rgb: "000000" } },
-                    fill: { fgColor: { rgb: "D1DFD1" } }, // Pale sage green banner
-                    alignment: { horizontal: "center", vertical: "center" },
-                    border: borderThin
-                };
-
-                const greenHeaderStyle = {
-                    font: { name: "Arial", sz: 9, bold: true, color: { rgb: "000000" } },
-                    fill: { fgColor: { rgb: "217238" } }, // Forest green
-                    alignment: { horizontal: "center", vertical: "center", wrapText: true },
-                    border: borderThin
-                };
-
-                const pinkHeaderStyle = {
-                    font: { name: "Arial", sz: 9, bold: true, color: { rgb: "000000" } },
-                    fill: { fgColor: { rgb: "DCAAB4" } }, // Soft pink/mauve
-                    alignment: { horizontal: "center", vertical: "center", wrapText: true },
-                    border: borderThin
-                };
-
-                const totalLabelStyle = {
-                    font: { name: "Arial", sz: 9, bold: true, color: { rgb: "000000" } },
-                    alignment: { horizontal: "center", vertical: "center" },
-                    border: borderThin
-                };
-
-                const totalValStyle = {
-                    font: { name: "Arial", sz: 9, bold: true, color: { rgb: "000000" } },
-                    alignment: { horizontal: "right", vertical: "center" },
-                    border: borderThin
-                };
-
-                const totalPptStyle = {
-                    font: { name: "Arial", sz: 9, bold: true, color: { rgb: "000000" } },
-                    alignment: { horizontal: "center", vertical: "center" },
-                    border: borderThin
-                };
-
-                const ws = {};
-                const merges = [];
-                let currentRow = 0;
                 let globalSl = 1;
 
                 Object.keys(grouped).forEach((dateKey, gIdx) => {
-                    // Blank separator row before subsequent groups
+                    // Blank row between groups
                     if (gIdx > 0) {
-                        currentRow++;
+                        sheet.addRow([]);
                     }
 
                     // Format Date banner e.g. "Oct 3 (Sat)"
@@ -2501,34 +2467,47 @@ document.addEventListener('DOMContentLoaded', () => {
                     } catch (e) {}
 
                     // 1. DATE BANNER ROW
-                    const dateRowIndex = currentRow;
-                    for (let c = 0; c < totalCols; c++) {
-                        const cellRef = XLSX.utils.encode_cell({ r: dateRowIndex, c: c });
-                        ws[cellRef] = {
-                            t: 's',
-                            v: c === 0 ? dateDisplay : '',
-                            s: dateBannerStyle
-                        };
-                    }
+                    const dateRow = sheet.addRow([dateDisplay]);
+                    dateRow.height = 24;
+                    const dateRowNumber = dateRow.number;
+
                     if (totalCols > 1) {
-                        merges.push({
-                            s: { r: dateRowIndex, c: 0 },
-                            e: { r: dateRowIndex, c: totalCols - 1 }
-                        });
+                        sheet.mergeCells(dateRowNumber, 1, dateRowNumber, totalCols);
                     }
-                    currentRow++;
+
+                    for (let c = 1; c <= totalCols; c++) {
+                        const cell = dateRow.getCell(c);
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFD1DFD1' } // Pale sage green
+                        };
+                        cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF000000' } };
+                        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                        cell.border = thinBorder;
+                    }
 
                     // 2. COLUMN HEADERS ROW
-                    const headerRowIndex = currentRow;
-                    headersConfig.forEach((h, c) => {
-                        const cellRef = XLSX.utils.encode_cell({ r: headerRowIndex, c: c });
-                        ws[cellRef] = {
-                            t: 's',
-                            v: h.title,
-                            s: h.type === 'pink' ? pinkHeaderStyle : greenHeaderStyle
+                    const headerRow = sheet.addRow(headersConfig.map(h => h.title));
+                    headerRow.height = 26;
+                    headerRow.eachCell((cell, colNumber) => {
+                        const conf = headersConfig[colNumber - 1];
+                        const isPink = conf && conf.type === 'pink';
+
+                        cell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: isPink ? 'FFDCAAB4' : 'FF217238' } // Pink or Dark Forest Green
                         };
+                        cell.font = {
+                            name: 'Calibri',
+                            size: 10,
+                            bold: true,
+                            color: { argb: isPink ? 'FF000000' : 'FFFFFFFF' } // White text on green, black on pink
+                        };
+                        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+                        cell.border = thinBorder;
                     });
-                    currentRow++;
 
                     // 3. BOOKINGS DATA ROWS
                     let datePptTotal = 0;
@@ -2540,7 +2519,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         datePptTotal += ppt;
                         dateAmtTotal += amt;
 
-                        let rowDateFormatted = dateDisplay;
                         const rawStatus = (b.status || 'PENDING').toUpperCase();
                         const isPending = rawStatus === 'PENDING';
                         const isCancelled = rawStatus === 'CANCELLED';
@@ -2550,101 +2528,109 @@ document.addEventListener('DOMContentLoaded', () => {
                         const fulfillLabel = isAttended ? 'FULFILLED' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED');
                         const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
 
-                        // Formatted currency: ₹ 1,209.50
-                        const formattedAmt = `₹ ${amt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                        // Safe phone text so Excel does NOT show scientific notation (e.g. 9.54E+09)
+                        let phoneVal = b.phone ? String(b.phone) : '';
 
-                        const rowCells = [];
+                        const rowValues = [];
+                        const aligns = [];
+
                         if (cols.showSn) {
-                            rowCells.push({ v: globalSl, t: 'n', align: 'center' });
-                            rowCells.push({ v: 1, t: 'n', align: 'center' });
+                            rowValues.push(globalSl, 1);
+                            aligns.push('center', 'center');
                         }
-                        if (cols.showOrder) rowCells.push({ v: b.order_id || '', t: 's', align: 'center' });
-                        if (cols.showName) rowCells.push({ v: b.name || '', t: 's', align: 'left' });
-                        if (cols.showPhone) rowCells.push({ v: b.phone || '', t: 's', align: 'center' });
-                        if (cols.showEmail) rowCells.push({ v: b.email || '', t: 's', align: 'left' });
-                        if (cols.showDate) rowCells.push({ v: rowDateFormatted, t: 's', align: 'center' });
-                        if (cols.showTime) rowCells.push({ v: b.booking_time || '', t: 's', align: 'center' });
+                        if (cols.showOrder) {
+                            rowValues.push(b.order_id || '');
+                            aligns.push('center');
+                        }
+                        if (cols.showName) {
+                            rowValues.push(b.name || '');
+                            aligns.push('left');
+                        }
+                        if (cols.showPhone) {
+                            rowValues.push(phoneVal);
+                            aligns.push('center');
+                        }
+                        if (cols.showEmail) {
+                            rowValues.push(b.email || '');
+                            aligns.push('left');
+                        }
+                        if (cols.showDate) {
+                            rowValues.push(dateDisplay);
+                            aligns.push('center');
+                        }
+                        if (cols.showTime) {
+                            rowValues.push(b.booking_time || '');
+                            aligns.push('center');
+                        }
                         if (cols.showType) {
-                            rowCells.push({ v: b.item_name || '', t: 's', align: 'left' });
-                            rowCells.push({ v: ppt, t: 'n', align: 'center' });
+                            rowValues.push(b.item_name || '', ppt);
+                            aligns.push('left', 'center');
                         }
-                        if (cols.showAmount) rowCells.push({ v: formattedAmt, t: 's', align: 'right' });
-                        if (cols.showStatus) rowCells.push({ v: statusLabel, t: 's', align: 'center' });
+                        if (cols.showAmount) {
+                            rowValues.push(`₹ ${amt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                            aligns.push('right');
+                        }
+                        if (cols.showStatus) {
+                            rowValues.push(statusLabel);
+                            aligns.push('center');
+                        }
 
-                        const dataRowIdx = currentRow;
-                        rowCells.forEach((rc, c) => {
-                            const cellRef = XLSX.utils.encode_cell({ r: dataRowIdx, c: c });
-                            ws[cellRef] = {
-                                t: rc.t,
-                                v: rc.v,
-                                s: {
-                                    font: { name: "Arial", sz: 9, color: { rgb: "000000" } },
-                                    alignment: { horizontal: rc.align || 'center', vertical: 'center' },
-                                    border: borderThin
-                                }
+                        const dataRow = sheet.addRow(rowValues);
+                        dataRow.height = 20;
+
+                        dataRow.eachCell((cell, colNumber) => {
+                            cell.font = { name: 'Calibri', size: 9, color: { argb: 'FF000000' } };
+                            cell.alignment = {
+                                horizontal: aligns[colNumber - 1] || 'center',
+                                vertical: 'middle'
                             };
+                            cell.border = thinBorder;
                         });
 
                         globalSl++;
-                        currentRow++;
                     });
 
-                    // 4. DATE TOTAL ROW (Exact layout from user screenshot)
+                    // 4. TOTAL SUMMARY ROW
                     if (cols.showType || cols.showAmount) {
-                        const totalRowIdx = currentRow;
+                        const totalRowValues = new Array(totalCols).fill('');
+                        const typeColIdx = headersConfig.findIndex(h => h.title === "TYPE OF SIM PODIUM");
+                        const pptColIdx = headersConfig.findIndex(h => h.title === "PPT");
+                        const amtColIdx = headersConfig.findIndex(h => h.title === "AMOUNT DUE");
 
-                        // Find column indexes
-                        let typeColIdx = headersConfig.findIndex(h => h.title === "TYPE OF SIM PODIUM");
-                        let pptColIdx = headersConfig.findIndex(h => h.title === "PPT");
-                        let amtColIdx = headersConfig.findIndex(h => h.title === "AMOUNT DUE");
-
-                        // If "TYPE OF SIM PODIUM" exists, "TOTAL" sits in that column (or merged up to it)
                         if (typeColIdx !== -1) {
-                            const totalCellRef = XLSX.utils.encode_cell({ r: totalRowIdx, c: typeColIdx });
-                            ws[totalCellRef] = {
-                                t: 's',
-                                v: 'TOTAL',
-                                s: totalLabelStyle
-                            };
+                            totalRowValues[typeColIdx] = 'TOTAL';
                         }
-
                         if (pptColIdx !== -1) {
-                            const pptCellRef = XLSX.utils.encode_cell({ r: totalRowIdx, c: pptColIdx });
-                            ws[pptCellRef] = {
-                                t: 'n',
-                                v: datePptTotal,
-                                s: totalPptStyle
-                            };
+                            totalRowValues[pptColIdx] = datePptTotal;
                         }
-
                         if (amtColIdx !== -1) {
-                            const amtCellRef = XLSX.utils.encode_cell({ r: totalRowIdx, c: amtColIdx });
-                            const formattedTotalAmt = `₹ ${dateAmtTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                            ws[amtCellRef] = {
-                                t: 's',
-                                v: formattedTotalAmt,
-                                s: totalValStyle
-                            };
+                            totalRowValues[amtColIdx] = `₹ ${dateAmtTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                         }
 
-                        currentRow++;
+                        const totalRow = sheet.addRow(totalRowValues);
+                        totalRow.height = 22;
+
+                        // Only border and style active total cells
+                        [typeColIdx, pptColIdx, amtColIdx].forEach(idx => {
+                            if (idx !== -1) {
+                                const cell = totalRow.getCell(idx + 1);
+                                cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF000000' } };
+                                cell.border = thinBorder;
+                                if (idx === typeColIdx) {
+                                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                                } else if (idx === pptColIdx) {
+                                    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                                } else if (idx === amtColIdx) {
+                                    cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                                }
+                            }
+                        });
                     }
                 });
 
-                // Range configuration
-                ws['!ref'] = XLSX.utils.encode_range({
-                    s: { r: 0, c: 0 },
-                    e: { r: Math.max(0, currentRow - 1), c: Math.max(0, totalCols - 1) }
-                });
-                ws['!merges'] = merges;
-                ws['!cols'] = headersConfig.map(h => ({ wch: h.wch || 16 }));
-
-                const wb = XLSX.utils.book_new();
-                XLSX.utils.book_append_sheet(wb, ws, "Bookings Report");
-
-                // Generate binary .xlsx (opens natively on both iPhone/Android Office and Desktop Excel)
-                const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-                const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                // Generate genuine binary .xlsx
+                const buffer = await workbook.xlsx.writeBuffer();
+                const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement("a");
                 link.href = url;
@@ -2655,7 +2641,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
 
             } catch (err) {
-                console.error("Styled XLSX generation error, falling back to basic array:", err);
+                console.error("ExcelJS export error:", err);
                 const wsRows = generateReportDataset();
                 downloadCsvFromRows(wsRows, fileName);
             }
