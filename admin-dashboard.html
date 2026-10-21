@@ -1209,8 +1209,11 @@
             <button class="nav-btn" data-target="tab-inventory-matrix">
                 <span class="icon">📦</span> Inventory
             </button>
-            <button class="nav-btn" data-target="tab-availability">
+            <button class="nav-btn" data-target="tab-availability" id="nav-availability">
                 <span class="icon">📅</span> Availability
+            </button>
+            <button class="nav-btn" data-target="tab-block-slots" id="nav-block-slots">
+                <span class="icon">🛡️</span> Block / Disable Slots
             </button>
             <button class="nav-btn" data-target="tab-coupons" id="nav-coupons">
                 <span class="icon">🎟️</span> Coupons
@@ -1574,22 +1577,12 @@
         <div id="tab-availability" class="tab-content">
             <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
                 <div>
-                    <h1 class="page-title">Slot <span>Availability & Blocking</span></h1>
-                    <p style="color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem;">View live schedule availability across simulators, or block custom dates & time slots.</p>
-                </div>
-                
-                <!-- Sub Tab Switcher: Schedule vs Block Slots -->
-                <div style="display: flex; background: rgba(255,255,255,0.05); padding: 4px; border-radius: 12px; border: 1px solid var(--border);">
-                    <button type="button" id="availSubTabSchedule" onclick="switchAvailSubTab('schedule')" class="btn" style="padding: 0.5rem 1.1rem; border-radius: 8px; font-size: 0.88rem; font-weight: 600; background: rgba(229,184,105,0.15); color: var(--gold); border: 1px solid rgba(229,184,105,0.4); cursor: pointer;">
-                        📅 Live Schedule
-                    </button>
-                    <button type="button" id="availSubTabBlock" onclick="switchAvailSubTab('block')" class="btn" style="padding: 0.5rem 1.1rem; border-radius: 8px; font-size: 0.88rem; font-weight: 500; background: transparent; color: var(--muted); border: 1px solid transparent; cursor: pointer; display: flex; align-items: center; gap: 6px;">
-                        <span>🛡️</span> Block / Disable Slots
-                    </button>
+                    <h1 class="page-title">Slot <span>Availability</span></h1>
+                    <p style="color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem;">View live schedule availability across all simulators.</p>
                 </div>
             </div>
 
-            <!-- SUB VIEW 1: LIVE SCHEDULE -->
+            <!-- LIVE SCHEDULE VIEW -->
             <div id="availViewSchedule">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 0.8rem;">
                     <div class="sim-filters" id="simFilters" style="display: flex; gap: 0.5rem; flex-wrap: wrap; background: var(--card-bg); padding: 0.5rem; border-radius: 12px; border: 1px solid var(--border);">
@@ -1618,9 +1611,16 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- SUB VIEW 2: BLOCK / DISABLE SLOTS -->
-            <div id="availViewBlock" style="display: none;">
+                <!-- BLOCK / DISABLE SLOTS TAB -->
+        <div id="tab-block-slots" class="tab-content">
+            <div class="page-header" style="margin-bottom: 1.5rem;">
+                <h1 class="page-title">Block / Disable <span>Slots</span></h1>
+                <p style="color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem;">Lock specific simulator time slots, close entire dates, or configure recurring blocked hours.</p>
+            </div>
+
+            <div id="availViewBlock">
                 <div style="display: grid; grid-template-columns: 460px 1fr; gap: 2rem; align-items: start;">
                     
                     <!-- Left: Block Form -->
@@ -1753,7 +1753,7 @@
             </div>
         </div>
 
-        <!-- COUPONS TAB -->
+<!-- COUPONS TAB -->
         <div id="tab-coupons" class="tab-content">
             <div class="page-header">
                 <h1 class="page-title">Manage <span>Coupons</span></h1>

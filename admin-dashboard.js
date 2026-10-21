@@ -858,7 +858,9 @@ function renderSimFilters() {
         btn.addEventListener('click', () => {
             currentSimFilter = sim;
             renderSimFilters(); // re-render to update active state
-            loadAvailability(); // re-render table
+            loadAvailability();
+if (typeof initBlockSlotForm === 'function') initBlockSlotForm();
+if (typeof loadBlockedSlotsList === 'function') loadBlockedSlotsList(); // re-render table
         });
         
         container.appendChild(btn);
@@ -1703,6 +1705,7 @@ const PERMISSION_CONFIG = [
     { key: 'payment_links', label: '🔗 Payment Links', navId: 'tab-payment-links' },
     { key: 'inventory_matrix', label: '📦 Inventory', navId: 'tab-inventory-matrix' },
     { key: 'availability', label: '📅 Availability', navId: 'tab-availability' },
+    { key: 'block_slots', label: '🛡️ Block Slots', navId: 'nav-block-slots' },
     { key: 'coupons', label: '🎟️ Coupons', navId: 'nav-coupons' },
     { key: 'instructors', label: '🎓 Instructors', navId: 'nav-instructors' },
     { key: 'products', label: '📦 Products', navId: 'nav-inventory' },
@@ -1901,6 +1904,7 @@ async function checkRole() {
             'payment_links': document.getElementById('nav-payment-links'),
             'inventory_matrix': document.querySelector('.nav-btn[data-target="tab-inventory-matrix"]'),
             'availability': document.querySelector('.nav-btn[data-target="tab-availability"]'),
+            'block_slots': document.getElementById('nav-block-slots'),
             'coupons': document.getElementById('nav-coupons'),
             'instructors': document.getElementById('nav-instructors'),
             'products': document.getElementById('nav-inventory'),
@@ -3823,6 +3827,15 @@ async function loadSettings() {
         console.error("Failed to load settings", e);
     }
 }
+
+document.getElementById('nav-block-slots')?.addEventListener('click', () => {
+    if (typeof initBlockSlotForm === 'function') initBlockSlotForm();
+    if (typeof loadBlockedSlotsList === 'function') loadBlockedSlotsList();
+});
+
+document.querySelector('.nav-btn[data-target="tab-availability"]')?.addEventListener('click', () => {
+    if (typeof loadAvailability === 'function') loadAvailability();
+});
 
 document.querySelector('.nav-btn[data-target="tab-settings"]')?.addEventListener('click', () => {
     loadSettings();

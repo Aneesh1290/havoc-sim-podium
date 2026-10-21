@@ -1300,9 +1300,9 @@ app.get('/api/availability/:date', (req, res) => {
             if (r.status === 'PAID' || r.status === 'ATTENDED' || r.status === 'CASH' || (r.order_id && r.order_id.startsWith('PAYDUE_'))) {
                 if (!bookedSlots.includes(r.booking_time)) bookedSlots.push(r.booking_time);
             } else if (r.status === 'PENDING') {
-                // Online pending: only block if under 5 minutes old
+                // Online pending: only block if under 2 minutes old
                 const ageMs = now - new Date(r.created_at).getTime();
-                if (ageMs <= 5 * 60 * 1000) {
+                if (ageMs <= 2 * 60 * 1000) {
                     if (!bookedSlots.includes(r.booking_time)) bookedSlots.push(r.booking_time);
                 }
             }
@@ -2044,9 +2044,9 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                                     continue;
                                 }
 
-                                // If pending attempt was by someone else, check if older than 5 minutes
+                                // If pending attempt was by someone else, check if older than 2 minutes
                                 const bookingAgeMs = Date.now() - new Date(r.created_at).getTime();
-                                if (bookingAgeMs > 5 * 60 * 1000) {
+                                if (bookingAgeMs > 2 * 60 * 1000) {
                                     // Expired abandoned attempt, ignore conflict
                                     continue;
                                 }
@@ -2073,7 +2073,7 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                                         continue;
                                     }
                                     const lockAgeMs = Date.now() - new Date(lr.created_at).getTime();
-                                    if (lockAgeMs > 5 * 60 * 1000) {
+                                    if (lockAgeMs > 2 * 60 * 1000) {
                                         continue;
                                     }
                                     hasConflict = true;
@@ -2543,12 +2543,12 @@ app.get('/', (req, res) => {
 });
 
 // ---- Background Cleanup Job ----
-// Auto-delete abandoned online pending bookings older than 5 minutes (runs every 60 seconds)
+// Auto-delete abandoned online pending bookings older than 2 minutes (runs every 60 seconds)
 setInterval(() => {
     const isProd = process.env.NODE_ENV === 'production';
     const query = isProd 
-        ? `DELETE FROM bookings WHERE status = 'PENDING' AND order_id NOT LIKE 'PAYDUE%' AND created_at <= NOW() - INTERVAL '5 minutes'`
-        : `DELETE FROM bookings WHERE status = 'PENDING' AND order_id NOT LIKE 'PAYDUE%' AND datetime(created_at) <= datetime('now', '-5 minutes')`;
+        ? `DELETE FROM bookings WHERE status = 'PENDING' AND order_id NOT LIKE 'PAYDUE%' AND created_at <= NOW() - INTERVAL '2 minutes'`
+        : `DELETE FROM bookings WHERE status = 'PENDING' AND order_id NOT LIKE 'PAYDUE%' AND datetime(created_at) <= datetime('now', '-2 minutes')`;
         
     db.run(query, function(err) {
         if (err) console.error("Cleanup Job Error:", err);
