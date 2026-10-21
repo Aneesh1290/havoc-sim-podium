@@ -2426,12 +2426,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     grouped[d].push(b);
                 });
 
-                // Setup ExcelJS workbook and worksheet
+                // Setup ExcelJS workbook
                 const workbook = new ExcelJS.Workbook();
                 workbook.creator = 'Havoc Sim Podium';
-                const sheet = workbook.addWorksheet('Bookings Report', {
-                    views: [{ showGridLines: true }]
-                });
 
                 // Determine active headers
                 const headersConfig = [];
@@ -2454,9 +2451,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const totalCols = headersConfig.length;
 
-                // Set column widths
-                sheet.columns = headersConfig.map(h => ({ width: h.width }));
-
                 const thinBorder = {
                     top: { style: 'thin', color: { argb: 'FF000000' } },
                     left: { style: 'thin', color: { argb: 'FF000000' } },
@@ -2464,22 +2458,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     right: { style: 'thin', color: { argb: 'FF000000' } }
                 };
 
-                let globalSl = 1;
-
-                Object.keys(grouped).forEach((dateKey, gIdx) => {
-                    // Blank row between groups
-                    if (gIdx > 0) {
-                        sheet.addRow([]);
-                    }
-
+                // Helper to populate a date section on any worksheet
+                function appendDateSectionToSheet(sheet, dateKey, bookingsList, isMultiDateSheet = false, startSl = 1) {
                     // Format Date banner e.g. "Oct 3 (Sat)"
                     let dateDisplay = dateKey;
+                    let tabShortName = dateKey;
                     try {
                         if (dateKey.includes('-')) {
                             const dObj = new Date(dateKey);
                             const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
                             const daysShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
                             dateDisplay = `${monthsShort[dObj.getMonth()]} ${dObj.getDate()} (${daysShort[dObj.getDay()]})`;
+                            tabShortName = `${monthsShort[dObj.getMonth()]} ${dObj.getDate()}`;
                         }
                     } catch (e) {}
 
@@ -2529,8 +2519,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     // 3. BOOKINGS DATA ROWS
                     let datePptTotal = 0;
                     let dateAmtTotal = 0;
+                    let slCounter = startSl;
 
-                    grouped[dateKey].forEach(b => {
+                    bookingsList.forEach((b, bIdx) => {
                         const ppt = 1;
                         const amt = parseFloat(b.price) || 0;
                         datePptTotal += ppt;
@@ -2545,14 +2536,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         const fulfillLabel = isAttended ? 'FULFILLED' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED');
                         const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
 
-                        // Safe phone text so Excel does NOT show scientific notation (e.g. 9.54E+09)
                         let phoneVal = b.phone ? String(b.phone) : '';
 
                         const rowValues = [];
                         const aligns = [];
 
                         if (cols.showSn) {
-                            rowValues.push(globalSl, 1);
+                            // On multi-date sheet, TOTAL SL continues; SN restarts per booking/date
+                            rowValues.push(slCounter, bIdx + 1);
                             aligns.push('center', 'center');
                         }
                         if (cols.showOrder) {
@@ -2604,7 +2595,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             cell.border = thinBorder;
                         });
 
-                        globalSl++;
+                        slCounter++;
                     });
 
                     // 4. TOTAL SUMMARY ROW
@@ -2627,7 +2618,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         const totalRow = sheet.addRow(totalRowValues);
                         totalRow.height = 22;
 
-                        // Only border and style active total cells
                         [typeColIdx, pptColIdx, amtColIdx].forEach(idx => {
                             if (idx !== -1) {
                                 const cell = totalRow.getCell(idx + 1);
@@ -2643,6 +2633,54 @@ document.addEventListener('DOMContentLoaded', () => {
                             }
                         });
                     }
+
+                    return { nextSl: slCounter, tabShortName };
+                }
+
+                // 1. ALL BOOKINGS TAB (Consolidated overview with all dates)
+                const allSheet = workbook.addWorksheet('All Bookings', {
+                    views: [{ showGridLines: true }]
+                });
+                allSheet.columns = headersConfig.map(h => ({ width: h.width }));
+
+                let runningSl = 1;
+                const dateKeys = Object.keys(grouped);
+                dateKeys.forEach((dateKey, gIdx) => {
+                    if (gIdx > 0) {
+                        allSheet.addRow([]); // Blank separator row between date sections
+                    }
+                    const res = appendDateSectionToSheet(allSheet, dateKey, grouped[dateKey], true, runningSl);
+                    runningSl = res.nextSl;
+                });
+
+                // 2. INDIVIDUAL DATE TABS (e.g. "Oct 20", "Oct 21", ...)
+                const usedSheetNames = new Set(['All Bookings']);
+                dateKeys.forEach(dateKey => {
+                    let tabName = dateKey;
+                    try {
+                        if (dateKey.includes('-')) {
+                            const dObj = new Date(dateKey);
+                            const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                            tabName = `${monthsShort[dObj.getMonth()]} ${dObj.getDate()}`;
+                        }
+                    } catch (e) {}
+
+                    // Ensure unique tab name within 31 character Excel limit
+                    tabName = tabName.replace(/[\\/?*[\]:]/g, ' ').substring(0, 31).trim();
+                    let uniqueTabName = tabName;
+                    let counter = 1;
+                    while (usedSheetNames.has(uniqueTabName)) {
+                        uniqueTabName = `${tabName.substring(0, 27)} (${counter++})`;
+                    }
+                    usedSheetNames.add(uniqueTabName);
+
+                    const dateSheet = workbook.addWorksheet(uniqueTabName, {
+                        views: [{ showGridLines: true }]
+                    });
+                    dateSheet.columns = headersConfig.map(h => ({ width: h.width }));
+
+                    // Build this specific date's table (starting SL from 1 for this date's tab)
+                    appendDateSectionToSheet(dateSheet, dateKey, grouped[dateKey], false, 1);
                 });
 
                 // Generate genuine binary .xlsx
