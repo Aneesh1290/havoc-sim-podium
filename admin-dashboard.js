@@ -3874,6 +3874,11 @@ window.submitCreatePaymentLinkPage = async (e) => {
     e.preventDefault();
     const amountInput = document.getElementById('plPageAmount');
     const amount = amountInput ? amountInput.value : '';
+    const name = document.getElementById('plPageName')?.value?.trim() || '';
+    const phone = document.getElementById('plPagePhone')?.value?.trim() || '';
+    const email = document.getElementById('plPageEmail')?.value?.trim() || '';
+    const desc = document.getElementById('plPageDesc')?.value?.trim() || '';
+
     if (!amount || parseFloat(amount) <= 0) {
         alert('Please enter a valid amount.');
         return;
@@ -3888,7 +3893,13 @@ window.submitCreatePaymentLinkPage = async (e) => {
     try {
         const res = await fetchAuth('/api/admin/payment-links', {
             method: 'POST',
-            body: JSON.stringify({ amount })
+            body: JSON.stringify({
+                amount,
+                customer_name: name,
+                customer_phone: phone,
+                customer_email: email,
+                description: desc
+            })
         });
 
         const data = await res.json();
@@ -3897,7 +3908,9 @@ window.submitCreatePaymentLinkPage = async (e) => {
         }
 
         activeGeneratedPayUrl = data.pay_url;
+        activeGeneratedPayPhone = data.customer_phone || '';
         activeGeneratedPayAmount = data.amount;
+        activeGeneratedPayDesc = data.description || 'Havoc Sim Podium Experience';
 
         const urlInput = document.getElementById('plPageGeneratedUrl');
         if (urlInput) urlInput.value = data.pay_url;
@@ -3938,13 +3951,18 @@ window.copyPaymentLinkPage = () => {
 
 window.shareOnWhatsAppPage = () => {
     if (!activeGeneratedPayUrl) return;
+    const cleanPhone = (activeGeneratedPayPhone || '').replace(/\D/g, '');
+    const phoneParam = cleanPhone.length === 10 ? `91${cleanPhone}` : (cleanPhone || '');
+    const purposeLine = activeGeneratedPayDesc ? `Purpose: ${activeGeneratedPayDesc}\n` : '';
     const msg = `Hi! Here is your secure payment link for Havoc Sim Podium:
 Amount: ₹${parseFloat(activeGeneratedPayAmount || 0).toFixed(2)}
-
+${purposeLine}
 Click here to complete payment online:
 ${activeGeneratedPayUrl}`;
 
-    const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+    const waUrl = phoneParam 
+        ? `https://wa.me/${phoneParam}?text=${encodeURIComponent(msg)}`
+        : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
     window.open(waUrl, '_blank');
 };
 
@@ -3957,7 +3975,7 @@ window.loadPaymentLinksPageHistory = async () => {
         const res = await fetchAuth('/api/admin/payment-links');
         const links = await res.json();
         if (!links || !links.length) {
-            list.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 2.5rem 0;">No payment links created yet. Fill the amount on the left to generate one.</div>';
+            list.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 2.5rem 0;">No payment links created yet. Fill the details on the left to generate one.</div>';
             return;
         }
 
@@ -3970,6 +3988,9 @@ window.loadPaymentLinksPageHistory = async () => {
             const isProd = window.location.hostname !== 'localhost';
             const base = isProd ? 'https://www.havocsim.in' : window.location.origin;
             const fullUrl = `${base}/pay.html?id=${pl.link_id}`;
+            const cleanPhone = (pl.customer_phone || '').replace(/\D/g, '');
+            const phoneParam = cleanPhone.length === 10 ? `91${cleanPhone}` : (cleanPhone || '');
+            const waTarget = phoneParam ? `https://wa.me/${phoneParam}` : 'https://api.whatsapp.com/send';
 
             html += `
                 <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.2rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem;">
@@ -3978,13 +3999,16 @@ window.loadPaymentLinksPageHistory = async () => {
                             <span style="font-weight: 700; color: #fff; font-size: 1.15rem;">₹${parseFloat(pl.amount).toFixed(2)}</span>
                             <span style="background: ${statusBg}; color: ${statusColor}; border-radius: 12px; font-size: 0.72rem; font-weight: 700; padding: 2px 9px;">${pl.status}</span>
                         </div>
-                        <div style="font-size: 0.85rem; color: #aaa; margin-top: 4px;">
-                            <span style="color: var(--gold); font-family: monospace;">#${pl.link_id}</span> • ${createdDate}
+                        <div style="font-size: 0.85rem; color: #fff; margin-top: 4px;">
+                            ${pl.customer_name ? `<strong>${pl.customer_name}</strong> • ` : ''}<span style="color: var(--muted);">${pl.customer_phone || 'No phone'}</span>
+                        </div>
+                        <div style="font-size: 0.78rem; color: #aaa; margin-top: 2px;">
+                            ${pl.description ? `<span style="color: var(--gold);">${pl.description}</span> • ` : ''}<span style="color: var(--muted);">#${pl.link_id}</span> • ${createdDate}
                         </div>
                     </div>
                     <div style="display: flex; gap: 8px; flex-shrink: 0;">
                         <button class="btn" onclick="navigator.clipboard.writeText('${fullUrl}').then(() => alert('Link copied to clipboard!'))" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid var(--border); font-size: 0.82rem; padding: 0.45rem 0.85rem; border-radius: 8px; cursor: pointer;">📋 Copy</button>
-                        <a href="https://api.whatsapp.com/send?text=${encodeURIComponent(`Hi! Here is your payment link for Havoc Sim Podium: ₹${parseFloat(pl.amount).toFixed(2)}\n${fullUrl}`)}" target="_blank" style="padding: 0.45rem 0.85rem; background: rgba(37,211,102,0.15); color: #25D366; border: 1px solid rgba(37,211,102,0.3); border-radius: 8px; text-decoration: none; font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">💬 WhatsApp</a>
+                        <a href="${waTarget}?text=${encodeURIComponent(`Hi! Here is your payment link for Havoc Sim Podium: ₹${parseFloat(pl.amount).toFixed(2)}\n${fullUrl}`)}" target="_blank" style="padding: 0.45rem 0.85rem; background: rgba(37,211,102,0.15); color: #25D366; border: 1px solid rgba(37,211,102,0.3); border-radius: 8px; text-decoration: none; font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">💬 WhatsApp</a>
                         <a href="${fullUrl}" target="_blank" style="padding: 0.45rem 0.85rem; background: rgba(229,184,105,0.15); color: var(--gold); border: 1px solid rgba(229,184,105,0.3); border-radius: 8px; text-decoration: none; font-size: 0.82rem; font-weight: 600;">Open ↗</a>
                     </div>
                 </div>

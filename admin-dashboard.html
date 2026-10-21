@@ -1049,9 +1049,30 @@
             <!-- Create Form View -->
             <div id="plViewCreate">
                 <form id="paymentLinkForm" onsubmit="submitCreatePaymentLink(event)">
-                    <div class="field" style="margin-bottom: 1.5rem;">
-                        <label style="display:block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--muted); font-weight: 500;">Amount to Charge (₹) *</label>
-                        <input type="number" id="plAmount" step="1" min="1" placeholder="e.g. 500" required autofocus style="width: 100%; padding: 0.85rem 1.1rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-size: 1.3rem; font-weight: 700; font-family: inherit;">
+                    <div class="field" style="margin-bottom: 1rem;">
+                        <label style="display:block; margin-bottom: 0.35rem; font-size: 0.85rem; color: var(--muted);">Amount to Charge (₹) *</label>
+                        <input type="number" id="plAmount" step="1" min="1" placeholder="e.g. 500" required autofocus style="width: 100%; padding: 0.75rem 1rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 1.1rem; font-weight: 700; font-family: inherit;">
+                    </div>
+
+                    <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="field">
+                            <label style="display:block; margin-bottom: 0.35rem; font-size: 0.85rem; color: var(--muted);">Customer Name (Optional)</label>
+                            <input type="text" id="plName" placeholder="e.g. Rahul Sharma" style="width: 100%; padding: 0.7rem 0.9rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem;">
+                        </div>
+                        <div class="field">
+                            <label style="display:block; margin-bottom: 0.35rem; font-size: 0.85rem; color: var(--muted);">Phone / WhatsApp (Optional)</label>
+                            <input type="tel" id="plPhone" placeholder="10-digit number" style="width: 100%; padding: 0.7rem 0.9rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem;">
+                        </div>
+                    </div>
+
+                    <div class="field" style="margin-bottom: 1rem;">
+                        <label style="display:block; margin-bottom: 0.35rem; font-size: 0.85rem; color: var(--muted);">Email Address (Optional - receives instant receipt)</label>
+                        <input type="email" id="plEmail" placeholder="e.g. customer@gmail.com" style="width: 100%; padding: 0.7rem 0.9rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem;">
+                    </div>
+
+                    <div class="field" style="margin-bottom: 1.4rem;">
+                        <label style="display:block; margin-bottom: 0.35rem; font-size: 0.85rem; color: var(--muted);">Payment Purpose / Notes</label>
+                        <input type="text" id="plDescription" placeholder="e.g. 30 Min F1 Simulator Session / Balance Payment" style="width: 100%; padding: 0.7rem 0.9rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem;">
                     </div>
 
                     <div style="display: flex; gap: 0.8rem;">
@@ -2133,15 +2154,36 @@
                     </h3>
 
                     <form id="paymentLinkPageForm" onsubmit="submitCreatePaymentLinkPage(event)">
-                        <div class="field" style="margin-bottom: 1.5rem;">
-                            <label style="display:block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--muted); font-weight: 500;">Amount to Charge (₹) *</label>
+                        <div class="field" style="margin-bottom: 1.1rem;">
+                            <label style="display:block; margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--muted); font-weight: 500;">AMOUNT TO CHARGE (₹) *</label>
                             <div style="position: relative;">
-                                <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 1.3rem; font-weight: 700; color: var(--gold);">₹</span>
-                                <input type="number" id="plPageAmount" step="1" min="1" placeholder="500" required style="width: 100%; padding: 0.85rem 1rem 0.85rem 2.4rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-size: 1.3rem; font-weight: 700; font-family: inherit; outline: none;">
+                                <span style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 1.2rem; font-weight: 700; color: var(--gold);">₹</span>
+                                <input type="number" id="plPageAmount" step="1" min="1" placeholder="500" required style="width: 100%; padding: 0.75rem 1rem 0.75rem 2.2rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-size: 1.2rem; font-weight: 700; font-family: inherit; outline: none;">
                             </div>
                         </div>
 
-                        <button type="submit" id="plPageSubmitBtn" class="btn" style="width: 100%; background: linear-gradient(135deg, #e5b869, #c9952f); color: #000; border: none; padding: 0.9rem; border-radius: 10px; font-weight: 700; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(229,184,105,0.25);">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 1rem;">
+                            <div class="field">
+                                <label style="display:block; margin-bottom: 0.35rem; font-size: 0.8rem; color: var(--muted); font-weight: 500;">CUSTOMER NAME</label>
+                                <input type="text" id="plPageName" placeholder="e.g. Rahul Sharma" style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.88rem; outline: none;">
+                            </div>
+                            <div class="field">
+                                <label style="display:block; margin-bottom: 0.35rem; font-size: 0.8rem; color: var(--muted); font-weight: 500;">PHONE / WHATSAPP</label>
+                                <input type="tel" id="plPagePhone" placeholder="10-digit number" style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.88rem; outline: none;">
+                            </div>
+                        </div>
+
+                        <div class="field" style="margin-bottom: 1rem;">
+                            <label style="display:block; margin-bottom: 0.35rem; font-size: 0.8rem; color: var(--muted); font-weight: 500;">EMAIL ADDRESS (RECEIVES RECEIPT)</label>
+                            <input type="email" id="plPageEmail" placeholder="e.g. customer@gmail.com" style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.88rem; outline: none;">
+                        </div>
+
+                        <div class="field" style="margin-bottom: 1.4rem;">
+                            <label style="display:block; margin-bottom: 0.35rem; font-size: 0.8rem; color: var(--muted); font-weight: 500;">PAYMENT PURPOSE / NOTES</label>
+                            <input type="text" id="plPageDesc" placeholder="e.g. 30 Min F1 Session / Balance" style="width: 100%; padding: 0.65rem 0.85rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.88rem; outline: none;">
+                        </div>
+
+                        <button type="submit" id="plPageSubmitBtn" class="btn" style="width: 100%; background: linear-gradient(135deg, #e5b869, #c9952f); color: #000; border: none; padding: 0.85rem; border-radius: 10px; font-weight: 700; font-size: 0.95rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(229,184,105,0.25);">
                             <span>Generate Link</span>
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
                         </button>
@@ -2603,6 +2645,6 @@
             </div>
         </div>
     </div>
-    <script src="admin-dashboard.js?v=11"></script>
+    <script src="admin-dashboard.js?v=12"></script>
 </body>
 </html>
