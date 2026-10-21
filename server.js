@@ -466,9 +466,10 @@ app.delete('/api/admin/users/:id', verifyToken, verifySuperAdmin, (req, res) => 
     });
 });
 
-// Reset a staff user's password to default (Protected, Admin only)
+// Reset a staff user's password to custom or default (Protected, Admin only)
 app.post('/api/admin/users/:id/reset-password', verifyToken, verifySuperAdmin, (req, res) => {
     const { id } = req.params;
+    const { newPassword } = req.body || {};
     
     // Prevent resetting the main 'admin' account
     db.get("SELECT username FROM admin_auth WHERE id = ?", [id], async (err, user) => {
@@ -478,8 +479,11 @@ app.post('/api/admin/users/:id/reset-password', verifyToken, verifySuperAdmin, (
         }
         
         try {
+            const targetPassword = (newPassword && typeof newPassword === 'string' && newPassword.trim().length >= 6)
+                ? newPassword.trim()
+                : 'sabharwal@65';
             const saltRounds = 10;
-            const hash = await bcrypt.hash('sabharwal@65', saltRounds);
+            const hash = await bcrypt.hash(targetPassword, saltRounds);
             db.run("UPDATE admin_auth SET password_hash = ?, must_change_password = 1 WHERE id = ?", [hash, id], (err) => {
                 if (err) return res.status(500).json({ error: 'Error resetting user password' });
                 res.json({ success: true });

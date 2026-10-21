@@ -858,9 +858,7 @@ function renderSimFilters() {
         btn.addEventListener('click', () => {
             currentSimFilter = sim;
             renderSimFilters(); // re-render to update active state
-            loadAvailability();
-if (typeof initBlockSlotForm === 'function') initBlockSlotForm();
-if (typeof loadBlockedSlotsList === 'function') loadBlockedSlotsList(); // re-render table
+            loadAvailability(); // re-render table
         });
         
         container.appendChild(btn);
@@ -1864,15 +1862,23 @@ window.updateStaffRole = async (id, username, newRole) => {
 };
 
 window.resetStaffPassword = async (id, username) => {
-    if (!confirm(`Reset password for '${username}' to the default (sabharwal@65)?\nThey will be forced to change it on their next login.`)) return;
+    const customPass = prompt(`Enter new password for '${username}' (Leave blank to use default 'sabharwal@65'):`);
+    if (customPass === null) return; // cancelled
     
+    const passwordToSet = customPass.trim() || 'sabharwal@65';
+    if (passwordToSet.length < 6) {
+        alert('Password must be at least 6 characters long.');
+        return;
+    }
+
     const res = await fetchAuth(`/api/admin/users/${encodeURIComponent(id)}/reset-password`, {
-        method: 'POST'
+        method: 'POST',
+        body: JSON.stringify({ newPassword: passwordToSet })
     });
     
     const data = await res.json();
     if (res.ok) {
-        alert(`Password for '${username}' has been reset successfully.`);
+        alert(`Password for '${username}' has been successfully set by Admin.`);
     } else {
         alert(data.error || 'Failed to reset password');
     }
@@ -2397,14 +2403,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
             html += `</table></body></html>`;
             
+            const fileName = `Havoc_Bookings_Report_${new Date().toISOString().split('T')[0]}`;
+
+            // Check if SheetJS (XLSX) is loaded to generate a real, standard .xlsx file (compatible with iPhone & Android)
+            if (typeof XLSX !== 'undefined') {
+                try {
+                    // Create temporary DOM element to parse clean table
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = html;
+                    const tableEl = tempDiv.querySelector('table');
+
+                    // Convert HTML table into standard XLSX workbook
+                    const wb = XLSX.utils.table_to_book(tableEl, { sheet: "Bookings Report" });
+                    
+                    // Write to binary XLSX array
+                    const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    
+                    const url = URL.createObjectURL(blob);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", url);
+                    link.setAttribute("download", `${fileName}.xlsx`);
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    return;
+                } catch (xlsxErr) {
+                    console.error("XLSX generator error, falling back to blob:", xlsxErr);
+                }
+            }
+
+            // Fallback for offline or fallback environments
             const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.setAttribute("href", url);
-            link.setAttribute("download", `Havoc_Bookings_Report_${new Date().toISOString().split('T')[0]}.xls`);
+            link.setAttribute("download", `${fileName}.xls`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
         });
     }
 
@@ -4041,3 +4080,8 @@ document.getElementById('nav-payment-links')?.addEventListener('click', () => {
 });
 
 
+
+
+// Initial boot for Block Slots
+if (typeof initBlockSlotForm === 'function') initBlockSlotForm();
+if (typeof loadBlockedSlotsList === 'function') loadBlockedSlotsList(); // Initial boot for Block Slots
