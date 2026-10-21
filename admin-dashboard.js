@@ -2224,227 +2224,217 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (confirmExportBtn) {
-        confirmExportBtn.addEventListener('click', () => {
-            document.getElementById('exportModal').style.display = 'none';
-            let dataToExport = window.currentBookings || window.allBookings;
-            
-            const showSn = document.getElementById('exp-col-sn').checked;
-            const showOrder = document.getElementById('exp-col-order').checked;
-            const showName = document.getElementById('exp-col-name').checked;
-            const showPhone = document.getElementById('exp-col-phone').checked;
-            const showEmail = document.getElementById('exp-col-email').checked;
-            const showDate = document.getElementById('exp-col-date').checked;
-            const showTime = document.getElementById('exp-col-time').checked;
-            const showType = document.getElementById('exp-col-type').checked;
-            const showAmount = document.getElementById('exp-col-amount').checked;
-            const showStatus = document.getElementById('exp-col-status').checked;
+    function getSelectedExportColumns() {
+        const showSn = document.getElementById('exp-col-sn')?.checked;
+        const showOrder = document.getElementById('exp-col-order')?.checked;
+        const showName = document.getElementById('exp-col-name')?.checked;
+        const showPhone = document.getElementById('exp-col-phone')?.checked;
+        const showEmail = document.getElementById('exp-col-email')?.checked;
+        const showDate = document.getElementById('exp-col-date')?.checked;
+        const showTime = document.getElementById('exp-col-time')?.checked;
+        const showType = document.getElementById('exp-col-type')?.checked;
+        const showAmount = document.getElementById('exp-col-amount')?.checked;
+        const showStatus = document.getElementById('exp-col-status')?.checked;
 
-            let activeCols = 0;
-            if(showSn) activeCols += 2;
-            if(showOrder) activeCols += 1;
-            if(showName) activeCols += 1;
-            if(showPhone) activeCols += 1;
-            if(showEmail) activeCols += 1;
-            if(showDate) activeCols += 1;
-            if(showTime) activeCols += 1;
-            if(showType) activeCols += 2; 
-            if(showAmount) activeCols += 1;
-            if(showStatus) activeCols += 1;
+        return { showSn, showOrder, showName, showPhone, showEmail, showDate, showTime, showType, showAmount, showStatus };
+    }
 
-            if (activeCols === 0) {
-                alert("Please select at least one column to export.");
-                return;
-            }
+    function generateReportDataset() {
+        let dataToExport = window.currentBookings || window.allBookings;
+        if (!dataToExport || dataToExport.length === 0) return null;
 
-            // Sort data by booking_date then booking_time
-            dataToExport = [...dataToExport].sort((a, b) => {
-                const dateA = new Date(a.booking_date || 0);
-                const dateB = new Date(b.booking_date || 0);
-                if (dateA - dateB !== 0) return dateA - dateB;
-                
-                const timeA = a.booking_time || '';
-                const timeB = b.booking_time || '';
-                return timeA.localeCompare(timeB);
-            });
+        const cols = getSelectedExportColumns();
+        const activeCount = Object.values(cols).filter(Boolean).length;
+        if (activeCount === 0) {
+            alert("Please select at least one column to export.");
+            return null;
+        }
 
-            // Group by date
-            const grouped = {};
-            dataToExport.forEach(b => {
-                const d = b.booking_date || 'UNKNOWN DATE';
-                if (!grouped[d]) grouped[d] = [];
-                grouped[d].push(b);
-            });
+        // Sort data by booking_date then booking_time
+        const sorted = [...dataToExport].sort((a, b) => {
+            const dateA = new Date(a.booking_date || 0);
+            const dateB = new Date(b.booking_date || 0);
+            if (dateA - dateB !== 0) return dateA - dateB;
+            const timeA = a.booking_time || '';
+            const timeB = b.booking_time || '';
+            return timeA.localeCompare(timeB);
+        });
 
-            let html = `
-            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
-            <head>
-            <meta charset="utf-8">
-            <style>
-                table { border-collapse: collapse; font-family: Calibri, Arial, sans-serif; }
-                td, th { border: 1px solid #000000; padding: 6px; text-align: center; font-size: 14px; }
-                .header-green { background-color: #217238; color: #000000; font-weight: bold; }
-                .header-pink { background-color: #dcaab4; color: #000000; font-weight: bold; }
-                .group-date { background-color: #d1dfd1; font-weight: bold; text-align: center; text-transform: uppercase; }
-                .total-row { font-weight: bold; }
-            </style>
-            </head>
-            <body>
-            <table>
-            `;
+        // Group by date
+        const grouped = {};
+        sorted.forEach(b => {
+            const d = b.booking_date || 'UNKNOWN DATE';
+            if (!grouped[d]) grouped[d] = [];
+            grouped[d].push(b);
+        });
 
-            let totalSlCounter = 1;
+        // Build 2D array of rows for universal spreadsheet/CSV creation
+        const wsRows = [];
+        let totalSlCounter = 1;
 
-            Object.keys(grouped).forEach((date, i) => {
-                let displayDate = date;
+        // Build Header Row
+        const headerRow = [];
+        if (cols.showSn) { headerRow.push("TOTAL SL", "SN"); }
+        if (cols.showOrder) headerRow.push("ORDER NO");
+        if (cols.showName) headerRow.push("NAME");
+        if (cols.showPhone) headerRow.push("PHONE NO");
+        if (cols.showEmail) headerRow.push("E-MAIL ID");
+        if (cols.showDate) headerRow.push("DATE");
+        if (cols.showTime) headerRow.push("TIME/SLOT");
+        if (cols.showType) { headerRow.push("TYPE OF SIM PODIUM", "PPT"); }
+        if (cols.showAmount) headerRow.push("AMOUNT DUE (INR)");
+        if (cols.showStatus) headerRow.push("STATUS");
+
+        Object.keys(grouped).forEach((date, i) => {
+            let displayDate = date;
+            try {
+                if (date.includes('-')) {
+                    const dObj = new Date(date);
+                    const months = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+                    const days = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+                    displayDate = `${months[dObj.getMonth()]} ${dObj.getDate()} (${days[dObj.getDay()]})`;
+                }
+            } catch (e) {}
+
+            if (i > 0) wsRows.push([]); // blank separator row
+            wsRows.push([`=== ${displayDate} ===`]); // date section title
+            wsRows.push([...headerRow]); // column headers
+
+            let dateTotalAmount = 0;
+            let dateTotalPpt = 0;
+
+            grouped[date].forEach(b => {
+                const ppt = 1;
+                const amt = parseFloat(b.price) || 0;
+                dateTotalAmount += amt;
+                dateTotalPpt += ppt;
+
+                let formattedDate = b.booking_date;
                 try {
-                    if (date.includes('-')) {
-                        const dObj = new Date(date);
-                        const months = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
-                        const days = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
-                        displayDate = `${months[dObj.getMonth()]} ${dObj.getDate()} (${days[dObj.getDay()]})`;
+                    if (formattedDate && formattedDate.includes('-')) {
+                        const dObj = new Date(formattedDate);
+                        const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                        formattedDate = `${monthsShort[dObj.getMonth()]}-${dObj.getDate()}`;
                     }
                 } catch (e) {}
 
-                if (i > 0) html += `<tr><td colspan="${activeCols}" style="border:none;"></td></tr>`;
-                html += `<tr><td colspan="${activeCols}" class="group-date">${displayDate}</td></tr>`;
+                const rawStatus = (b.status || 'PENDING').toUpperCase();
+                const isPending = rawStatus === 'PENDING';
+                const isCancelled = rawStatus === 'CANCELLED';
+                const isAttended = rawStatus === 'ATTENDED';
+                const isCash = rawStatus === 'CASH';
+                const paymentLabel = isPending ? 'UNPAID' : (isCash ? 'UNPAID' : (isCancelled ? 'REFUNDED' : 'PAID'));
+                const fulfillLabel = isAttended ? 'FULFILLED' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED');
+                const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
 
-                html += `<tr>
-                    ${showSn ? '<th class="header-green">TOTAL SL</th><th class="header-green">SN</th>' : ''}
-                    ${showOrder ? '<th class="header-pink">ORDER NO</th>' : ''}
-                    ${showName ? '<th class="header-pink">NAME</th>' : ''}
-                    ${showPhone ? '<th class="header-green">PHONE NO</th>' : ''}
-                    ${showEmail ? '<th class="header-green">E-MAIL ID</th>' : ''}
-                    ${showDate ? '<th class="header-green">DATE</th>' : ''}
-                    ${showTime ? '<th class="header-green">TIME/SLOT</th>' : ''}
-                    ${showType ? '<th class="header-green">TYPE OF SIM PODIUM</th><th class="header-green">PPT</th>' : ''}
-                    ${showAmount ? '<th class="header-green">AMOUNT DUE</th>' : ''}
-                    ${showStatus ? '<th class="header-green">STATUS</th>' : ''}
-                </tr>`;
+                const rowData = [];
+                if (cols.showSn) { rowData.push(totalSlCounter, 1); }
+                if (cols.showOrder) rowData.push(b.order_id || '');
+                if (cols.showName) rowData.push(b.name || '');
+                if (cols.showPhone) rowData.push(b.phone || '');
+                if (cols.showEmail) rowData.push(b.email || '');
+                if (cols.showDate) rowData.push(formattedDate);
+                if (cols.showTime) rowData.push(b.booking_time || '');
+                if (cols.showType) { rowData.push(b.item_name || '', ppt); }
+                if (cols.showAmount) rowData.push(amt);
+                if (cols.showStatus) rowData.push(statusLabel);
 
-                let dateTotalAmount = 0;
-                let dateTotalPpt = 0;
-
-                grouped[date].forEach((b) => {
-                    const ppt = 1;
-                    const amt = parseFloat(b.price) || 0;
-                    dateTotalAmount += amt;
-                    dateTotalPpt += ppt;
-                    
-                    let formattedDate = b.booking_date;
-                    try {
-                        if (formattedDate && formattedDate.includes('-')) {
-                            const dObj = new Date(formattedDate);
-                            const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-                            formattedDate = `${monthsShort[dObj.getMonth()]}-${dObj.getDate()}`;
-                        }
-                    } catch (e) {}
-
-                    const rawStatus = (b.status || 'PENDING').toUpperCase();
-                    const isPending = rawStatus === 'PENDING';
-                    const isCancelled = rawStatus === 'CANCELLED';
-                    const isAttended = rawStatus === 'ATTENDED';
-                    const isCash = rawStatus === 'CASH';
-                    const paymentLabel = isPending ? 'UNPAID' : (isCash ? 'UNPAID' : (isCancelled ? 'REFUNDED' : 'PAID'));
-                    const fulfillLabel = isAttended ? 'FULFILLED' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED');
-                    const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
-
-                    html += `<tr>
-                        ${showSn ? `<td>${totalSlCounter}</td><td>1</td>` : ''}
-                        ${showOrder ? `<td>${b.order_id || ''}</td>` : ''}
-                        ${showName ? `<td>${b.name || ''}</td>` : ''}
-                        ${showPhone ? `<td>${b.phone || ''}</td>` : ''}
-                        ${showEmail ? `<td>${b.email || ''}</td>` : ''}
-                        ${showDate ? `<td>${formattedDate}</td>` : ''}
-                        ${showTime ? `<td>${b.booking_time || ''}</td>` : ''}
-                        ${showType ? `<td>${b.item_name || ''}</td><td>${ppt}</td>` : ''}
-                        ${showAmount ? `<td>₹${amt.toFixed(2)}</td>` : ''}
-                        ${showStatus ? `<td>${statusLabel}</td>` : ''}
-                    </tr>`;
-                    
-                    totalSlCounter++;
-                });
-
-                if (showType || showAmount) {
-                    let totalColSpan = 0;
-                    if(showSn) totalColSpan += 2;
-                    if(showOrder) totalColSpan += 1;
-                    if(showName) totalColSpan += 1;
-                    if(showPhone) totalColSpan += 1;
-                    if(showEmail) totalColSpan += 1;
-                    if(showDate) totalColSpan += 1;
-                    if(showTime) totalColSpan += 1;
-
-                    html += `<tr class="total-row">`;
-                    if (totalColSpan > 0) {
-                        html += `<td colspan="${totalColSpan}" style="border:none; text-align:right;">TOTAL</td>`;
-                    } else if (showType) {
-                        // If no previous columns are shown, type is the first column
-                        html += `<td>TOTAL</td>`;
-                        totalColSpan++; // Account for the word TOTAL taking a column
-                    }
-                    
-                    if (showType && totalColSpan > 0) {
-                        html += `<td></td><td>${dateTotalPpt}</td>`;
-                    } else if (showType && totalColSpan === 0) {
-                        html += `<td>${dateTotalPpt}</td>`;
-                    }
-                    
-                    if (showAmount) {
-                        html += `<td>₹${dateTotalAmount.toFixed(2)}</td>`;
-                    }
-                    
-                    if (showStatus) {
-                        html += `<td style="border:none;"></td>`;
-                    }
-                    html += `</tr>`;
-                }
+                wsRows.push(rowData);
+                totalSlCounter++;
             });
 
-            html += `</table></body></html>`;
-            
+            // Date Total Row
+            if (cols.showType || cols.showAmount) {
+                const totalRow = [];
+                headerRow.forEach((h, colIdx) => {
+                    if (h === "ORDER NO" || (colIdx === 0 && !cols.showOrder)) {
+                        totalRow.push("DATE TOTAL");
+                    } else if (h === "PPT") {
+                        totalRow.push(dateTotalPpt);
+                    } else if (h === "AMOUNT DUE (INR)") {
+                        totalRow.push(dateTotalAmount);
+                    } else {
+                        totalRow.push("");
+                    }
+                });
+                wsRows.push(totalRow);
+            }
+        });
+
+        return wsRows;
+    }
+
+    // Export Excel (.xlsx) Handler
+    if (confirmExportBtn) {
+        confirmExportBtn.addEventListener('click', () => {
+            const wsRows = generateReportDataset();
+            if (!wsRows) return;
+            document.getElementById('exportModal').style.display = 'none';
+
             const fileName = `Havoc_Bookings_Report_${new Date().toISOString().split('T')[0]}`;
 
-            // Check if SheetJS (XLSX) is loaded to generate a real, standard .xlsx file (compatible with iPhone & Android)
+            // 1. Try real SheetJS XLSX workbook creation from clean 2D array
             if (typeof XLSX !== 'undefined') {
                 try {
-                    // Create temporary DOM element to parse clean table
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = html;
-                    const tableEl = tempDiv.querySelector('table');
+                    const ws = XLSX.utils.aoa_to_sheet(wsRows);
+                    const wb = XLSX.utils.book_new();
+                    XLSX.utils.book_append_sheet(wb, ws, "Bookings Report");
 
-                    // Convert HTML table into standard XLSX workbook
-                    const wb = XLSX.utils.table_to_book(tableEl, { sheet: "Bookings Report" });
-                    
-                    // Write to binary XLSX array
                     const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
                     const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                    
                     const url = URL.createObjectURL(blob);
                     const link = document.createElement("a");
-                    link.setAttribute("href", url);
-                    link.setAttribute("download", `${fileName}.xlsx`);
+                    link.href = url;
+                    link.download = `${fileName}.xlsx`;
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
                     setTimeout(() => URL.revokeObjectURL(url), 1000);
                     return;
-                } catch (xlsxErr) {
-                    console.error("XLSX generator error, falling back to blob:", xlsxErr);
+                } catch (e) {
+                    console.error("XLSX error:", e);
                 }
             }
 
-            // Fallback for offline or fallback environments
-            const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.setAttribute("href", url);
-            link.setAttribute("download", `${fileName}.xls`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            // 2. Direct fallback to standard CSV with UTF-8 BOM (supported universally on all mobile apps)
+            downloadCsvFromRows(wsRows, fileName);
         });
+    }
+
+    // Export CSV (.csv) Handler
+    const confirmExportCsvBtn = document.getElementById('confirmExportCsvBtn');
+    if (confirmExportCsvBtn) {
+        confirmExportCsvBtn.addEventListener('click', () => {
+            const wsRows = generateReportDataset();
+            if (!wsRows) return;
+            document.getElementById('exportModal').style.display = 'none';
+
+            const fileName = `Havoc_Bookings_Report_${new Date().toISOString().split('T')[0]}`;
+            downloadCsvFromRows(wsRows, fileName);
+        });
+    }
+
+    // Helper: download clean CSV with UTF-8 BOM so mobile Excel / Numbers / Google Sheets opens it without error
+    function downloadCsvFromRows(rows, fileName) {
+        let csvContent = "\uFEFF"; // UTF-8 BOM for perfect Excel mobile rendering
+        rows.forEach(row => {
+            const escaped = (row || []).map(val => {
+                if (val === null || val === undefined) return '""';
+                const str = String(val).replace(/"/g, '""');
+                return `"${str}"`;
+            });
+            csvContent += escaped.join(",") + "\r\n";
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `${fileName}.csv`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     const filterBtn = document.getElementById('openFilterBtn');

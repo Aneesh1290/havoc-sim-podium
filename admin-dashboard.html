@@ -1435,9 +1435,14 @@
                         <input type="checkbox" id="exp-col-status" checked> Status
                     </label>
                 </div>
-                <div style="display: flex; gap: 1rem;">
-                    <button type="button" class="btn" style="flex:1; background: rgba(255,255,255,0.1); color: #fff;" onclick="document.getElementById('exportModal').style.display='none'">Cancel</button>
-                    <button type="button" class="btn" id="confirmExportBtn" style="flex:1; background: #116dff; color: #fff; border: none;">Download Excel</button>
+                <div style="display: flex; gap: 0.8rem; flex-wrap: wrap;">
+                    <button type="button" class="btn" style="flex:1; background: rgba(255,255,255,0.1); color: #fff; min-width: 90px;" onclick="document.getElementById('exportModal').style.display='none'">Cancel</button>
+                    <button type="button" class="btn" id="confirmExportCsvBtn" style="flex:1.5; background: #059669; color: #fff; border: none; font-weight: 600; min-width: 140px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <span>📄 Download CSV</span>
+                    </button>
+                    <button type="button" class="btn" id="confirmExportBtn" style="flex:1.5; background: #116dff; color: #fff; border: none; font-weight: 600; min-width: 140px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <span>📊 Download Excel</span>
+                    </button>
                 </div>
             </div>
         </div>
@@ -2646,6 +2651,6 @@
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-    <script src="admin-dashboard.js?v=13"></script>
+    <script src="admin-dashboard.js?v=14"></script>
 </body>
 </html>
