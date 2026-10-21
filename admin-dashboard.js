@@ -2659,22 +2659,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (err) {
                 console.error("ExcelJS export error:", err);
-                const wsRows = generateReportDataset();
-                downloadCsvFromRows(wsRows, fileName);
+                alert("An error occurred while generating the Excel report: " + (err.message || err));
             }
-        });
-    }
-
-    // Export CSV (.csv) Handler
-    const confirmExportCsvBtn = document.getElementById('confirmExportCsvBtn');
-    if (confirmExportCsvBtn) {
-        confirmExportCsvBtn.addEventListener('click', () => {
-            const wsRows = generateReportDataset();
-            if (!wsRows) return;
-            document.getElementById('exportModal').style.display = 'none';
-
-            const fileName = `Havoc_Bookings_Report_${new Date().toISOString().split('T')[0]}`;
-            downloadCsvFromRows(wsRows, fileName);
         });
     }
 
