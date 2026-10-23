@@ -2430,6 +2430,52 @@ document.addEventListener('DOMContentLoaded', () => {
         return wsRows;
     }
 
+    function isTodayOrUpcomingBookingDate(dateStr) {
+        if (!dateStr) return false;
+        try {
+            const clean = String(dateStr).trim().replace(/\([A-Za-z]+\)/g, '').trim();
+            const today = new Date();
+            const currentYear = today.getFullYear();
+
+            // 1. If ISO format: YYYY-MM-DD
+            if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+                const [y, m, d] = clean.split('-').map(Number);
+                const target = new Date(y, m - 1, d);
+                today.setHours(0, 0, 0, 0);
+                target.setHours(0, 0, 0, 0);
+                return target.getTime() >= today.getTime();
+            }
+
+            // 2. If DD/MM/YYYY
+            if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(clean)) {
+                const [d, m, y] = clean.split('/').map(Number);
+                const target = new Date(y, m - 1, d);
+                today.setHours(0, 0, 0, 0);
+                target.setHours(0, 0, 0, 0);
+                return target.getTime() >= today.getTime();
+            }
+
+            // 3. If string has 4-digit year (e.g. 'Oct 23 2026')
+            if (/\b\d{4}\b/.test(clean)) {
+                const target = new Date(clean);
+                if (!isNaN(target.getTime())) {
+                    today.setHours(0, 0, 0, 0);
+                    target.setHours(0, 0, 0, 0);
+                    return target.getTime() >= today.getTime();
+                }
+            }
+
+            // 4. If string has month and date without year (e.g. 'Oct 23') -> use current year
+            const withYear = new Date(clean + ' ' + currentYear);
+            if (!isNaN(withYear.getTime())) {
+                today.setHours(0, 0, 0, 0);
+                withYear.setHours(0, 0, 0, 0);
+                return withYear.getTime() >= today.getTime();
+            }
+        } catch (e) {}
+        return false;
+    }
+
     // Export Excel (.xlsx) Handler with ExcelJS for 100% genuine styled .xlsx files
     if (confirmExportBtn) {
         confirmExportBtn.addEventListener('click', async () => {
@@ -2720,9 +2766,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     runningSl = res.nextSl;
                 });
 
-                // 2. INDIVIDUAL DATE TABS (e.g. "Oct 20", "Oct 21", ...)
+                // 2. INDIVIDUAL DATE TABS (Only for Today / Existing Date and Upcoming Dates)
                 const usedSheetNames = new Set(['All Bookings']);
                 dateKeys.forEach(dateKey => {
+                    // Do not create individual sheets for past dates
+                    if (!isTodayOrUpcomingBookingDate(dateKey)) {
+                        return;
+                    }
+
                     let tabName = dateKey;
                     try {
                         if (dateKey.includes('-')) {
