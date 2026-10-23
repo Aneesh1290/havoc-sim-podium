@@ -787,24 +787,26 @@
         @media (max-width: 900px) {
             body { flex-direction: column; }
             .sidebar {
-                position: relative;
-                width: 100%;
-                min-height: auto;
-                padding: 1rem 1.5rem;
-                border-right: none;
-                border-bottom: 1px solid var(--border);
+                position: static !important;
+                width: 100% !important;
+                height: auto !important;
+                min-height: auto !important;
+                padding: 1rem 1.25rem !important;
+                border-right: none !important;
+                border-bottom: 1px solid var(--border) !important;
+                z-index: 10;
             }
-            .brand { margin-bottom: 1.5rem; }
+            .brand { margin-bottom: 1rem; }
             .nav-items { flex-direction: row; flex-wrap: wrap; gap: 0.5rem; }
-            .nav-btn { width: auto; padding: 0.5rem 1rem; }
+            .nav-btn { width: auto; padding: 0.5rem 0.9rem; font-size: 0.85rem; }
             .nav-section { display: none; }
-            .sidebar-footer { padding-top: 1rem; border-top: none; margin-top: 0; }
+            .sidebar-footer { padding-top: 0.75rem; border-top: none; margin-top: 0; }
             
             .main {
-                margin-left: 0;
-                padding: 1.5rem 1rem;
-                min-width: 0;
-                width: 100%;
+                margin-left: 0 !important;
+                padding: 1.25rem 1rem !important;
+                min-width: 0 !important;
+                width: 100% !important;
             }
             .stats-row { grid-template-columns: 1fr; }
             
@@ -817,11 +819,26 @@
                 white-space: nowrap; 
             }
             
-            .page-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
-            .page-header > div { flex-wrap: wrap; }
+            .page-header { 
+                flex-direction: column !important; 
+                align-items: flex-start !important; 
+                gap: 0.85rem !important;
+                margin-bottom: 1.25rem !important;
+            }
+            .page-header > div { 
+                display: flex !important;
+                flex-wrap: wrap !important; 
+                gap: 0.6rem !important;
+                width: 100% !important;
+            }
+            .page-header .btn {
+                flex: 1 1 auto;
+                justify-content: center;
+                font-size: 0.85rem !important;
+                padding: 0.5rem 0.85rem !important;
+            }
             
             .staff-grid { grid-template-columns: 1fr !important; }
-            
             .grid-2 { grid-template-columns: 1fr !important; }
         }
 
