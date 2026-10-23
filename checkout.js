@@ -156,17 +156,59 @@ document.addEventListener("DOMContentLoaded", async () => {
             const coupon = coupons.find(c => c.code === code);
 
             if (coupon) {
+                // 1. Verify allowed simulators
+                let allowedSims = null;
+                if (coupon.allowed_simulators) {
+                    try {
+                        allowedSims = typeof coupon.allowed_simulators === 'string' ? JSON.parse(coupon.allowed_simulators) : coupon.allowed_simulators;
+                    } catch(e) {
+                        allowedSims = [coupon.allowed_simulators];
+                    }
+                }
+                if (Array.isArray(allowedSims) && allowedSims.length > 0) {
+                    allowedSims = allowedSims.filter(s => s && s !== 'ALL');
+                    if (allowedSims.length === 0) allowedSims = null;
+                } else {
+                    allowedSims = null;
+                }
+
+                // Filter cart items eligible for this coupon
+                const matchingItems = allowedSims ? cart.filter(item => allowedSims.includes(item.itemName)) : [...cart];
+                if (allowedSims && matchingItems.length === 0) {
+                    msgEl.textContent = `This coupon is only valid for: ${allowedSims.join(', ')}`;
+                    msgEl.className = "discount-message error";
+                    return;
+                }
+
+                // 2. Handle max sessions restriction
+                const maxSessions = coupon.max_sessions ? parseInt(coupon.max_sessions) : null;
+                let eligibleItems = matchingItems;
+                let isSessionCapped = false;
+                if (maxSessions && maxSessions > 0 && eligibleItems.length > maxSessions) {
+                    eligibleItems = eligibleItems.slice(0, maxSessions);
+                    isSessionCapped = true;
+                }
+
+                // Calculate eligible subtotal
+                const eligibleTotal = eligibleItems.reduce((acc, item) => {
+                    const priceVal = parseFloat((item.itemPrice || "0").replace(/[^\d.]/g, ""));
+                    const instFee = item.instructorFee ? parseFloat(item.instructorFee) : 0;
+                    return acc + (isNaN(priceVal) ? 0 : priceVal) + instFee;
+                }, 0);
+
                 if (coupon.type === 'percent') {
-                    appliedDiscount = (originalPrice * coupon.value) / 100;
+                    appliedDiscount = (eligibleTotal * coupon.value) / 100;
                 } else if (coupon.type === 'flat') {
                     appliedDiscount = coupon.value;
                 }
 
+                if (appliedDiscount > eligibleTotal) appliedDiscount = eligibleTotal;
                 if (appliedDiscount > originalPrice) appliedDiscount = originalPrice;
                 finalAmount = originalPrice - appliedDiscount;
                 
                 // Update UI
-                msgEl.textContent = `Coupon applied! You saved ₹${appliedDiscount.toFixed(2)}`;
+                const sessionNote = isSessionCapped ? ` (Max ${maxSessions} session${maxSessions > 1 ? 's' : ''})` : '';
+                msgEl.textContent = `Coupon applied! You saved ₹${appliedDiscount.toFixed(2)}${sessionNote}`;
                 msgEl.className = "discount-message success";
                 discountRow.style.display = "flex";
                 discountAmtEl.textContent = `-₹${appliedDiscount.toFixed(2)}`;

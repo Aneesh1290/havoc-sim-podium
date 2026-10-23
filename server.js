@@ -75,6 +75,18 @@ db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS whatsapp_consent INTEGER D
     }
 });
 
+// Ensure allowed_simulators and max_sessions columns exist in coupons table
+db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS allowed_simulators TEXT", [], (err) => {
+    if (err && !err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+        db.run("ALTER TABLE coupons ADD COLUMN allowed_simulators TEXT", [], () => {});
+    }
+});
+db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_sessions INTEGER", [], (err) => {
+    if (err && !err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+        db.run("ALTER TABLE coupons ADD COLUMN max_sessions INTEGER", [], () => {});
+    }
+});
+
 // Ensure payment_links table exists for custom admin payment requests
 db.run(`
     CREATE TABLE IF NOT EXISTS payment_links (
@@ -540,7 +552,7 @@ app.get('/api/admin/products', verifyToken, (req, res) => {
 
 // Get all active coupons (Public for checkout validation)
 app.get('/api/coupons', (req, res) => {
-    db.all("SELECT code, type, value, expires_at, max_uses, used_count FROM coupons WHERE active = 1", [], (err, rows) => {
+    db.all("SELECT code, type, value, expires_at, max_uses, used_count, allowed_simulators, max_sessions FROM coupons WHERE active = 1", [], (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error' });
         const now = new Date();
         // Filter out expired or exhausted coupons
@@ -555,7 +567,7 @@ app.get('/api/coupons', (req, res) => {
 
 // Bulk create coupons (Protected, Admin only)
 app.post('/api/admin/coupons/bulk', verifyToken, verifySuperAdmin, (req, res) => {
-    const { prefix, count, start_from, type, value, expires_at, max_uses, format } = req.body;
+    const { prefix, count, start_from, type, value, expires_at, max_uses, format, allowed_simulators, max_sessions } = req.body;
     
     if (!prefix || !count || count < 1 || count > 500) {
         return res.status(400).json({ error: 'Invalid prefix or count (max 500).' });
@@ -564,6 +576,8 @@ app.post('/api/admin/coupons/bulk', verifyToken, verifySuperAdmin, (req, res) =>
     const startIdx = start_from ? parseInt(start_from) : 1;
     const expiresVal = expires_at || null;
     const maxUsesVal = max_uses != null && max_uses !== '' ? parseInt(max_uses) : null;
+    const maxSessionsVal = max_sessions != null && max_sessions !== '' ? parseInt(max_sessions) : null;
+    const allowedSimsVal = allowed_simulators ? (typeof allowed_simulators === 'string' ? allowed_simulators : JSON.stringify(allowed_simulators)) : null;
     const codes = [];
 
     const generateRandomString = (length) => {
@@ -587,11 +601,11 @@ app.post('/api/admin/coupons/bulk', verifyToken, verifySuperAdmin, (req, res) =>
     }
 
     // Insert all codes
-    const stmt = db.prepare("INSERT OR IGNORE INTO coupons (code, type, value, expires_at, max_uses, used_count) VALUES (?, ?, ?, ?, ?, 0)");
+    const stmt = db.prepare("INSERT OR IGNORE INTO coupons (code, type, value, expires_at, max_uses, used_count, allowed_simulators, max_sessions) VALUES (?, ?, ?, ?, ?, 0, ?, ?)");
     
     let insertedCount = 0;
     codes.forEach((code) => {
-        stmt.run([code, type, value, expiresVal, maxUsesVal], function(err) {
+        stmt.run([code, type, value, expiresVal, maxUsesVal, allowedSimsVal, maxSessionsVal], function(err) {
             if (!err) {
                 // Approximate since we don't have this.changes from pg in the mocked stmt
                 insertedCount++;
@@ -608,12 +622,15 @@ app.post('/api/admin/coupons/bulk', verifyToken, verifySuperAdmin, (req, res) =>
 
 // Add a coupon (Protected, Admin only)
 app.post('/api/admin/coupons', verifyToken, verifySuperAdmin, (req, res) => {
-    const { code, type, value, expires_at, max_uses } = req.body;
+    const { code, type, value, expires_at, max_uses, allowed_simulators, max_sessions } = req.body;
     const expiresVal = expires_at || null;
     const maxUsesVal = max_uses != null && max_uses !== '' ? parseInt(max_uses) : null;
+    const maxSessionsVal = max_sessions != null && max_sessions !== '' ? parseInt(max_sessions) : null;
+    const allowedSimsVal = allowed_simulators ? (typeof allowed_simulators === 'string' ? allowed_simulators : JSON.stringify(allowed_simulators)) : null;
+    
     db.run(
-        "INSERT INTO coupons (code, type, value, expires_at, max_uses, used_count) VALUES (?, ?, ?, ?, ?, 0)",
-        [code, type, value, expiresVal, maxUsesVal],
+        "INSERT INTO coupons (code, type, value, expires_at, max_uses, used_count, allowed_simulators, max_sessions) VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
+        [code, type, value, expiresVal, maxUsesVal, allowedSimsVal, maxSessionsVal],
         function(err) {
             if (err) return res.status(400).json({ error: 'Coupon code might already exist.' });
             res.json({ success: true, id: this.lastID });
@@ -624,13 +641,15 @@ app.post('/api/admin/coupons', verifyToken, verifySuperAdmin, (req, res) => {
 // Update a coupon (Protected, Admin only)
 app.put('/api/admin/coupons/:code', verifyToken, verifySuperAdmin, (req, res) => {
     const codeToUpdate = req.params.code;
-    const { type, value, expires_at, max_uses } = req.body;
+    const { type, value, expires_at, max_uses, allowed_simulators, max_sessions } = req.body;
     const expiresVal = expires_at || null;
     const maxUsesVal = max_uses != null && max_uses !== '' ? parseInt(max_uses) : null;
+    const maxSessionsVal = max_sessions != null && max_sessions !== '' ? parseInt(max_sessions) : null;
+    const allowedSimsVal = allowed_simulators ? (typeof allowed_simulators === 'string' ? allowed_simulators : JSON.stringify(allowed_simulators)) : null;
     
     db.run(
-        "UPDATE coupons SET type = ?, value = ?, expires_at = ?, max_uses = ? WHERE code = ?",
-        [type, value, expiresVal, maxUsesVal, codeToUpdate],
+        "UPDATE coupons SET type = ?, value = ?, expires_at = ?, max_uses = ?, allowed_simulators = ?, max_sessions = ? WHERE code = ?",
+        [type, value, expiresVal, maxUsesVal, allowedSimsVal, maxSessionsVal, codeToUpdate],
         function(err) {
             if (err) return res.status(500).json({ error: 'Failed to update coupon.' });
             res.json({ success: true });

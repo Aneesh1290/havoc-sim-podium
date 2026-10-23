@@ -1479,15 +1479,84 @@ function renderInventoryReport(report) {
 }
 
 let adminCouponsList = [];
+let activeSimulatorNames = [];
+
+async function initCouponSimulatorsList() {
+    try {
+        if (!activeSimulatorNames.length) {
+            const res = await fetch('/api/products');
+            if (res.ok) {
+                const prods = await res.json();
+                activeSimulatorNames = Array.isArray(prods) ? prods.map(p => p.name).filter(Boolean) : [];
+            }
+        }
+    } catch (e) {
+        console.warn('Could not load products for coupon simulators list', e);
+    }
+
+    if (!activeSimulatorNames.length) {
+        activeSimulatorNames = [
+            'RC Flying Sim',
+            'Flight Sim Pro (Airbus Edition)',
+            'Flight Sim Pro (Boeing Edition)',
+            'Race Sim GT',
+            'Race Sim F1',
+            'Race Sim Jr & Play Station  PS5',
+            'Race Sim Beginner',
+            ' Play Station  PS5 - Station Two',
+            ' Play Station  PS5 - Station One'
+        ];
+    }
+
+    const renderBoxes = (containerId, prefix) => {
+        const container = document.getElementById(containerId);
+        if (!container || container.children.length > 0) return;
+        container.innerHTML = activeSimulatorNames.map(name => `
+            <label style="display:flex; align-items:center; gap:8px; font-size:0.83rem; color:rgba(255,255,255,0.85); cursor:pointer; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); padding:4px 8px; border-radius:6px; transition:all 0.2s;">
+                <input type="checkbox" class="${prefix}-sim-checkbox" value="${name}" checked onchange="handleSimCheckboxChange('${prefix}')">
+                <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="${name}">${name}</span>
+            </label>
+        `).join('');
+    };
+
+    renderBoxes('couponSimulatorsList', 'single');
+    renderBoxes('bulkCouponSimulatorsList', 'bulk');
+}
+
+window.toggleAllSimsSelect = (checked, prefix) => {
+    const cbs = document.querySelectorAll(`.${prefix}-sim-checkbox`);
+    cbs.forEach(cb => cb.checked = checked);
+};
+
+window.handleSimCheckboxChange = (prefix) => {
+    const cbs = document.querySelectorAll(`.${prefix}-sim-checkbox`);
+    const allMaster = document.getElementById(prefix === 'single' ? 'couponAllSims' : 'bulkCouponAllSims');
+    const allChecked = Array.from(cbs).every(cb => cb.checked);
+    if (allMaster) allMaster.checked = allChecked;
+};
+
+function getSelectedSimulators(prefix) {
+    const allMaster = document.getElementById(prefix === 'single' ? 'couponAllSims' : 'bulkCouponAllSims');
+    const cbs = document.querySelectorAll(`.${prefix}-sim-checkbox`);
+    if (allMaster && allMaster.checked) {
+        return null; // Store-wide
+    }
+    const selected = Array.from(cbs).filter(cb => cb.checked).map(cb => cb.value);
+    if (selected.length === 0 || selected.length === cbs.length) {
+        return null; // All selected or none selected treated as store-wide
+    }
+    return selected;
+}
 
 async function loadCoupons() {
+    await initCouponSimulatorsList();
     const tbody = document.getElementById('couponsTableBody');
     const res = await fetchAuth('/api/admin/coupons');
     adminCouponsList = await res.json();
     
     tbody.innerHTML = '';
     if (!adminCouponsList.length) {
-        tbody.innerHTML = '<tr><td colspan="6" style="padding:3rem; text-align:center; color:rgba(255,255,255,0.35);">No coupons added yet</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="padding:3rem; text-align:center; color:rgba(255,255,255,0.35);">No coupons added yet</td></tr>';
         return;
     }
     const renderCouponRow = (c, isChild = false, parentId = '') => {
@@ -1509,10 +1578,25 @@ async function loadCoupons() {
         
         const prefixSpacing = isChild ? '<span style="display:inline-block; width:20px;"></span>↳ ' : '';
         
+        let allowedSimsDisplay = '<span style="color:rgba(255,255,255,0.7); font-size:0.85rem;">All Simulators</span>';
+        if (c.allowed_simulators) {
+            try {
+                const parsed = typeof c.allowed_simulators === 'string' ? JSON.parse(c.allowed_simulators) : c.allowed_simulators;
+                if (Array.isArray(parsed) && parsed.length > 0 && !parsed.includes('ALL')) {
+                    const label = parsed.length === 1 ? parsed[0] : `${parsed.length} Simulators`;
+                    allowedSimsDisplay = `<span title="${parsed.join(', ')}" style="color:var(--gold); font-size:0.8rem; background:rgba(229,184,105,0.12); border:1px solid rgba(229,184,105,0.3); padding:2px 8px; border-radius:12px; font-weight:600; cursor:help;">🎯 ${label}</span>`;
+                }
+            } catch(e){}
+        }
+
+        const sessionLimitDisplay = c.max_sessions ? `<span style="color:#4ade80; font-weight:600; font-size:0.85rem;">Max ${c.max_sessions} session${c.max_sessions > 1 ? 's' : ''}</span>` : `<span style="color:rgba(255,255,255,0.4); font-size:0.85rem;">Unlimited</span>`;
+
         tr.innerHTML = `
             <td style="font-weight:700; letter-spacing:2px; font-family:monospace; color:#e5b869">${prefixSpacing}${c.code} <div style="margin-top:4px; ${isChild ? 'margin-left: 35px;' : ''}">${statusBadge}</div></td>
             <td style="text-transform:capitalize; color:rgba(255,255,255,0.7)">${c.type === 'percent' ? 'Percentage' : 'Flat Amount'}</td>
             <td style="font-weight:600">${c.type === 'percent' ? c.value + '%' : '₹' + c.value}</td>
+            <td>${allowedSimsDisplay}</td>
+            <td>${sessionLimitDisplay}</td>
             <td style="color:rgba(255,255,255,0.7)">${usesText}</td>
             <td style="color:rgba(255,255,255,0.7)">${expiryText}</td>
             <td>
@@ -1576,7 +1660,7 @@ async function loadCoupons() {
                 </td>
                 <td style="text-transform:capitalize; color:rgba(255,255,255,0.7)">${g.type === 'percent' ? 'Percentage' : 'Flat Amount'}</td>
                 <td style="font-weight:600">${g.type === 'percent' ? g.value + '%' : '₹' + g.value}</td>
-                <td colspan="2" style="color:var(--muted); font-size:0.85rem;">Click to expand/collapse</td>
+                <td colspan="4" style="color:var(--muted); font-size:0.85rem;">Click to expand/collapse</td>
                 <td>
                     <button class="btn btn-delete" onclick="deleteBulkCoupons('${g.id}')" style="padding:0.4rem 0.8rem; font-size:0.8rem;">Delete All</button>
                 </td>
@@ -1603,7 +1687,29 @@ window.editCoupon = (code) => {
     document.getElementById('couponValue').value = coupon.value;
     document.getElementById('couponExpiry').value = coupon.expires_at ? coupon.expires_at.split('T')[0] : '';
     document.getElementById('couponMaxUses').value = coupon.max_uses || '';
+    document.getElementById('couponMaxSessions').value = coupon.max_sessions || '';
     
+    // Set simulator checkboxes
+    let allowedList = null;
+    if (coupon.allowed_simulators) {
+        try {
+            allowedList = typeof coupon.allowed_simulators === 'string' ? JSON.parse(coupon.allowed_simulators) : coupon.allowed_simulators;
+        } catch(e) {
+            allowedList = [coupon.allowed_simulators];
+        }
+    }
+    const singleMaster = document.getElementById('couponAllSims');
+    const singleCbs = document.querySelectorAll('.single-sim-checkbox');
+    if (!allowedList || allowedList.length === 0 || allowedList.includes('ALL')) {
+        if (singleMaster) singleMaster.checked = true;
+        singleCbs.forEach(cb => cb.checked = true);
+    } else {
+        if (singleMaster) singleMaster.checked = false;
+        singleCbs.forEach(cb => {
+            cb.checked = allowedList.includes(cb.value);
+        });
+    }
+
     document.getElementById('couponSubmitBtn').innerText = 'Update';
     document.getElementById('cancelEditCouponBtn').style.display = 'block';
     
@@ -1615,6 +1721,10 @@ document.getElementById('cancelEditCouponBtn').addEventListener('click', () => {
     document.getElementById('addCouponForm').reset();
     document.getElementById('editingCouponCode').value = '';
     document.getElementById('couponCode').disabled = false;
+    document.getElementById('couponMaxSessions').value = '';
+    const singleMaster = document.getElementById('couponAllSims');
+    if (singleMaster) singleMaster.checked = true;
+    document.querySelectorAll('.single-sim-checkbox').forEach(cb => cb.checked = true);
     document.getElementById('couponFormTitle').innerText = '+ Add New Coupon';
     document.getElementById('couponSubmitBtn').innerText = 'Add';
     document.getElementById('cancelEditCouponBtn').style.display = 'none';
@@ -1628,19 +1738,21 @@ document.getElementById('addCouponForm').addEventListener('submit', async (e) =>
     const value = document.getElementById('couponValue').value;
     const expires_at = document.getElementById('couponExpiry').value || null;
     const max_uses = document.getElementById('couponMaxUses').value || null;
+    const max_sessions = document.getElementById('couponMaxSessions').value || null;
+    const allowed_simulators = getSelectedSimulators('single');
 
     let res;
     if (editingCode) {
         // Update existing
         res = await fetchAuth(`/api/admin/coupons/${encodeURIComponent(editingCode)}`, {
             method: 'PUT',
-            body: JSON.stringify({ type, value: parseFloat(value), expires_at, max_uses })
+            body: JSON.stringify({ type, value: parseFloat(value), expires_at, max_uses, max_sessions, allowed_simulators })
         });
     } else {
         // Add new
         res = await fetchAuth('/api/admin/coupons', {
             method: 'POST',
-            body: JSON.stringify({ code, type, value: parseFloat(value), expires_at, max_uses })
+            body: JSON.stringify({ code, type, value: parseFloat(value), expires_at, max_uses, max_sessions, allowed_simulators })
         });
     }
 
@@ -1662,6 +1774,8 @@ document.getElementById('bulkCouponForm').addEventListener('submit', async (e) =
     const type = document.getElementById('bulkCouponType').value;
     const value = document.getElementById('bulkCouponValue').value;
     const max_uses = document.getElementById('bulkCouponMaxUses').value || null;
+    const max_sessions = document.getElementById('bulkCouponMaxSessions').value || null;
+    const allowed_simulators = getSelectedSimulators('bulk');
     const btn = document.getElementById('bulkCouponSubmitBtn');
 
     if (!prefix || isNaN(count) || count < 1) {
@@ -1674,7 +1788,7 @@ document.getElementById('bulkCouponForm').addEventListener('submit', async (e) =
 
     const res = await fetchAuth('/api/admin/coupons/bulk', {
         method: 'POST',
-        body: JSON.stringify({ prefix, count, start_from: startFrom, format, type, value: parseFloat(value), max_uses })
+        body: JSON.stringify({ prefix, count, start_from: startFrom, format, type, value: parseFloat(value), max_uses, max_sessions, allowed_simulators })
     });
     
     const data = await res.json();
@@ -1684,6 +1798,9 @@ document.getElementById('bulkCouponForm').addEventListener('submit', async (e) =
 
     if (data.success) {
         document.getElementById('bulkCouponForm').reset();
+        const bulkMaster = document.getElementById('bulkCouponAllSims');
+        if (bulkMaster) bulkMaster.checked = true;
+        document.querySelectorAll('.bulk-sim-checkbox').forEach(cb => cb.checked = true);
         alert(data.message);
         loadCoupons();
     } else {
@@ -1719,7 +1836,7 @@ window.deleteBulkCoupons = async (groupId) => {
     if (res.ok) {
         loadCoupons();
     } else {
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         alert(data.error || 'Failed to delete bulk coupons');
     }
 };

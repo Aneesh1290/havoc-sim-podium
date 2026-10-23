@@ -2081,12 +2081,27 @@
                             <input type="date" id="couponExpiry" autocomplete="off">
                         </div>
                         <div class="field">
-                            <label>Max Uses <span style="color:var(--muted); font-weight:400">(optional)</span></label>
+                            <label>Max Uses <span style="color:var(--muted); font-weight:400">(Lifetime)</span></label>
                             <input type="number" id="couponMaxUses" autocomplete="off" placeholder="e.g. 100" min="1">
+                        </div>
+                        <div class="field">
+                            <label>Max Sessions / Order <span style="color:var(--muted); font-weight:400">(optional)</span></label>
+                            <input type="number" id="couponMaxSessions" autocomplete="off" placeholder="e.g. 1 (Blank = All)" min="1">
                         </div>
                         <div style="display:flex; gap:0.5rem; align-self:flex-end;">
                             <button type="button" id="cancelEditCouponBtn" class="btn" style="display:none; background:var(--input-bg);">Cancel</button>
                             <button type="submit" id="couponSubmitBtn" class="btn btn-gold">Add</button>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; padding: 0.9rem; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.5rem;">
+                            <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:var(--gold); font-weight:700;">Allowed Simulators <span style="color:var(--muted); font-weight:400; text-transform:none;">(leave All checked for store-wide)</span></span>
+                            <label style="font-size:0.8rem; color:#fff; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                                <input type="checkbox" id="couponAllSims" checked onchange="toggleAllSimsSelect(this.checked, 'single')"> <span style="font-weight:600; color:var(--gold);">All Simulators</span>
+                            </label>
+                        </div>
+                        <div id="couponSimulatorsList" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 0.5rem; max-height: 140px; overflow-y: auto; padding-top: 0.3rem;">
+                            <!-- Populated dynamically with active simulators -->
                         </div>
                     </div>
                 </form>
@@ -2129,8 +2144,23 @@
                             <label>Max Uses</label>
                             <input type="number" id="bulkCouponMaxUses" value="1" min="1" placeholder="Usually 1">
                         </div>
+                        <div class="field">
+                            <label>Max Sessions / Order <span style="color:var(--muted); font-weight:400">(optional)</span></label>
+                            <input type="number" id="bulkCouponMaxSessions" autocomplete="off" placeholder="e.g. 1 (Blank = All)" min="1">
+                        </div>
                         <div style="display:flex; gap:0.5rem; align-self:flex-end;">
                             <button type="submit" id="bulkCouponSubmitBtn" class="btn btn-gold">Generate</button>
+                        </div>
+                    </div>
+                    <div style="margin-top: 1rem; padding: 0.9rem; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 8px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 0.5rem;">
+                            <span style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; color:var(--gold); font-weight:700;">Allowed Simulators <span style="color:var(--muted); font-weight:400; text-transform:none;">(leave All checked for store-wide)</span></span>
+                            <label style="font-size:0.8rem; color:#fff; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                                <input type="checkbox" id="bulkCouponAllSims" checked onchange="toggleAllSimsSelect(this.checked, 'bulk')"> <span style="font-weight:600; color:var(--gold);">All Simulators</span>
+                            </label>
+                        </div>
+                        <div id="bulkCouponSimulatorsList" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 0.5rem; max-height: 140px; overflow-y: auto; padding-top: 0.3rem;">
+                            <!-- Populated dynamically with active simulators -->
                         </div>
                     </div>
                 </form>
@@ -2146,13 +2176,15 @@
                             <th>Code</th>
                             <th>Type</th>
                             <th>Value</th>
+                            <th>Allowed Simulators</th>
+                            <th>Session Limit</th>
                             <th>Uses</th>
                             <th>Expires</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody id="couponsTableBody">
-                        <tr><td colspan="6" class="empty-state">Loading coupons…</td></tr>
+                        <tr><td colspan="8" class="empty-state">Loading coupons…</td></tr>
                     </tbody>
                 </table>
             </div>

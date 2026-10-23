@@ -1,4 +1,4 @@
-﻿const sqlite3 = require('sqlite3').verbose();
+const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const bcrypt = require('bcrypt');
 
@@ -129,10 +129,12 @@ const initDb = () => {
         // Migrations for slots table
         db.run(`ALTER TABLE slots ADD COLUMN sort_order INTEGER DEFAULT 0`, () => {});
 
-        // Migrations for coupons table (expiry + usage limits)
+        // Migrations for coupons table (expiry + usage limits + simulator & session restrictions)
         db.run(`ALTER TABLE coupons ADD COLUMN expires_at TEXT`, () => {});
         db.run(`ALTER TABLE coupons ADD COLUMN max_uses INTEGER`, () => {});
         db.run(`ALTER TABLE coupons ADD COLUMN used_count INTEGER DEFAULT 0`, () => {});
+        db.run(`ALTER TABLE coupons ADD COLUMN allowed_simulators TEXT`, () => {});
+        db.run(`ALTER TABLE coupons ADD COLUMN max_sessions INTEGER`, () => {});
 
         // Inventory Overrides Table
         db.run(`CREATE TABLE IF NOT EXISTS inventory_overrides (
