@@ -1692,21 +1692,27 @@ app.delete('/api/admin/bookings/:order_id', verifyToken, (req, res) => {
     });
 });
 
-// Purge test orders by name (Protected)
+// Purge test orders by name/details (Protected)
 app.post('/api/admin/purge-test-orders', verifyToken, (req, res) => {
-    const rawName = (req.body && req.body.name) ? req.body.name : 'aneesh';
-    const targetName = String(rawName).trim().toLowerCase();
+    const rawTarget = (req.body && req.body.name) ? req.body.name : '';
+    const target = String(rawTarget).trim().toLowerCase();
 
-    db.run("DELETE FROM bookings WHERE LOWER(name) LIKE ? OR LOWER(email) LIKE ?", [`%${targetName}%`, `%${targetName}%`], function(err) {
+    const query = "DELETE FROM bookings WHERE LOWER(name) LIKE '%aneesh%' OR LOWER(email) LIKE '%aneeshdhavade%' OR LOWER(name) LIKE '%sabharwal%' OR phone LIKE '%9535545654%' OR LOWER(email) LIKE '%bobbysabharwal%' OR order_id LIKE 'PAYDUE_3OCT26_01%'" + (target ? " OR LOWER(name) LIKE ? OR LOWER(email) LIKE ?" : "");
+    const params = target ? [`%${target}%`, `%${target}%`] : [];
+
+    db.run(query, params, function(err) {
         if (err) return res.status(500).json({ error: 'Database error: ' + err.message });
         const bookingsDeleted = this?.changes || 0;
 
-        db.run("DELETE FROM simulator_slot_locks WHERE LOWER(customer_name) LIKE ?", [`%${targetName}%`], function(lockErr) {
+        const lockQuery = "DELETE FROM simulator_slot_locks WHERE LOWER(customer_name) LIKE '%aneesh%' OR LOWER(customer_name) LIKE '%sabharwal%' OR customer_phone LIKE '%9535545654%' OR source_order_id LIKE 'PAYDUE_3OCT26_01%'" + (target ? " OR LOWER(customer_name) LIKE ?" : "");
+        const lockParams = target ? [`%${target}%`] : [];
+
+        db.run(lockQuery, lockParams, function(lockErr) {
             const locksDeleted = this?.changes || 0;
-            console.log(`[Admin Purge] Removed ${bookingsDeleted} bookings and ${locksDeleted} slot locks matching "${targetName}".`);
+            console.log(`[Admin Purge] Removed ${bookingsDeleted} bookings and ${locksDeleted} slot locks.`);
             res.json({
                 success: true,
-                message: `Successfully deleted ${bookingsDeleted} test orders and ${locksDeleted} slot locks matching "${targetName}".`,
+                message: `Successfully deleted ${bookingsDeleted} test orders and ${locksDeleted} slot locks.`,
                 bookingsDeleted,
                 locksDeleted
             });
@@ -3060,19 +3066,19 @@ app.get('/api/upi/status/:orderId', (req, res) => {
 app.listen(PORT, () => {
     console.log(`\n Havoc Sim Podium backend running at http://localhost:${PORT}\n`);
 
-    // Purge test orders matching 'aneesh' on startup to keep database clean
-    const purgeQuery = "DELETE FROM bookings WHERE LOWER(name) LIKE '%aneesh%' OR LOWER(email) LIKE '%aneeshdhavade%'";
+    // Purge test orders matching 'aneesh' and 'sabharwal' on startup to keep database clean
+    const purgeQuery = "DELETE FROM bookings WHERE LOWER(name) LIKE '%aneesh%' OR LOWER(email) LIKE '%aneeshdhavade%' OR LOWER(name) LIKE '%sabharwal%' OR phone LIKE '%9535545654%' OR LOWER(email) LIKE '%bobbysabharwal%' OR order_id LIKE 'PAYDUE_3OCT26_01%'";
     db.run(purgeQuery, [], function(err) {
         if (err) {
             console.warn('[DB Purge Notice]', err.message);
         } else if (this && this.changes > 0) {
-            console.log(`[DB Purge] Startup removed ${this.changes} test bookings matching 'aneesh'.`);
+            console.log(`[DB Purge] Startup removed ${this.changes} test bookings matching test records.`);
         }
     });
 
-    db.run("DELETE FROM simulator_slot_locks WHERE LOWER(customer_name) LIKE '%aneesh%'", [], function(err) {
+    db.run("DELETE FROM simulator_slot_locks WHERE LOWER(customer_name) LIKE '%aneesh%' OR LOWER(customer_name) LIKE '%sabharwal%' OR customer_phone LIKE '%9535545654%' OR source_order_id LIKE 'PAYDUE_3OCT26_01%'", [], function(err) {
         if (!err && this && this.changes > 0) {
-            console.log(`[DB Purge] Startup removed ${this.changes} slot locks matching 'aneesh'.`);
+            console.log(`[DB Purge] Startup removed ${this.changes} slot locks matching test records.`);
         }
     });
 });
