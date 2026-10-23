@@ -2128,6 +2128,62 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
     });
 });
 
+// 4. Collect desk payment and fulfill unpaid order(s)
+app.post('/api/admin/verify/collect-and-fulfill', verifyToken, (req, res) => {
+    const { order_ids, amount_collected, transaction_ref } = req.body;
+
+    if (!Array.isArray(order_ids) || order_ids.length === 0) {
+        return res.status(400).json({ error: 'At least one order ID is required.' });
+    }
+
+    const amt = parseFloat(amount_collected);
+    if (isNaN(amt) || amt <= 0) {
+        return res.status(400).json({ error: 'Valid amount collected is required.' });
+    }
+
+    const txnRef = (transaction_ref || '').trim();
+    if (!txnRef) {
+        return res.status(400).json({ error: 'Transaction reference number / payment note is required.' });
+    }
+
+    // Verify order(s) and amounts
+    const placeholders = order_ids.map(() => '?').join(',');
+    db.all(`SELECT id, order_id, price, status FROM bookings WHERE order_id IN (${placeholders})`, order_ids, (err, rows) => {
+        if (err || !rows || rows.length === 0) {
+            return res.status(404).json({ error: 'Booking records not found.' });
+        }
+
+        const expectedTotal = rows.reduce((sum, r) => sum + (parseFloat(r.price) || 0), 0);
+        if (Math.abs(expectedTotal - amt) > 0.05) {
+            return res.status(400).json({
+                error: `Amount collected (₹${amt.toFixed(2)}) does not match order total (₹${expectedTotal.toFixed(2)}).`
+            });
+        }
+
+        // Update each booking to status 'ATTENDED' (Paid & Fulfilled) and record payment_ref
+        const updatePromises = rows.map(r => {
+            return new Promise((resolve) => {
+                db.run("UPDATE bookings SET status = 'ATTENDED' WHERE order_id LIKE ?", [`${r.order_id}%`], () => {
+                    db.run("UPDATE bookings SET payment_ref = ? WHERE order_id LIKE ?", [txnRef, `${r.order_id}%`], () => {
+                        resolve();
+                    });
+                });
+            });
+        });
+
+        Promise.all(updatePromises).then(() => {
+            console.log(`[Desk Payment] Successfully collected ₹${amt.toFixed(2)} (Ref: ${txnRef}) for orders:`, order_ids);
+            res.json({
+                success: true,
+                message: `Payment of ₹${amt.toFixed(2)} recorded and order(s) marked as PAID and FULFILLED!`,
+                order_ids,
+                amount_collected: amt,
+                transaction_ref: txnRef
+            });
+        });
+    });
+});
+
 // Manually create a walk-in booking (Protected)
 app.post('/api/admin/bookings', verifyToken, (req, res) => {
     const { name, phone, email, item_name, price, booking_date, booking_time, status } = req.body;
@@ -3081,4 +3137,11 @@ app.listen(PORT, () => {
             console.log(`[DB Purge] Startup removed ${this.changes} slot locks matching test records.`);
         }
     });
+
+    // Ensure payment_ref column exists on bookings table
+    if (db.isPostgres) {
+        db.pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_ref TEXT", () => {});
+    } else {
+        db.run("ALTER TABLE bookings ADD COLUMN payment_ref TEXT", [], () => {});
+    }
 });

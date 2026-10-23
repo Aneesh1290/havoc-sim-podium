@@ -1689,12 +1689,45 @@
                     Booking Summary
                 </h3>
 
-                <div id="deskVerifiedBookingsList" style="display: flex; flex-direction: column; gap: 10px; max-height: 280px; overflow-y: auto; margin-bottom: 1.5rem; padding-right: 4px;">
+                <div id="deskVerifiedBookingsList" style="display: flex; flex-direction: column; gap: 10px; max-height: 280px; overflow-y: auto; margin-bottom: 1.25rem; padding-right: 4px;">
                     <!-- Injected by JS -->
                 </div>
 
+                <!-- PAYMENT COLLECTION SECTION (Shown if any session is unpaid) -->
+                <div id="deskPaymentCollectionBox" style="display: none; background: rgba(255,255,255,0.03); border: 1.5px solid rgba(229,184,105,0.4); border-radius: 14px; padding: 1.15rem; margin-bottom: 1.25rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.2rem;">💳</span>
+                            <span style="font-weight: 800; font-size: 0.95rem; color: #fff; letter-spacing: 0.5px;">RECORD DESK PAYMENT</span>
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--gold); font-weight: 700;">
+                            Amount Due: <span style="font-size: 1.2rem; color: #fff; font-weight: 800;" id="deskTotalDueDisplay">₹0.00</span>
+                        </div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 0.75rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem; letter-spacing: 0.5px;">
+                                Transaction Ref / Note *
+                            </label>
+                            <input type="text" id="deskTxnRefInput" oninput="updateDeskPaymentValidation()" placeholder="e.g. UPI Ref / Cash / POS" style="width: 100%; padding: 0.75rem 0.85rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem; letter-spacing: 0.5px;">
+                                Amount Collected (₹) *
+                            </label>
+                            <input type="number" id="deskAmountCollectedInput" oninput="updateDeskPaymentValidation()" placeholder="Enter ₹ amount" step="any" style="width: 100%; padding: 0.75rem 0.85rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; font-weight: 700; outline: none;">
+                        </div>
+                    </div>
+
+                    <!-- Live validation indicator -->
+                    <div id="deskPaymentStatusIndicator" style="font-size: 0.82rem; padding: 0.55rem 0.85rem; border-radius: 8px; font-weight: 600; display: flex; align-items: center; gap: 6px; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171;">
+                        <span>⚠️</span> Enter transaction reference and matching amount (₹0) to enable completion.
+                    </div>
+                </div>
+
                 <div style="display: flex; justify-content: flex-end; gap: 10px;">
-                    <button type="button" class="btn" onclick="closeDeskOtpModal()" style="background: linear-gradient(135deg, #e5b869, #c9952f); color: #000; border: none; font-weight: 700; padding: 0.75rem 1.8rem; border-radius: 10px; cursor: pointer;">
+                    <button type="button" id="deskDoneCloseBtn" class="btn" onclick="handleDeskDoneClose()" style="width: 100%; background: linear-gradient(135deg, #e5b869, #c9952f); color: #000; border: none; font-weight: 800; font-size: 1rem; padding: 0.85rem 1.8rem; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;">
                         Done / Close
                     </button>
                 </div>
@@ -2909,6 +2942,6 @@
         </div>
     </div>
     <script src="exceljs.min.js"></script>
-    <script src="admin-dashboard.js?v=29"></script>
+    <script src="admin-dashboard.js?v=30"></script>
 </body>
 </html>

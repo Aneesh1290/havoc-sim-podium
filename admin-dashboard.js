@@ -4465,12 +4465,24 @@ window.closeDeskOtpModal = () => {
     const modal = document.getElementById('deskOtpModal');
     if (modal) modal.style.display = 'none';
     currentDeskCustomer = null;
+    window._deskUnpaidDue = 0;
+    window._deskUnpaidOrderIds = [];
+    const paymentBox = document.getElementById('deskPaymentCollectionBox');
+    if (paymentBox) paymentBox.style.display = 'none';
+    const txnInput = document.getElementById('deskTxnRefInput');
+    const amtInput = document.getElementById('deskAmountCollectedInput');
+    if (txnInput) txnInput.value = '';
+    if (amtInput) amtInput.value = '';
 };
 
 window.backToStep1 = () => {
     document.getElementById('deskOtpStep1').style.display = 'block';
     document.getElementById('deskOtpStep2').style.display = 'none';
     document.getElementById('deskOtpStep3').style.display = 'none';
+    window._deskUnpaidDue = 0;
+    window._deskUnpaidOrderIds = [];
+    const paymentBox = document.getElementById('deskPaymentCollectionBox');
+    if (paymentBox) paymentBox.style.display = 'none';
 };
 
 window.lookupCustomerBookings = async () => {
@@ -4750,6 +4762,38 @@ window.verifyDeskOtp = async () => {
 
         listContainer.innerHTML = html;
 
+        // Check for unpaid / pending orders
+        const unpaidBookings = (data.bookings || []).filter(b => b.status !== 'PAID' && b.status !== 'CASH' && b.status !== 'ATTENDED');
+        const totalDue = unpaidBookings.reduce((sum, b) => sum + (parseFloat(b.price) || 0), 0);
+
+        window._deskUnpaidDue = totalDue;
+        window._deskUnpaidOrderIds = unpaidBookings.map(b => b.order_id);
+
+        const paymentBox = document.getElementById('deskPaymentCollectionBox');
+        const doneCloseBtn = document.getElementById('deskDoneCloseBtn');
+        const dueDisplay = document.getElementById('deskTotalDueDisplay');
+        const txnInput = document.getElementById('deskTxnRefInput');
+        const amtInput = document.getElementById('deskAmountCollectedInput');
+
+        if (totalDue > 0) {
+            if (paymentBox) paymentBox.style.display = 'block';
+            if (dueDisplay) dueDisplay.textContent = `₹${totalDue.toFixed(2)}`;
+            if (txnInput) txnInput.value = '';
+            if (amtInput) amtInput.value = '';
+            window.updateDeskPaymentValidation();
+        } else {
+            if (paymentBox) paymentBox.style.display = 'none';
+            if (doneCloseBtn) {
+                doneCloseBtn.disabled = false;
+                doneCloseBtn.style.opacity = '1';
+                doneCloseBtn.style.cursor = 'pointer';
+                doneCloseBtn.style.background = 'linear-gradient(135deg, #e5b869, #c9952f)';
+                doneCloseBtn.style.color = '#000';
+                doneCloseBtn.style.boxShadow = 'none';
+                doneCloseBtn.innerHTML = 'Done / Close';
+            }
+        }
+
     } catch (err) {
         errorDiv.textContent = 'Server error during verification.';
         errorDiv.style.display = 'block';
@@ -4758,3 +4802,113 @@ window.verifyDeskOtp = async () => {
         verifyBtn.disabled = false;
     }
 };
+
+window.updateDeskPaymentValidation = function() {
+    const expected = window._deskUnpaidDue || 0;
+    const btn = document.getElementById('deskDoneCloseBtn');
+    const indicator = document.getElementById('deskPaymentStatusIndicator');
+    const txnInput = document.getElementById('deskTxnRefInput');
+    const amtInput = document.getElementById('deskAmountCollectedInput');
+
+    if (expected <= 0) {
+        if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            btn.innerHTML = 'Done / Close';
+        }
+        return;
+    }
+
+    const txnRef = (txnInput?.value || '').trim();
+    const enteredAmt = parseFloat(amtInput?.value);
+    const amtMatches = !isNaN(enteredAmt) && Math.abs(enteredAmt - expected) < 0.01;
+    const hasRef = txnRef.length > 0;
+
+    if (amtMatches && hasRef) {
+        if (indicator) {
+            indicator.innerHTML = `<span>✅</span> Amount matched (₹${expected.toFixed(2)}) & reference recorded! Ready to complete.`;
+            indicator.style.color = '#10B981';
+            indicator.style.background = 'rgba(16,185,129,0.12)';
+            indicator.style.border = '1px solid rgba(16,185,129,0.3)';
+        }
+
+        if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+            btn.style.cursor = 'pointer';
+            btn.style.background = 'linear-gradient(135deg, #10B981, #059669)';
+            btn.style.color = '#fff';
+            btn.style.boxShadow = '0 4px 18px rgba(16,185,129,0.4)';
+            btn.innerHTML = `<span>✓</span> Confirm Payment (₹${expected.toFixed(2)}) & Fulfill Order`;
+        }
+    } else {
+        if (btn) {
+            btn.disabled = true;
+            btn.style.opacity = '0.45';
+            btn.style.cursor = 'not-allowed';
+            btn.style.background = 'linear-gradient(135deg, #e5b869, #c9952f)';
+            btn.style.color = '#000';
+            btn.style.boxShadow = 'none';
+            btn.innerHTML = '<span>🔒</span> Done / Close (Enter Payment First)';
+        }
+
+        if (indicator) {
+            if (!isNaN(enteredAmt) && !amtMatches) {
+                indicator.innerHTML = `<span>⚠️</span> Amount mismatch: Entered ₹${enteredAmt.toFixed(2)} vs Required ₹${expected.toFixed(2)}`;
+            } else if (!hasRef && amtMatches) {
+                indicator.innerHTML = `<span>⚠️</span> Please enter Transaction Reference / Note (e.g. UPI Ref / Cash).`;
+            } else {
+                indicator.innerHTML = `<span>⚠️</span> Enter transaction reference and exact amount collected (₹${expected.toFixed(2)}) to enable completion.`;
+            }
+            indicator.style.color = '#f87171';
+            indicator.style.background = 'rgba(239,68,68,0.1)';
+            indicator.style.border = '1px solid rgba(239,68,68,0.25)';
+        }
+    }
+};
+
+window.handleDeskDoneClose = async function() {
+    const btn = document.getElementById('deskDoneCloseBtn');
+    if (btn && btn.disabled) return;
+
+    if (window._deskUnpaidDue && window._deskUnpaidDue > 0) {
+        const txnRef = (document.getElementById('deskTxnRefInput')?.value || '').trim();
+        const enteredAmt = parseFloat(document.getElementById('deskAmountCollectedInput')?.value);
+
+        btn.disabled = true;
+        btn.innerHTML = 'Processing Payment...';
+
+        try {
+            const res = await fetchAuth('/api/admin/verify/collect-and-fulfill', {
+                method: 'POST',
+                body: JSON.stringify({
+                    order_ids: window._deskUnpaidOrderIds,
+                    amount_collected: enteredAmt,
+                    transaction_ref: txnRef
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                alert(data.error || 'Failed to record payment');
+                btn.disabled = false;
+                window.updateDeskPaymentValidation();
+                return;
+            }
+
+            // Success! Reload bookings
+            if (typeof loadBookings === 'function') await loadBookings();
+
+            alert('✓ Payment of ₹' + enteredAmt.toFixed(2) + ' recorded! Order is now marked as PAID and FULFILLED.');
+            closeDeskOtpModal();
+        } catch (err) {
+            console.error(err);
+            alert('Network or server error while completing payment.');
+            btn.disabled = false;
+            window.updateDeskPaymentValidation();
+        }
+    } else {
+        closeDeskOtpModal();
+    }
+};
+
