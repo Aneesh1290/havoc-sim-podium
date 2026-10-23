@@ -365,6 +365,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             });
 
+            // Horizontal scroll fade indicator for category tabs on mobile
+            const tabsFadeRight = document.getElementById('tabsFadeRight');
+            const categoriesScrollHint = document.getElementById('categoriesScrollHint');
+            const updateTabsScrollCue = () => {
+                if (!dynamicTabsContainer) return;
+                const isEnd = dynamicTabsContainer.scrollLeft + dynamicTabsContainer.clientWidth >= dynamicTabsContainer.scrollWidth - 15;
+                if (tabsFadeRight) tabsFadeRight.style.opacity = isEnd ? '0' : '1';
+                if (categoriesScrollHint && dynamicTabsContainer.scrollLeft > 30) {
+                    categoriesScrollHint.style.opacity = '0.35';
+                } else if (categoriesScrollHint) {
+                    categoriesScrollHint.style.opacity = '1';
+                }
+            };
+            dynamicTabsContainer.addEventListener('scroll', updateTabsScrollCue, { passive: true });
+            setTimeout(updateTabsScrollCue, 100);
+
             // Function to set up multi-angle slider per simulator card
             function initSimCardSliders(container) {
                 const sliders = container.querySelectorAll('.sim-slider-wrap');
