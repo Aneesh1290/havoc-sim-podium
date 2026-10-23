@@ -3170,35 +3170,9 @@ app.listen(PORT, () => {
       { id: 10, image_url: "/assets/uploads/prod_10_main_1792739213333_509.jpg", images_json: "[\"/assets/uploads/prod_10_gallery_0_1792739213349_204.jpg\",\"/assets/uploads/prod_10_gallery_1_1792739213355_404.jpg\",\"/assets/uploads/prod_10_gallery_2_1792739213361_322.jpg\",\"/assets/uploads/prod_10_gallery_3_1792739213368_32.jpg\"]" },
       { id: 12, image_url: "/assets/uploads/prod_12_main_1792739213370_372.jpg", images_json: "[\"/assets/uploads/prod_12_gallery_0_1792739213385_142.jpg\",\"/assets/uploads/prod_12_gallery_1_1792739213390_962.jpg\",\"/assets/uploads/prod_12_gallery_2_1792739213397_39.jpg\",\"/assets/uploads/prod_12_gallery_3_1792739213404_671.jpg\"]" }
     ];
+    // Enforce permanent git-tracked static image paths for standard products
     optimizedProductData.forEach(p => {
-        db.run("UPDATE products SET image_url = ?, images_json = ? WHERE id = ? AND (image_url LIKE 'data:image%' OR images_json LIKE '%data:image%')", [p.image_url, p.images_json, p.id]);
-    });
-
-    // Dynamic fallback: also auto-convert any other products still containing base64 data URIs
-    db.all("SELECT id, image_url, images_json FROM products WHERE image_url LIKE 'data:image%' OR images_json LIKE '%data:image%'", [], (err, rows) => {
-        if (!err && rows && rows.length > 0) {
-            rows.forEach(r => {
-                let changed = false;
-                let newImg = r.image_url;
-                let newJson = r.images_json;
-                if (newImg && newImg.startsWith('data:image/')) {
-                    newImg = saveBase64ImageFile(newImg, `prod_${r.id}_main`);
-                    changed = true;
-                }
-                if (newJson && newJson.includes('data:image/')) {
-                    try {
-                        const parsed = JSON.parse(newJson);
-                        if (Array.isArray(parsed)) {
-                            const cleaned = parsed.map((img, i) => saveBase64ImageFile(img, `prod_${r.id}_gal_${i}`));
-                            newJson = JSON.stringify(cleaned);
-                            changed = true;
-                        }
-                    } catch(e) {}
-                }
-                if (changed) {
-                    db.run("UPDATE products SET image_url = ?, images_json = ? WHERE id = ?", [newImg, newJson, r.id], () => {});
-                }
-            });
-        }
+        db.run("UPDATE products SET image_url = ?, images_json = ? WHERE id = ?", [p.image_url, p.images_json, p.id]);
     });
 });
+
