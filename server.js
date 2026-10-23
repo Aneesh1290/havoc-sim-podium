@@ -1843,29 +1843,39 @@ function parseBookingDate(dateStr) {
     return null;
 }
 
-// Check if booking is today or in the future (or created today)
-function isCurrentOrUpcoming(b) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // If already ATTENDED, it's already done
-    if (b.status === 'ATTENDED') return false;
+// Check if booking is strictly for TODAY in India (IST)
+function isTodayBooking(b) {
+    // If already cancelled or refunded, ignore
     if (b.status === 'CANCELLED' || b.status === 'REFUNDED') return false;
 
-    const bDate = parseBookingDate(b.booking_date);
-    if (bDate) {
-        bDate.setHours(0, 0, 0, 0);
-        // Include if booking date is today or future (or within the last 24h grace window)
-        const diffDays = Math.round((bDate - today) / (1000 * 60 * 60 * 24));
-        if (diffDays >= -1) return true;
+    // Current date in IST (YYYY-MM-DD and DD/MM/YYYY)
+    const nowIST = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+    const istYear = nowIST.getFullYear();
+    const istMonth = nowIST.getMonth(); // 0-indexed
+    const istDate = nowIST.getDate();
+
+    const monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const monthNamesLong = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+    const bStr = String(b.booking_date || '').trim();
+    if (!bStr) return false;
+
+    // Check parsed date
+    const parsed = parseBookingDate(bStr);
+    if (parsed) {
+        if (parsed.getFullYear() === istYear && parsed.getMonth() === istMonth && parsed.getDate() === istDate) {
+            return true;
+        }
     }
 
-    // Fallback: if created_at is within last 2 days
-    if (b.created_at) {
-        const cDate = new Date(b.created_at);
-        if (!isNaN(cDate.getTime())) {
-            const cDiff = (Date.now() - cDate.getTime()) / (1000 * 60 * 60 * 24);
-            if (cDiff <= 2) return true;
+    // Direct string match against today's formats (e.g., 'Oct 23', '23 Oct', '2026-10-23')
+    const curShort = monthNamesShort[istMonth];
+    const curLong = monthNamesLong[istMonth];
+    if (bStr.includes(curShort) || bStr.includes(curLong)) {
+        // Check if day number matches (with word boundary)
+        const dayRegex = new RegExp(`\\b0?${istDate}\\b`);
+        if (dayRegex.test(bStr)) {
+            return true;
         }
     }
 
@@ -1898,17 +1908,22 @@ app.post('/api/admin/verify/lookup', verifyToken, (req, res) => {
             return res.status(404).json({ error: `No bookings found for phone ending in ${cleanPhone}` });
         }
 
-        // Separate into active/today's check-ins vs past completed sessions
-        const activeSessions = rows.filter(isCurrentOrUpcoming);
+        // Strictly match ONLY today's sessions
+        const todaySessions = rows.filter(isTodayBooking);
         const customerName = rows[0].name || 'Valued Customer';
+
+        if (todaySessions.length === 0) {
+            return res.status(404).json({ 
+                error: `No sessions scheduled for TODAY for this customer (+91 ${cleanPhone}). Past or future bookings cannot be checked in today.` 
+            });
+        }
 
         res.json({
             success: true,
             phone: cleanPhone,
             customer_name: customerName,
-            booking_count: activeSessions.length > 0 ? activeSessions.length : rows.length,
-            has_active_sessions: activeSessions.length > 0,
-            bookings: activeSessions.length > 0 ? activeSessions : rows.slice(0, 5)
+            booking_count: todaySessions.length,
+            bookings: todaySessions
         });
     });
 });
@@ -1933,8 +1948,10 @@ app.post('/api/admin/verify/generate-otp', verifyToken, async (req, res) => {
             return res.status(404).json({ error: 'No matching bookings found for this number' });
         }
 
-        const activeSessions = rows.filter(isCurrentOrUpcoming);
-        const targetList = activeSessions.length > 0 ? activeSessions : rows;
+        const todaySessions = rows.filter(isTodayBooking);
+        if (todaySessions.length === 0) {
+            return res.status(404).json({ error: 'Customer has no bookings scheduled for TODAY. Cannot generate check-in OTP.' });
+        }
 
         // Generate 4-digit numeric OTP
         const otp = Math.floor(1000 + Math.random() * 9000).toString();
@@ -1944,7 +1961,7 @@ app.post('/api/admin/verify/generate-otp', verifyToken, async (req, res) => {
             otp,
             expiresAt,
             customerName: rows[0].name,
-            matchedOrders: targetList.map(r => r.order_id)
+            matchedOrders: todaySessions.map(r => r.order_id)
         });
 
         console.log(`[Desk OTP] Generated OTP for customer (${cleanPhone}): ${otp}`);
@@ -2005,7 +2022,7 @@ app.post('/api/admin/verify/generate-otp', verifyToken, async (req, res) => {
     });
 });
 
-// 3. Confirm OTP, show full details, and AUTO-FULFILL ONLY today's/upcoming active sessions
+// 3. Confirm OTP, show full details, and AUTO-FULFILL ONLY today's sessions
 app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
     const rawPhone = (req.body.phone || '').trim();
     const enteredOtp = (req.body.otp || '').trim();
@@ -2038,18 +2055,21 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
         FROM bookings
         WHERE phone LIKE ? OR phone LIKE ? OR phone = ?
         ORDER BY created_at DESC, booking_date DESC, booking_time DESC
-        LIMIT 20
+        LIMIT 25
     `, [`%${cleanPhone}`, `%${cleanPhone}%`, cleanPhone], (err, allBookings) => {
         if (err || !allBookings || allBookings.length === 0) {
             return res.status(404).json({ error: 'Verified, but no booking records could be retrieved' });
         }
 
-        // Filter: ONLY touch today's and upcoming active sessions! DO NOT TOUCH past/attended bookings!
-        const activeSessions = allBookings.filter(isCurrentOrUpcoming);
-        const sessionsToProcess = activeSessions.length > 0 ? activeSessions : allBookings.filter(b => b.status !== 'ATTENDED' && b.status !== 'CANCELLED');
+        // Filter: ONLY touch TODAY's active sessions! DO NOT TOUCH any other date!
+        const todaySessions = allBookings.filter(isTodayBooking);
+
+        if (todaySessions.length === 0) {
+            return res.status(404).json({ error: 'Verified, but this customer has no sessions scheduled for today.' });
+        }
 
         const autoFulfilledOrders = [];
-        const updatePromises = sessionsToProcess.map(b => {
+        const updatePromises = todaySessions.map(b => {
             // Auto-fulfill ONLY if paid/cash and NOT already attended
             const isPaid = (b.status === 'PAID' || b.status === 'CASH');
             if (isPaid && b.status !== 'ATTENDED') {
@@ -2065,10 +2085,7 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
         });
 
         Promise.all(updatePromises).then(() => {
-            console.log(`[Desk Verification] Customer verified: ${cleanPhone}. Auto-fulfilled today's active orders:`, autoFulfilledOrders);
-
-            // Re-fetch to return accurate presentation list (active sessions prioritized)
-            const resultList = activeSessions.length > 0 ? activeSessions : allBookings.slice(0, 3);
+            console.log(`[Desk Verification] Customer verified: ${cleanPhone}. Auto-fulfilled today's orders:`, autoFulfilledOrders);
 
             res.json({
                 success: true,
@@ -2077,7 +2094,7 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
                 phone: cleanPhone,
                 auto_fulfilled: autoFulfilledOrders.length > 0,
                 auto_fulfilled_orders: autoFulfilledOrders,
-                bookings: resultList
+                bookings: todaySessions
             });
         });
     });

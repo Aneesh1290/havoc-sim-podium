@@ -4419,7 +4419,11 @@ window.openDeskOtpModal = () => {
     document.getElementById('deskOtpError1').style.display = 'none';
     document.getElementById('deskOtpError2').style.display = 'none';
     document.getElementById('deskOtpInput').value = '';
-    
+
+    // NEVER show Send OTP first - only "Verify Customer Number"
+    const sendBtn = document.getElementById('deskSendOtpBtn');
+    if (sendBtn) sendBtn.style.display = 'none';
+
     currentDeskCustomer = null;
     modal.style.display = 'flex';
     document.getElementById('deskCustomerPhone').focus();
@@ -4441,10 +4445,12 @@ window.lookupCustomerBookings = async () => {
     const phoneInput = document.getElementById('deskCustomerPhone');
     const errorDiv = document.getElementById('deskOtpError1');
     const resultDiv = document.getElementById('deskLookupResult');
+    const sendOtpBtn = document.getElementById('deskSendOtpBtn');
     const phone = (phoneInput.value || '').trim();
 
     errorDiv.style.display = 'none';
     resultDiv.style.display = 'none';
+    if (sendOtpBtn) sendOtpBtn.style.display = 'none';
 
     if (!phone || phone.length < 10) {
         errorDiv.textContent = 'Please enter a valid 10-digit customer phone number.';
@@ -4454,7 +4460,7 @@ window.lookupCustomerBookings = async () => {
 
     const btn = document.getElementById('deskLookupBtn');
     const origText = btn.innerHTML;
-    btn.innerHTML = 'Searching...';
+    btn.innerHTML = 'Verifying with Database...';
     btn.disabled = true;
 
     try {
@@ -4465,45 +4471,55 @@ window.lookupCustomerBookings = async () => {
         const data = await res.json();
 
         if (!res.ok) {
-            errorDiv.textContent = data.error || 'No bookings found.';
+            errorDiv.textContent = data.error || 'No active bookings found for today.';
             errorDiv.style.display = 'block';
             return;
         }
 
         currentDeskCustomer = data;
 
-        // Render preview of matched sessions
+        // Render preview of matched sessions strictly for TODAY
         let previewHtml = `
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
-                <div style="font-weight: 700; color: #fff; font-size: 0.95rem;">👤 ${data.customer_name}</div>
-                <span style="font-size: 0.75rem; background: rgba(229,184,105,0.15); color: var(--gold); padding: 2px 8px; border-radius: 12px; font-weight: 600;">
-                    ${data.booking_count} session(s) found
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.5rem;">
+                <div>
+                    <div style="font-weight: 800; color: #fff; font-size: 1.05rem;">👤 ${data.customer_name}</div>
+                    <div style="font-size: 0.75rem; color: #10B981; font-weight: 700;">✓ Customer Scheduled for Today</div>
+                </div>
+                <span style="font-size: 0.8rem; background: rgba(16,185,129,0.15); color: #10B981; border: 1px solid rgba(16,185,129,0.3); padding: 4px 10px; border-radius: 8px; font-weight: 700;">
+                    ${data.booking_count} Today's Session(s)
                 </span>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 6px;">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
         `;
 
-        data.bookings.slice(0, 3).forEach(b => {
+        data.bookings.forEach(b => {
             const isPaid = (b.status === 'PAID' || b.status === 'CASH');
             const isFulfilled = (b.status === 'ATTENDED');
-            const statusColor = isFulfilled ? '#10B981' : (isPaid ? '#e5b869' : '#f87171');
-            const statusText = isFulfilled ? 'Fulfilled / Completed' : (isPaid ? 'Paid' : 'Unpaid');
+            const badgeBg = isFulfilled ? '#10B981' : (isPaid ? '#e5b869' : '#ef4444');
+            const badgeColor = isPaid ? '#000' : '#fff';
+            const statusText = isFulfilled ? 'FULFILLED' : (isPaid ? 'PAID' : 'UNPAID');
 
             previewHtml += `
-                <div style="font-size: 0.8rem; display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
-                    <span style="color: #fff;">${b.item_name} (${b.booking_date} @ ${b.booking_time})</span>
-                    <span style="color: ${statusColor}; font-weight: 600;">${statusText}</span>
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; background: rgba(0,0,0,0.25); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);">
+                    <div>
+                        <div style="color: #fff; font-weight: 700; font-size: 0.9rem;">🎮 ${b.item_name}</div>
+                        <div style="color: var(--muted); font-size: 0.75rem; margin-top: 2px;">Slot: <strong style="color:#fff;">${b.booking_time}</strong></div>
+                    </div>
+                    <span style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 800; font-size: 0.75rem; padding: 4px 10px; border-radius: 6px;">
+                        ${statusText}
+                    </span>
                 </div>
             `;
         });
 
-        if (data.bookings.length > 3) {
-            previewHtml += `<div style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">+ ${data.bookings.length - 3} more session(s)</div>`;
-        }
-
         previewHtml += `</div>`;
         resultDiv.innerHTML = previewHtml;
         resultDiv.style.display = 'block';
+
+        // Reveal Send WhatsApp OTP button ONLY NOW that today's order is verified!
+        if (sendOtpBtn) {
+            sendOtpBtn.style.display = 'flex';
+        }
 
     } catch (err) {
         errorDiv.textContent = 'Server error looking up customer.';

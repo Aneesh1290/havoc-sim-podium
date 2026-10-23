@@ -1636,12 +1636,12 @@
 
                 <div id="deskOtpError1" style="display: none; color: var(--red); font-size: 0.85rem; margin-bottom: 1rem; padding: 0.6rem 0.8rem; background: rgba(248,113,113,0.1); border-radius: 8px; border: 1px solid rgba(248,113,113,0.2);"></div>
 
-                <div style="display: flex; gap: 10px;">
-                    <button type="button" id="deskLookupBtn" onclick="lookupCustomerBookings()" class="btn" style="flex: 1; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid var(--border); padding: 0.85rem; font-weight: 600; border-radius: 10px; cursor: pointer;">
-                        🔍 Find Bookings
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                    <button type="button" id="deskLookupBtn" onclick="lookupCustomerBookings()" class="btn" style="width: 100%; background: linear-gradient(135deg, #e5b869, #c9952f); color: #000; padding: 0.9rem; font-weight: 700; border-radius: 10px; cursor: pointer; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        🔍 Verify Customer Number
                     </button>
-                    <button type="button" id="deskSendOtpBtn" onclick="sendDeskOtp()" class="btn" style="flex: 1.4; background: linear-gradient(135deg, #10B981, #059669); color: #fff; border: none; padding: 0.85rem; font-weight: 700; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
-                        <span>📲</span> Send WhatsApp OTP
+                    <button type="button" id="deskSendOtpBtn" onclick="sendDeskOtp()" class="btn" style="display: none; width: 100%; background: linear-gradient(135deg, #10B981, #059669); color: #fff; border: none; padding: 0.9rem; font-weight: 700; border-radius: 10px; cursor: pointer; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
+                        <span>📲</span> Customer Found — Send WhatsApp OTP
                     </button>
                 </div>
             </div>
@@ -2908,6 +2908,6 @@
         </div>
     </div>
     <script src="exceljs.min.js"></script>
-    <script src="admin-dashboard.js?v=25"></script>
+    <script src="admin-dashboard.js?v=26"></script>
 </body>
 </html>
