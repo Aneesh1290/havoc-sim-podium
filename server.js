@@ -1794,6 +1794,216 @@ app.post('/api/admin/bookings/:order_id/refund', verifyToken, async (req, res) =
     });
 });
 
+// ==========================================
+// DESK CUSTOMER CHECK-IN & OTP VERIFICATION
+// ==========================================
+
+// In-memory OTP storage: key = normalized phone, value = { otp, expiresAt, orderIds }
+const deskOtpStore = new Map();
+
+// Helper to normalize phone number (extract last 10 digits)
+function normalizePhone(rawPhone) {
+    if (!rawPhone) return '';
+    const digits = String(rawPhone).replace(/[^0-9]/g, '');
+    return digits.length >= 10 ? digits.slice(-10) : digits;
+}
+
+// 1. Lookup active / upcoming bookings by customer phone
+app.post('/api/admin/verify/lookup', verifyToken, (req, res) => {
+    const rawPhone = (req.body.phone || '').trim();
+    const cleanPhone = normalizePhone(rawPhone);
+
+    if (!cleanPhone || cleanPhone.length < 10) {
+        return res.status(400).json({ error: 'Please enter a valid 10-digit phone number' });
+    }
+
+    // Query bookings that match phone (handling with or without +91 / 0)
+    db.all(`
+        SELECT id, order_id, name, phone, email, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, created_at
+        FROM bookings
+        WHERE phone LIKE ? OR phone LIKE ? OR phone = ?
+        ORDER BY booking_date DESC, booking_time DESC
+        LIMIT 20
+    `, [`%${cleanPhone}`, `%${cleanPhone}%`, cleanPhone], (err, rows) => {
+        if (err) {
+            console.error('Error looking up customer bookings:', err);
+            return res.status(500).json({ error: 'Database error searching customer' });
+        }
+
+        if (!rows || rows.length === 0) {
+            return res.status(404).json({ error: `No bookings found for phone ending in ${cleanPhone}` });
+        }
+
+        const customerName = rows[0].name || 'Valued Customer';
+        res.json({
+            success: true,
+            phone: cleanPhone,
+            customer_name: customerName,
+            booking_count: rows.length,
+            bookings: rows
+        });
+    });
+});
+
+// 2. Generate and send OTP to customer
+app.post('/api/admin/verify/generate-otp', verifyToken, async (req, res) => {
+    const rawPhone = (req.body.phone || '').trim();
+    const cleanPhone = normalizePhone(rawPhone);
+
+    if (!cleanPhone || cleanPhone.length < 10) {
+        return res.status(400).json({ error: 'Valid 10-digit phone number is required' });
+    }
+
+    // Verify booking exists
+    db.all(`
+        SELECT order_id, name, phone, status 
+        FROM bookings 
+        WHERE phone LIKE ? OR phone LIKE ?
+    `, [`%${cleanPhone}`, `%${cleanPhone}%`], async (err, rows) => {
+        if (err || !rows || rows.length === 0) {
+            return res.status(404).json({ error: 'No matching bookings found for this number' });
+        }
+
+        // Generate 4-digit numeric OTP
+        const otp = Math.floor(1000 + Math.random() * 9000).toString();
+        const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+
+        deskOtpStore.set(cleanPhone, {
+            otp,
+            expiresAt,
+            customerName: rows[0].name,
+            matchedOrders: rows.map(r => r.order_id)
+        });
+
+        console.log(`[Desk OTP] Generated OTP for customer (${cleanPhone}): ${otp}`);
+
+        // Dispatch via Interakt WhatsApp API if credentials exist
+        const interaktApiKey = process.env.INTERAKT_API_KEY;
+        const interaktTemplateName = process.env.INTERAKT_OTP_TEMPLATE || 'desk_checkin_otp';
+        let sentViaInterakt = false;
+
+        if (interaktApiKey) {
+            try {
+                const response = await fetch('https://api.interakt.ai/v1/public/message/', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Basic ${interaktApiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        countryCode: '+91',
+                        phoneNumber: cleanPhone,
+                        type: 'Template',
+                        template: {
+                            name: interaktTemplateName,
+                            languageCode: 'en',
+                            bodyValues: [otp],
+                            buttonValues: {
+                                '0': [otp]
+                            }
+                        }
+                    })
+                });
+
+                if (response.ok) {
+                    sentViaInterakt = true;
+                    console.log(`[Desk OTP] Interakt WhatsApp message dispatched successfully to +91${cleanPhone}`);
+                } else {
+                    const errData = await response.text();
+                    console.warn(`[Desk OTP] Interakt returned status ${response.status}:`, errData);
+                }
+            } catch (apiErr) {
+                console.error('[Desk OTP] Failed to dispatch via Interakt:', apiErr.message);
+            }
+        } else {
+            console.log('[Desk OTP] INTERAKT_API_KEY not configured yet in .env; OTP logged in server console.');
+        }
+
+        res.json({
+            success: true,
+            phone: cleanPhone,
+            customer_name: rows[0].name,
+            sent_via_interakt: sentViaInterakt,
+            // For convenience before Interakt template approval, return dev_otp if Interakt not configured
+            dev_otp: !sentViaInterakt ? otp : undefined,
+            message: sentViaInterakt 
+                ? 'OTP sent successfully to customer WhatsApp!' 
+                : `OTP generated: ${otp} (Interakt template pending/not connected)`
+        });
+    });
+});
+
+// 3. Confirm OTP, show full details, and AUTO-FULFILL if paid
+app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
+    const rawPhone = (req.body.phone || '').trim();
+    const enteredOtp = (req.body.otp || '').trim();
+    const cleanPhone = normalizePhone(rawPhone);
+
+    if (!cleanPhone || !enteredOtp) {
+        return res.status(400).json({ error: 'Phone number and OTP are required' });
+    }
+
+    const record = deskOtpStore.get(cleanPhone);
+    if (!record) {
+        return res.status(400).json({ error: 'No OTP requested for this number or it has expired. Please generate a new OTP.' });
+    }
+
+    if (Date.now() > record.expiresAt) {
+        deskOtpStore.delete(cleanPhone);
+        return res.status(400).json({ error: 'OTP has expired. Please generate a new code.' });
+    }
+
+    if (record.otp !== enteredOtp) {
+        return res.status(400).json({ error: 'Incorrect OTP entered. Please try again.' });
+    }
+
+    // OTP Verified! Remove from cache
+    deskOtpStore.delete(cleanPhone);
+
+    // Fetch all bookings for this customer
+    db.all(`
+        SELECT id, order_id, name, phone, email, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, created_at
+        FROM bookings
+        WHERE phone LIKE ? OR phone LIKE ? OR phone = ?
+        ORDER BY booking_date DESC, booking_time DESC
+        LIMIT 10
+    `, [`%${cleanPhone}`, `%${cleanPhone}%`, cleanPhone], (err, bookings) => {
+        if (err || !bookings || bookings.length === 0) {
+            return res.status(404).json({ error: 'Verified, but no booking records could be retrieved' });
+        }
+
+        // Auto-fulfill logic: If order is PAID or CASH, automatically update to ATTENDED (Fulfilled)
+        const autoFulfilledOrders = [];
+        const updatePromises = bookings.map(b => {
+            const isPaid = (b.status === 'PAID' || b.status === 'CASH');
+            if (isPaid) {
+                autoFulfilledOrders.push(b.order_id);
+                return new Promise((resolve) => {
+                    db.run("UPDATE bookings SET status = 'ATTENDED' WHERE id = ?", [b.id], (upErr) => {
+                        if (!upErr) b.status = 'ATTENDED';
+                        resolve();
+                    });
+                });
+            }
+            return Promise.resolve();
+        });
+
+        Promise.all(updatePromises).then(() => {
+            console.log(`[Desk Verification] Customer verified: ${cleanPhone}. Auto-fulfilled orders:`, autoFulfilledOrders);
+
+            res.json({
+                success: true,
+                verified: true,
+                customer_name: bookings[0].name,
+                phone: cleanPhone,
+                auto_fulfilled: autoFulfilledOrders.length > 0,
+                auto_fulfilled_orders: autoFulfilledOrders,
+                bookings: bookings
+            });
+        });
+    });
+});
+
 // Manually create a walk-in booking (Protected)
 app.post('/api/admin/bookings', verifyToken, (req, res) => {
     const { name, phone, email, item_name, price, booking_date, booking_time, status } = req.body;

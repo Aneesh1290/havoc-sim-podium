@@ -1603,6 +1603,106 @@
         </div>
     </div>
 
+    <!-- Desk Customer Check-in & OTP Verification Modal -->
+    <div class="modal-overlay" id="deskOtpModal" style="display:none; z-index: 10005; align-items: center; justify-content: center; background: rgba(0,0,0,0.75);">
+        <div class="modal-box" style="max-width: 580px; width: 92%; text-align: left; background: #1c1d26; border: 1px solid rgba(16,185,129,0.3); border-radius: 18px; padding: 1.8rem; box-shadow: 0 25px 60px rgba(0,0,0,0.7), 0 0 30px rgba(16,185,129,0.1); max-height: 92vh; overflow-y: auto;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.9rem;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.5rem; background: rgba(16,185,129,0.15); width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid rgba(16,185,129,0.3);">🛡️</span>
+                    <div>
+                        <h2 style="font-size: 1.25rem; margin: 0; color: #fff;">Customer Check-In Verification</h2>
+                        <p style="font-size: 0.78rem; color: var(--muted); margin: 2px 0 0;">Verify customer phone & OTP before podium entry</p>
+                    </div>
+                </div>
+                <button type="button" class="modal-close" onclick="closeDeskOtpModal()">&times;</button>
+            </div>
+
+            <!-- STEP 1: Phone Lookup & Send OTP -->
+            <div id="deskOtpStep1">
+                <div style="margin-bottom: 1.2rem;">
+                    <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 0.5rem;">
+                        Customer Phone Number
+                    </label>
+                    <div style="display: flex; gap: 8px;">
+                        <span style="display: flex; align-items: center; padding: 0 0.9rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: var(--gold); font-weight: 600; font-size: 0.95rem;">+91</span>
+                        <input type="tel" id="deskCustomerPhone" placeholder="Enter 10-digit mobile number" maxlength="10" style="flex: 1; padding: 0.85rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 1.05rem; letter-spacing: 1px; outline: none;">
+                    </div>
+                </div>
+
+                <div id="deskLookupResult" style="display: none; margin-bottom: 1.25rem; padding: 1rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px;">
+                    <!-- Injected by JS -->
+                </div>
+
+                <div id="deskOtpError1" style="display: none; color: var(--red); font-size: 0.85rem; margin-bottom: 1rem; padding: 0.6rem 0.8rem; background: rgba(248,113,113,0.1); border-radius: 8px; border: 1px solid rgba(248,113,113,0.2);"></div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" id="deskLookupBtn" onclick="lookupCustomerBookings()" class="btn" style="flex: 1; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid var(--border); padding: 0.85rem; font-weight: 600; border-radius: 10px; cursor: pointer;">
+                        🔍 Find Bookings
+                    </button>
+                    <button type="button" id="deskSendOtpBtn" onclick="sendDeskOtp()" class="btn" style="flex: 1.4; background: linear-gradient(135deg, #10B981, #059669); color: #fff; border: none; padding: 0.85rem; font-weight: 700; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
+                        <span>📲</span> Send WhatsApp OTP
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 2: Enter OTP -->
+            <div id="deskOtpStep2" style="display: none;">
+                <div style="text-align: center; margin-bottom: 1.5rem;">
+                    <p style="font-size: 0.88rem; color: var(--muted); margin-bottom: 0.4rem;">
+                        OTP sent to customer on WhatsApp: <strong id="deskTargetPhoneDisplay" style="color: var(--gold);"></strong>
+                    </p>
+                    <p style="font-size: 0.78rem; color: var(--muted);">Ask the customer for the 4-digit code displayed on their screen.</p>
+                </div>
+
+                <div style="margin-bottom: 1.5rem; text-align: center;">
+                    <input type="text" id="deskOtpInput" maxlength="4" placeholder="0000" autocomplete="off" style="width: 220px; padding: 0.9rem; background: var(--input-bg); border: 2px solid rgba(16,185,129,0.5); border-radius: 12px; color: #fff; font-family: 'Outfit'; font-size: 2rem; font-weight: 800; text-align: center; letter-spacing: 12px; outline: none; transition: all 0.2s;">
+                </div>
+
+                <div id="deskOtpDevBanner" style="display: none; margin-bottom: 1rem; padding: 0.7rem; background: rgba(229,184,105,0.12); border: 1px solid rgba(229,184,105,0.3); border-radius: 8px; font-size: 0.85rem; text-align: center; color: var(--gold);">
+                    <!-- Fallback testing code if Interakt template is not yet live -->
+                </div>
+
+                <div id="deskOtpError2" style="display: none; color: var(--red); font-size: 0.85rem; margin-bottom: 1rem; padding: 0.6rem 0.8rem; background: rgba(248,113,113,0.1); border-radius: 8px; border: 1px solid rgba(248,113,113,0.2);"></div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button type="button" onclick="backToStep1()" class="btn" style="flex: 1; background: rgba(255,255,255,0.08); color: #fff; border: 1px solid var(--border); padding: 0.85rem; font-weight: 600; border-radius: 10px; cursor: pointer;">
+                        ← Change Number
+                    </button>
+                    <button type="button" id="deskVerifyOtpBtn" onclick="verifyDeskOtp()" class="btn" style="flex: 1.5; background: linear-gradient(135deg, #10B981, #059669); color: #fff; border: none; padding: 0.85rem; font-weight: 700; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
+                        <span>✓</span> Verify & Check-In
+                    </button>
+                </div>
+            </div>
+
+            <!-- STEP 3: Verification Result & Details -->
+            <div id="deskOtpStep3" style="display: none;">
+                <div style="background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3); border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem; display: flex; align-items: center; gap: 12px;">
+                    <span style="font-size: 1.6rem; color: #10B981;">✅</span>
+                    <div>
+                        <div style="font-weight: 700; color: #fff; font-size: 1.05rem;" id="resCustomerName">Customer Verified</div>
+                        <div style="font-size: 0.8rem; color: #10B981;" id="resAutoFulfillBanner">All paid sessions automatically marked as Fulfilled!</div>
+                    </div>
+                </div>
+
+                <h3 style="font-size: 0.9rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 0.75rem;">
+                    Booking Summary
+                </h3>
+
+                <div id="deskVerifiedBookingsList" style="display: flex; flex-direction: column; gap: 10px; max-height: 280px; overflow-y: auto; margin-bottom: 1.5rem; padding-right: 4px;">
+                    <!-- Injected by JS -->
+                </div>
+
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" class="btn" onclick="closeDeskOtpModal()" style="background: linear-gradient(135deg, #e5b869, #c9952f); color: #000; border: none; font-weight: 700; padding: 0.75rem 1.8rem; border-radius: 10px; cursor: pointer;">
+                        Done / Close
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
     <!-- Modals End -->
     <main class="main">
 
@@ -1615,8 +1715,10 @@
         <div id="tab-bookings" class="tab-content active">
             <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                 <h1 class="page-title" style="display: flex; align-items: center; gap: 0.5rem;">Bookings <span id="bookingCountHeader" style="color: var(--muted); font-weight: 400;">0</span></h1>
-                <div style="display: flex; gap: 1rem;">
-
+                    <button id="verifyDeskOtpBtn" class="btn" onclick="openDeskOtpModal()" style="background: linear-gradient(135deg, #10B981, #059669); color: #fff; border: none; font-weight: 700; padding: 0.5rem 1.15rem; border-radius: 20px; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+                        Verify & Check-In Customer
+                    </button>
                     <button id="createPayLinkBtn" class="btn" onclick="document.getElementById('nav-payment-links').click()" style="background: linear-gradient(135deg, #e5b869, #c9952f); color: #000; border: none; font-weight: 700; padding: 0.5rem 1.1rem; border-radius: 20px; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(229,184,105,0.3);">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                         Create Payment Link
@@ -2806,6 +2908,6 @@
         </div>
     </div>
     <script src="exceljs.min.js"></script>
-    <script src="admin-dashboard.js?v=23"></script>
+    <script src="admin-dashboard.js?v=24"></script>
 </body>
 </html>

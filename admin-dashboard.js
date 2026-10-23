@@ -4398,3 +4398,271 @@ document.getElementById('nav-payment-links')?.addEventListener('click', () => {
 // Initial boot for Block Slots
 if (typeof initBlockSlotForm === 'function') initBlockSlotForm();
 if (typeof loadBlockedSlotsList === 'function') loadBlockedSlotsList(); // Initial boot for Block Slots
+
+// ==========================================
+// DESK CUSTOMER CHECK-IN & OTP VERIFICATION
+// ==========================================
+
+let currentDeskCustomer = null;
+
+window.openDeskOtpModal = () => {
+    const modal = document.getElementById('deskOtpModal');
+    if (!modal) return;
+    
+    // Reset steps
+    document.getElementById('deskOtpStep1').style.display = 'block';
+    document.getElementById('deskOtpStep2').style.display = 'none';
+    document.getElementById('deskOtpStep3').style.display = 'none';
+    
+    document.getElementById('deskCustomerPhone').value = '';
+    document.getElementById('deskLookupResult').style.display = 'none';
+    document.getElementById('deskOtpError1').style.display = 'none';
+    document.getElementById('deskOtpError2').style.display = 'none';
+    document.getElementById('deskOtpInput').value = '';
+    
+    currentDeskCustomer = null;
+    modal.style.display = 'flex';
+    document.getElementById('deskCustomerPhone').focus();
+};
+
+window.closeDeskOtpModal = () => {
+    const modal = document.getElementById('deskOtpModal');
+    if (modal) modal.style.display = 'none';
+    currentDeskCustomer = null;
+};
+
+window.backToStep1 = () => {
+    document.getElementById('deskOtpStep1').style.display = 'block';
+    document.getElementById('deskOtpStep2').style.display = 'none';
+    document.getElementById('deskOtpStep3').style.display = 'none';
+};
+
+window.lookupCustomerBookings = async () => {
+    const phoneInput = document.getElementById('deskCustomerPhone');
+    const errorDiv = document.getElementById('deskOtpError1');
+    const resultDiv = document.getElementById('deskLookupResult');
+    const phone = (phoneInput.value || '').trim();
+
+    errorDiv.style.display = 'none';
+    resultDiv.style.display = 'none';
+
+    if (!phone || phone.length < 10) {
+        errorDiv.textContent = 'Please enter a valid 10-digit customer phone number.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    const btn = document.getElementById('deskLookupBtn');
+    const origText = btn.innerHTML;
+    btn.innerHTML = 'Searching...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetchAuth('/api/admin/verify/lookup', {
+            method: 'POST',
+            body: JSON.stringify({ phone })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            errorDiv.textContent = data.error || 'No bookings found.';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        currentDeskCustomer = data;
+
+        // Render preview of matched sessions
+        let previewHtml = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
+                <div style="font-weight: 700; color: #fff; font-size: 0.95rem;">👤 ${data.customer_name}</div>
+                <span style="font-size: 0.75rem; background: rgba(229,184,105,0.15); color: var(--gold); padding: 2px 8px; border-radius: 12px; font-weight: 600;">
+                    ${data.booking_count} session(s) found
+                </span>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+        `;
+
+        data.bookings.slice(0, 3).forEach(b => {
+            const isPaid = (b.status === 'PAID' || b.status === 'CASH');
+            const isFulfilled = (b.status === 'ATTENDED');
+            const statusColor = isFulfilled ? '#10B981' : (isPaid ? '#e5b869' : '#f87171');
+            const statusText = isFulfilled ? 'Fulfilled / Completed' : (isPaid ? 'Paid' : 'Unpaid');
+
+            previewHtml += `
+                <div style="font-size: 0.8rem; display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <span style="color: #fff;">${b.item_name} (${b.booking_date} @ ${b.booking_time})</span>
+                    <span style="color: ${statusColor}; font-weight: 600;">${statusText}</span>
+                </div>
+            `;
+        });
+
+        if (data.bookings.length > 3) {
+            previewHtml += `<div style="font-size: 0.75rem; color: var(--muted); margin-top: 4px;">+ ${data.bookings.length - 3} more session(s)</div>`;
+        }
+
+        previewHtml += `</div>`;
+        resultDiv.innerHTML = previewHtml;
+        resultDiv.style.display = 'block';
+
+    } catch (err) {
+        errorDiv.textContent = 'Server error looking up customer.';
+        errorDiv.style.display = 'block';
+    } finally {
+        btn.innerHTML = origText;
+        btn.disabled = false;
+    }
+};
+
+window.sendDeskOtp = async () => {
+    const phoneInput = document.getElementById('deskCustomerPhone');
+    const errorDiv = document.getElementById('deskOtpError1');
+    const phone = (phoneInput.value || '').trim();
+
+    errorDiv.style.display = 'none';
+
+    if (!phone || phone.length < 10) {
+        errorDiv.textContent = 'Please enter a valid 10-digit customer phone number first.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    const sendBtn = document.getElementById('deskSendOtpBtn');
+    const origText = sendBtn.innerHTML;
+    sendBtn.innerHTML = 'Sending...';
+    sendBtn.disabled = true;
+
+    try {
+        const res = await fetchAuth('/api/admin/verify/generate-otp', {
+            method: 'POST',
+            body: JSON.stringify({ phone })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            errorDiv.textContent = data.error || 'Failed to generate OTP.';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        // Switch to Step 2
+        document.getElementById('deskOtpStep1').style.display = 'none';
+        document.getElementById('deskOtpStep2').style.display = 'block';
+        document.getElementById('deskTargetPhoneDisplay').textContent = `+91 ${data.phone}`;
+
+        const devBanner = document.getElementById('deskOtpDevBanner');
+        if (data.dev_otp) {
+            devBanner.innerHTML = `<strong>Testing Mode (Interakt pending):</strong> Use OTP <strong style="font-size:1.1rem; letter-spacing:2px; color:#fff;">${data.dev_otp}</strong>`;
+            devBanner.style.display = 'block';
+        } else {
+            devBanner.style.display = 'none';
+        }
+
+        document.getElementById('deskOtpInput').value = '';
+        document.getElementById('deskOtpInput').focus();
+
+    } catch (err) {
+        errorDiv.textContent = 'Server error generating OTP.';
+        errorDiv.style.display = 'block';
+    } finally {
+        sendBtn.innerHTML = origText;
+        sendBtn.disabled = false;
+    }
+};
+
+window.verifyDeskOtp = async () => {
+    const phoneInput = document.getElementById('deskCustomerPhone');
+    const otpInput = document.getElementById('deskOtpInput');
+    const errorDiv = document.getElementById('deskOtpError2');
+    const phone = (phoneInput.value || '').trim();
+    const otp = (otpInput.value || '').trim();
+
+    errorDiv.style.display = 'none';
+
+    if (!otp || otp.length < 4) {
+        errorDiv.textContent = 'Please enter the 4-digit code provided by the customer.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    const verifyBtn = document.getElementById('deskVerifyOtpBtn');
+    const origText = verifyBtn.innerHTML;
+    verifyBtn.innerHTML = 'Verifying...';
+    verifyBtn.disabled = true;
+
+    try {
+        const res = await fetchAuth('/api/admin/verify/confirm-otp', {
+            method: 'POST',
+            body: JSON.stringify({ phone, otp })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+            errorDiv.textContent = data.error || 'Verification failed.';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        // Reload all bookings table in background so fulfilled status is immediately live
+        if (typeof loadBookings === 'function') {
+            loadBookings();
+        }
+
+        // Switch to Step 3 (Verification Result)
+        document.getElementById('deskOtpStep2').style.display = 'none';
+        document.getElementById('deskOtpStep3').style.display = 'block';
+
+        document.getElementById('resCustomerName').textContent = `${data.customer_name} (+91 ${data.phone})`;
+
+        const autoFulfillBanner = document.getElementById('resAutoFulfillBanner');
+        if (data.auto_fulfilled) {
+            autoFulfillBanner.innerHTML = `✓ Verified! <strong>${data.auto_fulfilled_orders.length} paid session(s) automatically marked as FULFILLED!</strong>`;
+            autoFulfillBanner.style.color = '#10B981';
+        } else {
+            autoFulfillBanner.innerHTML = `⚠️ Customer verified, but payment is still pending. Collect payment at desk.`;
+            autoFulfillBanner.style.color = '#fbbf24';
+        }
+
+        // Render full session breakdown
+        const listContainer = document.getElementById('deskVerifiedBookingsList');
+        let html = '';
+
+        data.bookings.forEach(b => {
+            const isFulfilled = (b.status === 'ATTENDED');
+            const isPaid = (b.status === 'PAID' || b.status === 'CASH');
+            const statusBadge = isFulfilled 
+                ? '<span style="background: rgba(16,185,129,0.15); color: #10B981; border: 1px solid rgba(16,185,129,0.3); padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">FULFILLED (CHECKED IN)</span>'
+                : (isPaid 
+                    ? '<span style="background: rgba(229,184,105,0.15); color: var(--gold); border: 1px solid rgba(229,184,105,0.3); padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">PAID</span>'
+                    : '<span style="background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.3); padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">UNPAID / PENDING</span>');
+
+            html += `
+                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 1rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
+                        <div>
+                            <div style="font-weight: 700; color: #fff; font-size: 1rem;">${b.item_name}</div>
+                            <div style="font-size: 0.82rem; color: var(--gold); margin-top: 2px;">Order #${b.order_id}</div>
+                        </div>
+                        <div>${statusBadge}</div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.82rem; color: #ccc; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid rgba(255,255,255,0.06);">
+                        <div><strong>📅 Date:</strong> ${b.booking_date}</div>
+                        <div><strong>⏰ Slot:</strong> ${b.booking_time}</div>
+                        <div><strong>💰 Price:</strong> ₹${parseFloat(b.price || 0).toFixed(2)}</div>
+                        <div><strong>👥 Players:</strong> ${b.players || 1} ${b.player_two_name ? `(${b.player_two_name})` : ''}</div>
+                    </div>
+                </div>
+            `;
+        });
+
+        listContainer.innerHTML = html;
+
+    } catch (err) {
+        errorDiv.textContent = 'Server error during verification.';
+        errorDiv.style.display = 'block';
+    } finally {
+        verifyBtn.innerHTML = origText;
+        verifyBtn.disabled = false;
+    }
+};
