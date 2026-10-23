@@ -784,16 +784,127 @@
             display: none;
         }
         .modal-box .btn { width: 100%; padding: 0.9rem; font-size: 1rem; }
-        /* Keep the sidebar docked on the left permanently so it is always visible */
+        /* ===== RESPONSIVE & MOBILE PHONE LAYOUT ===== */
+        .mobile-header {
+            display: none;
+        }
+        .sidebar-backdrop {
+            display: none;
+        }
+
         @media (max-width: 900px) {
-            .main {
-                padding: 1.5rem 1.25rem !important;
+            body {
+                flex-direction: column !important;
+                min-height: 100vh;
+                overflow-x: hidden;
             }
+
+            /* Mobile Top Navigation Bar */
+            .mobile-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                background: #15161e;
+                border-bottom: 1px solid var(--border);
+                padding: 0.75rem 1rem;
+                position: sticky;
+                top: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                z-index: 1000;
+                backdrop-filter: blur(10px);
+            }
+            .mobile-brand {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                text-decoration: none;
+            }
+            .mobile-brand img {
+                width: 32px;
+                height: 32px;
+                border-radius: 8px;
+            }
+            .mobile-brand-title {
+                font-size: 1.1rem;
+                font-weight: 800;
+                letter-spacing: 2px;
+                color: var(--gold);
+                line-height: 1.1;
+            }
+            .mobile-brand-sub {
+                font-size: 0.65rem;
+                color: var(--muted);
+                letter-spacing: 1.5px;
+                text-transform: uppercase;
+            }
+            .mobile-menu-btn {
+                background: rgba(229,184,105,0.12);
+                border: 1px solid rgba(229,184,105,0.3);
+                color: var(--gold);
+                width: 38px;
+                height: 38px;
+                border-radius: 10px;
+                font-size: 1.2rem;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                padding: 0;
+                transition: background 0.2s;
+            }
+            .mobile-menu-btn:active {
+                background: rgba(229,184,105,0.25);
+            }
+
+            /* Off-canvas Mobile Sidebar Drawer */
+            .sidebar {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                bottom: 0 !important;
+                width: 280px !important;
+                max-width: 85vw !important;
+                height: 100vh !important;
+                z-index: 10001 !important;
+                transform: translateX(-100%);
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                box-shadow: none;
+            }
+            .sidebar.mobile-open {
+                transform: translateX(0) !important;
+                box-shadow: 10px 0 35px rgba(0,0,0,0.7) !important;
+            }
+
+            /* Backdrop dimmer for sidebar */
+            .sidebar-backdrop {
+                display: none;
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.65);
+                backdrop-filter: blur(3px);
+                z-index: 10000;
+            }
+            .sidebar-backdrop.show {
+                display: block !important;
+            }
+
+            /* Main Content Container on Mobile */
+            .main {
+                margin-left: 0 !important;
+                padding: 1.25rem 1rem !important;
+                width: 100% !important;
+                max-width: 100vw !important;
+                overflow-x: hidden;
+                min-height: calc(100vh - 60px);
+            }
+
             .page-header { 
                 flex-direction: column !important; 
                 align-items: flex-start !important; 
                 gap: 1rem !important;
-                margin-bottom: 1.5rem !important;
+                margin-bottom: 1.25rem !important;
             }
             .page-header > div { 
                 display: flex !important;
@@ -807,8 +918,31 @@
                 font-size: 0.9rem !important;
                 padding: 0.6rem 1rem !important;
             }
+            .analytics-summary-bar {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 1rem !important;
+                padding: 1rem !important;
+            }
+            .analytics-summary-bar > div:first-child {
+                gap: 1.2rem !important;
+                width: 100%;
+            }
             .stats-row { grid-template-columns: 1fr; }
             .table-card { width: 100%; overflow-x: auto; overflow-y: visible; }
+            .table-card-header {
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 0.75rem !important;
+                padding: 1rem !important;
+            }
+            .table-card-header > div {
+                width: 100%;
+                justify-content: space-between;
+            }
+            #bookingSearchInput {
+                width: 100% !important;
+            }
             table { 
                 display: block; 
                 width: 100%; 
@@ -817,6 +951,11 @@
             }
             .staff-grid { grid-template-columns: 1fr !important; }
             .grid-2 { grid-template-columns: 1fr !important; }
+
+            /* Block slots mobile layout */
+            #availViewBlock > div {
+                grid-template-columns: 1fr !important;
+            }
         }
 
         /* ===== FILTER SIDEBAR ===== */
@@ -1183,7 +1322,28 @@
     </div>
 
 
-    <aside class="sidebar">
+    <!-- Mobile Top Navigation Header -->
+    <header class="mobile-header">
+        <a href="/" class="mobile-brand">
+            <img src="havoc_logo.png" alt="Havoc Logo">
+            <div>
+                <div class="mobile-brand-title">HAVOC</div>
+                <div class="mobile-brand-sub">Admin Panel</div>
+            </div>
+        </a>
+        <button type="button" class="mobile-menu-btn" id="mobileMenuToggle" aria-label="Toggle navigation">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            </svg>
+        </button>
+    </header>
+
+    <!-- Mobile Sidebar Backdrop Overlay -->
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <aside class="sidebar" id="adminSidebar">
         <a href="/" class="brand">
             <div class="brand-icon"><img src="havoc_logo.png" alt="Havoc Logo"></div>
             <div class="brand-text">
@@ -2646,6 +2806,6 @@
         </div>
     </div>
     <script src="exceljs.min.js"></script>
-    <script src="admin-dashboard.js?v=22"></script>
+    <script src="admin-dashboard.js?v=23"></script>
 </body>
 </html>

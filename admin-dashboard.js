@@ -63,6 +63,35 @@ if (urlParams.get('setup') === 'true') {
 
 
 
+// ---- Mobile Sidebar Drawer Toggle ----
+const adminSidebar = document.getElementById('adminSidebar');
+const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+const sidebarBackdrop = document.getElementById('sidebarBackdrop');
+
+function closeMobileSidebar() {
+    if (adminSidebar) adminSidebar.classList.remove('mobile-open');
+    if (sidebarBackdrop) sidebarBackdrop.classList.remove('show');
+}
+
+function openMobileSidebar() {
+    if (adminSidebar) adminSidebar.classList.add('mobile-open');
+    if (sidebarBackdrop) sidebarBackdrop.classList.add('show');
+}
+
+if (mobileMenuToggle) {
+    mobileMenuToggle.addEventListener('click', () => {
+        if (adminSidebar && adminSidebar.classList.contains('mobile-open')) {
+            closeMobileSidebar();
+        } else {
+            openMobileSidebar();
+        }
+    });
+}
+
+if (sidebarBackdrop) {
+    sidebarBackdrop.addEventListener('click', closeMobileSidebar);
+}
+
 // ---- Tabs ----
 const tabs = document.querySelectorAll('.nav-btn[data-target]');
 const contents = document.querySelectorAll('.tab-content');
@@ -85,6 +114,12 @@ tabs.forEach(tab => {
         
         tab.classList.add('active');
         document.getElementById(tab.getAttribute('data-target')).classList.add('active');
+
+        // Automatically close mobile sidebar drawer on phone screens when a section is selected
+        if (window.innerWidth <= 900) {
+            closeMobileSidebar();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
     });
 });
 
