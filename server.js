@@ -24,6 +24,32 @@ if (!fs.existsSync(uploadDir)){
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
+function saveBase64ImageFile(dataUri, prefix = 'img') {
+    if (!dataUri || typeof dataUri !== 'string' || !dataUri.startsWith('data:image/')) return dataUri;
+    try {
+        const matches = dataUri.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+        if (!matches || matches.length < 3) return dataUri;
+        let ext = matches[1].toLowerCase();
+        if (ext === 'jpeg') ext = 'jpg';
+        const filename = `${prefix}_${Date.now()}_${Math.floor(Math.random() * 1000)}.${ext}`;
+        const filePath = path.join(uploadDir, filename);
+        fs.writeFileSync(filePath, Buffer.from(matches[2], 'base64'));
+        return `/assets/uploads/${filename}`;
+    } catch(e) {
+        return dataUri;
+    }
+}
+
+function saveUploadedBufferFile(file, prefix = 'upload') {
+    if (!file || !file.buffer) return null;
+    let ext = 'jpg';
+    if (file.mimetype && file.mimetype.includes('png')) ext = 'png';
+    else if (file.mimetype && file.mimetype.includes('webp')) ext = 'webp';
+    const filename = `${prefix}_${Date.now()}_${Math.floor(Math.random() * 1000)}.${ext}`;
+    fs.writeFileSync(path.join(uploadDir, filename), file.buffer);
+    return `/assets/uploads/${filename}`;
+}
+
 // Configure multer
 const storage = multer.memoryStorage();
 const upload = multer({ 
@@ -144,6 +170,8 @@ app.use(helmet({
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
+// Serve static assets with 7-day browser caching
+app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '7d' }));
 // Serve all HTML, CSS, JS, and asset files from the project root
 app.use(express.static(path.join(__dirname), { extensions: ['html'] }));
 
@@ -1112,11 +1140,11 @@ app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.array('ima
     if (Array.isArray(orderArray) && orderArray.length > 0) {
         orderArray.forEach(item => {
             if (item.type === 'existing' && item.url) {
-                imagesList.push(item.url);
+                imagesList.push(saveBase64ImageFile(item.url, 'prod_ex'));
             } else if (item.type === 'new' && typeof item.fileIndex === 'number' && req.files && req.files[item.fileIndex]) {
                 const f = req.files[item.fileIndex];
-                const base64Data = f.buffer.toString('base64');
-                imagesList.push(`data:${f.mimetype};base64,${base64Data}`);
+                const savedPath = saveUploadedBufferFile(f, 'prod');
+                if (savedPath) imagesList.push(savedPath);
             }
         });
     } else {
@@ -1124,13 +1152,15 @@ app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.array('ima
         if (existing_images) {
             try {
                 const parsed = JSON.parse(existing_images);
-                if (Array.isArray(parsed)) imagesList = parsed;
+                if (Array.isArray(parsed)) {
+                    parsed.forEach(url => imagesList.push(saveBase64ImageFile(url, 'prod_ex')));
+                }
             } catch (e) {}
         }
         if (req.files && req.files.length > 0) {
             req.files.forEach(f => {
-                const base64Data = f.buffer.toString('base64');
-                imagesList.push(`data:${f.mimetype};base64,${base64Data}`);
+                const savedPath = saveUploadedBufferFile(f, 'prod');
+                if (savedPath) imagesList.push(savedPath);
             });
         }
     }
@@ -1171,11 +1201,11 @@ app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.array('
     if (Array.isArray(orderArray) && orderArray.length > 0) {
         orderArray.forEach(item => {
             if (item.type === 'existing' && item.url) {
-                imagesList.push(item.url);
+                imagesList.push(saveBase64ImageFile(item.url, 'prod_ex'));
             } else if (item.type === 'new' && typeof item.fileIndex === 'number' && req.files && req.files[item.fileIndex]) {
                 const f = req.files[item.fileIndex];
-                const base64Data = f.buffer.toString('base64');
-                imagesList.push(`data:${f.mimetype};base64,${base64Data}`);
+                const savedPath = saveUploadedBufferFile(f, 'prod');
+                if (savedPath) imagesList.push(savedPath);
             }
         });
     } else {
@@ -1183,13 +1213,15 @@ app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.array('
         if (existing_images) {
             try {
                 const parsed = JSON.parse(existing_images);
-                if (Array.isArray(parsed)) imagesList = parsed;
+                if (Array.isArray(parsed)) {
+                    parsed.forEach(url => imagesList.push(saveBase64ImageFile(url, 'prod_ex')));
+                }
             } catch (e) {}
         }
         if (req.files && req.files.length > 0) {
             req.files.forEach(f => {
-                const base64Data = f.buffer.toString('base64');
-                imagesList.push(`data:${f.mimetype};base64,${base64Data}`);
+                const savedPath = saveUploadedBufferFile(f, 'prod');
+                if (savedPath) imagesList.push(savedPath);
             });
         }
     }
@@ -3144,4 +3176,48 @@ app.listen(PORT, () => {
     } else {
         db.run("ALTER TABLE bookings ADD COLUMN payment_ref TEXT", [], () => {});
     }
+
+    // Optimize product images: replace heavy base64 strings with lightweight static URLs
+    const optimizedProductData = [
+      { id: 1, image_url: "/assets/uploads/prod_1_main_1792739213277_763.png", images_json: "[\"/assets/uploads/prod_1_gallery_0_1792739213279_580.png\"]" },
+      { id: 2, image_url: "/assets/uploads/prod_2_main_1792739213283_460.png", images_json: "[\"/assets/uploads/prod_2_gallery_0_1792739213286_341.png\"]" },
+      { id: 3, image_url: "/assets/uploads/prod_3_main_1792739213288_391.jpg", images_json: "[\"/assets/uploads/prod_3_gallery_0_1792739213290_998.jpg\"]" },
+      { id: 4, image_url: "/assets/uploads/prod_4_main_1792739213293_279.jpg", images_json: "[\"/assets/uploads/prod_4_gallery_0_1792739213299_538.jpg\"]" },
+      { id: 5, image_url: "/assets/uploads/prod_5_main_1792739213301_600.png", images_json: "[\"/assets/uploads/prod_5_gallery_0_1792739213303_203.png\"]" },
+      { id: 6, image_url: "/assets/uploads/prod_6_main_1792739213304_82.png", images_json: "[\"/assets/uploads/prod_6_gallery_0_1792739213315_997.png\",\"/assets/uploads/prod_6_gallery_1_1792739213320_222.jpg\",\"/assets/uploads/prod_6_gallery_2_1792739213328_609.jpg\"]" },
+      { id: 7, image_url: "/assets/uploads/prod_7_main_1792739213330_32.png", images_json: "[\"/assets/uploads/prod_7_gallery_0_1792739213331_965.png\"]" },
+      { id: 10, image_url: "/assets/uploads/prod_10_main_1792739213333_509.jpg", images_json: "[\"/assets/uploads/prod_10_gallery_0_1792739213349_204.jpg\",\"/assets/uploads/prod_10_gallery_1_1792739213355_404.jpg\",\"/assets/uploads/prod_10_gallery_2_1792739213361_322.jpg\",\"/assets/uploads/prod_10_gallery_3_1792739213368_32.jpg\"]" },
+      { id: 12, image_url: "/assets/uploads/prod_12_main_1792739213370_372.jpg", images_json: "[\"/assets/uploads/prod_12_gallery_0_1792739213385_142.jpg\",\"/assets/uploads/prod_12_gallery_1_1792739213390_962.jpg\",\"/assets/uploads/prod_12_gallery_2_1792739213397_39.jpg\",\"/assets/uploads/prod_12_gallery_3_1792739213404_671.jpg\"]" }
+    ];
+    optimizedProductData.forEach(p => {
+        db.run("UPDATE products SET image_url = ?, images_json = ? WHERE id = ? AND (image_url LIKE 'data:image%' OR images_json LIKE '%data:image%')", [p.image_url, p.images_json, p.id]);
+    });
+
+    // Dynamic fallback: also auto-convert any other products still containing base64 data URIs
+    db.all("SELECT id, image_url, images_json FROM products WHERE image_url LIKE 'data:image%' OR images_json LIKE '%data:image%'", [], (err, rows) => {
+        if (!err && rows && rows.length > 0) {
+            rows.forEach(r => {
+                let changed = false;
+                let newImg = r.image_url;
+                let newJson = r.images_json;
+                if (newImg && newImg.startsWith('data:image/')) {
+                    newImg = saveBase64ImageFile(newImg, `prod_${r.id}_main`);
+                    changed = true;
+                }
+                if (newJson && newJson.includes('data:image/')) {
+                    try {
+                        const parsed = JSON.parse(newJson);
+                        if (Array.isArray(parsed)) {
+                            const cleaned = parsed.map((img, i) => saveBase64ImageFile(img, `prod_${r.id}_gal_${i}`));
+                            newJson = JSON.stringify(cleaned);
+                            changed = true;
+                        }
+                    } catch(e) {}
+                }
+                if (changed) {
+                    db.run("UPDATE products SET image_url = ?, images_json = ? WHERE id = ?", [newImg, newJson, r.id], () => {});
+                }
+            });
+        }
+    });
 });
