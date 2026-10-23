@@ -133,29 +133,10 @@ document.getElementById('logoutBtn').addEventListener('click', () => {
 window.allBookings = []; // cache for frontend filtering
 window.selectedBookings = new Set(); // store selected order IDs for bulk actions
 
-function isTestBooking(b) {
-    if (!b) return false;
-    const n = (b.name || '').toLowerCase();
-    const e = (b.email || '').toLowerCase();
-    const p = String(b.phone || '').replace(/[^0-9]/g, '');
-    const oid = (b.order_id || '').toUpperCase();
-    return n.includes('aneesh') ||
-           e.includes('aneeshdhavade') ||
-           n.includes('sabharwal') ||
-           e.includes('bobbysabharwal') ||
-           p.includes('9535545654') ||
-           oid.startsWith('PAYDUE_3OCT26_01');
-}
-
 async function loadBookings() {
     const res = await fetchAuth('/api/admin/bookings');
     let rawBookings = await res.json();
-    if (Array.isArray(rawBookings)) {
-        // Automatically purge / filter out any test orders (Aneesh, GS Sabharwal, etc.)
-        window.allBookings = rawBookings.filter(b => !isTestBooking(b));
-    } else {
-        window.allBookings = [];
-    }
+    window.allBookings = Array.isArray(rawBookings) ? rawBookings : [];
     renderBookings(window.allBookings);
     if (typeof renderInventory === 'function' && typeof inventoryData !== 'undefined') {
         renderInventory(inventoryData);
@@ -2196,17 +2177,6 @@ loadInstructors();
 populateInventoryMonthDropdown();
 loadInventoryReport();
 
-// Trigger background purge of test orders (Aneesh, Sabharwal, etc.) from the database
-fetchAuth('/api/admin/purge-test-orders', {
-    method: 'POST',
-    body: JSON.stringify({})
-}).then(r => r.json()).then(res => {
-    if (res && res.bookingsDeleted > 0) {
-        console.log(`[Purge] Successfully removed ${res.bookingsDeleted} test orders.`);
-        loadBookings();
-    }
-}).catch(() => {});
-
 // ==========================================
 // CHANGE MY PASSWORD LOGIC
 // ==========================================
@@ -2476,11 +2446,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return false;
     }
 
-    // Export Excel (.xlsx) Handler with ExcelJS for 100% genuine styled .xlsx files
     if (confirmExportBtn) {
         confirmExportBtn.addEventListener('click', async () => {
-            const rawExport = window.currentBookings || window.allBookings || [];
-            const dataToExport = rawExport.filter(b => !isTestBooking(b));
+            const dataToExport = window.currentBookings || window.allBookings || [];
             if (!dataToExport || dataToExport.length === 0) {
                 alert("No bookings available to export.");
                 return;
