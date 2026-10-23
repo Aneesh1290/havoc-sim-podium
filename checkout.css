@@ -472,11 +472,27 @@ body.checkout-page {
     font-weight: 800;
 }
 
-/* Discount Section */
+/* Discount Section - Prominent & Unmissable */
 .co-discount-section {
-    margin-top: 1.25rem;
-    margin-bottom: 0.5rem;
+    margin: 1.1rem 0;
+    padding: 1rem 1.15rem;
+    background: rgba(229, 184, 105, 0.06);
+    border: 1.5px dashed rgba(229, 184, 105, 0.4);
+    border-radius: 12px;
     width: 100%;
+    box-sizing: border-box;
+}
+
+.discount-section-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 0.8rem;
+    font-weight: 800;
+    letter-spacing: 1.2px;
+    color: var(--accent-gold, #e5b869);
+    margin-bottom: 0.65rem;
+    text-transform: uppercase;
 }
 
 .discount-input-group {
@@ -491,26 +507,30 @@ body.checkout-page {
     min-width: 0;
     width: 100%;
     padding: 0.85rem 1rem;
-    border: 1.5px solid rgba(255, 255, 255, 0.14);
+    border: 1.5px solid rgba(255, 255, 255, 0.16);
     border-radius: 10px;
-    background: rgba(0, 0, 0, 0.25);
+    background: rgba(0, 0, 0, 0.35);
     color: #fff;
     font-family: 'Outfit', sans-serif;
     font-size: 0.92rem;
     outline: none;
     box-sizing: border-box;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .discount-input-group input:focus {
     border-color: #e5b869;
+    box-shadow: 0 0 0 3px rgba(229, 184, 105, 0.15);
 }
 
 .btn-apply {
     background: #e5b869;
     color: #111;
-    font-weight: 700;
-    font-size: 0.9rem;
-    padding: 0 1.3rem;
+    font-weight: 800;
+    font-size: 0.92rem;
+    letter-spacing: 0.5px;
+    padding: 0 1.4rem;
     border-radius: 10px;
     border: none;
     cursor: pointer;
@@ -523,17 +543,18 @@ body.checkout-page {
 .btn-apply:hover {
     background: #d4af37;
     transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(229, 184, 105, 0.3);
 }
 
 .discount-message {
-    margin-top: 0.5rem;
-    font-size: 0.85rem;
-    font-weight: 500;
+    margin-top: 0.55rem;
+    font-size: 0.86rem;
+    font-weight: 600;
 }
 
 .discount-message.success { color: #4ade80; }
 .discount-message.error { color: #f87171; }
-.summary-discount { color: #4ade80; }
+.summary-discount { color: #4ade80; font-weight: 700; }
 
 .secure-badge {
     display: flex;
@@ -564,8 +585,11 @@ body.checkout-page {
         gap: 1.5rem;
         padding: 1.25rem 1.25rem 3rem;
     }
+    .co-right {
+        order: -1; /* Display Order Summary & Coupon Code at the very top on mobile! */
+    }
     .co-left {
-        padding: 1.5rem;
+        order: 1;
     }
     .co-summary-card {
         padding: 1.5rem;

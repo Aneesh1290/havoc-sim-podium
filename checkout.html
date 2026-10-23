@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css?v=4">
-    <link rel="stylesheet" href="checkout.css?v=2">
+    <link rel="stylesheet" href="checkout.css?v=3">
     <link rel="icon" type="image/png" href="havoc_logo.png">
 </head>
 <body class="checkout-page">
@@ -114,6 +114,21 @@
 
                 <div class="summary-divider"></div>
 
+                <!-- Prominent Coupon Code Section -->
+                <div class="co-discount-section">
+                    <label for="co-discount-code" class="discount-section-label">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
+                        HAVE A COUPON CODE?
+                    </label>
+                    <div class="discount-input-group">
+                        <input type="text" id="co-discount-code" placeholder="Enter coupon code" autocomplete="off" autocapitalize="characters">
+                        <button id="apply-discount-btn" class="btn-apply" type="button">Apply</button>
+                    </div>
+                    <div id="discount-message" class="discount-message"></div>
+                </div>
+
+                <div class="summary-divider"></div>
+
                 <div class="summary-row">
                     <span>Subtotal</span>
                     <span id="co-subtotal">-</span>
@@ -121,14 +136,6 @@
                 <div class="summary-row">
                     <span>Booking Fee</span>
                     <span class="summary-free">Free</span>
-                </div>
-
-                <div class="co-discount-section">
-                    <div class="discount-input-group">
-                        <input type="text" id="co-discount-code" placeholder="Discount code">
-                        <button id="apply-discount-btn" class="btn-apply">Apply</button>
-                    </div>
-                    <div id="discount-message" class="discount-message"></div>
                 </div>
                 
                 <div class="summary-row discount-row" id="discount-row" style="display: none;">
