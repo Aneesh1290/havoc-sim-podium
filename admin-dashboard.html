@@ -784,53 +784,11 @@
             display: none;
         }
         .modal-box .btn { width: 100%; padding: 0.9rem; font-size: 1rem; }
-        @media (max-width: 1200px) {
-            body { flex-direction: column !important; }
-            .sidebar {
-                position: static !important;
-                width: 100% !important;
-                height: auto !important;
-                min-height: auto !important;
-                padding: 1rem 1.5rem !important;
-                border-right: none !important;
-                border-bottom: 1px solid var(--border) !important;
-                z-index: 10;
-            }
-            .brand { margin-bottom: 1rem; }
-            .nav-items { flex-direction: row; flex-wrap: wrap; gap: 0.5rem; }
-            .nav-btn { width: auto; padding: 0.5rem 0.9rem; font-size: 0.85rem; }
-            .nav-section { display: none; }
-            .sidebar-footer { 
-                padding-top: 0.75rem; 
-                border-top: none; 
-                margin-top: 0;
-                display: flex;
-                flex-wrap: wrap;
-                gap: 0.5rem;
-            }
-            .sidebar-footer .logout-btn {
-                width: auto;
-                margin-bottom: 0 !important;
-                padding: 0.5rem 1rem;
-            }
-            
+        /* Keep the sidebar docked on the left permanently so it is always visible */
+        @media (max-width: 900px) {
             .main {
-                margin-left: 0 !important;
                 padding: 1.5rem 1.25rem !important;
-                min-width: 0 !important;
-                width: 100% !important;
             }
-            .stats-row { grid-template-columns: 1fr; }
-            
-            /* Make tables scrollable within the card */
-            .table-card { width: 100%; overflow-x: auto; overflow-y: visible; }
-            table { 
-                display: block; 
-                width: 100%; 
-                overflow-x: auto; 
-                white-space: nowrap; 
-            }
-            
             .page-header { 
                 flex-direction: column !important; 
                 align-items: flex-start !important; 
@@ -849,11 +807,16 @@
                 font-size: 0.9rem !important;
                 padding: 0.6rem 1rem !important;
             }
-            
+            .stats-row { grid-template-columns: 1fr; }
+            .table-card { width: 100%; overflow-x: auto; overflow-y: visible; }
+            table { 
+                display: block; 
+                width: 100%; 
+                overflow-x: auto; 
+                white-space: nowrap; 
+            }
             .staff-grid { grid-template-columns: 1fr !important; }
             .grid-2 { grid-template-columns: 1fr !important; }
-            .product-modal { left: 0 !important; width: 100% !important; }
-            .modal-overlay { left: 0 !important; }
         }
 
         /* ===== FILTER SIDEBAR ===== */
