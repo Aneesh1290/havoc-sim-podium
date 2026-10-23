@@ -9,25 +9,27 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="checkout.css">
+    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="checkout.css?v=2">
     <link rel="icon" type="image/png" href="havoc_logo.png">
 </head>
 <body class="checkout-page">
 
     <!-- Top Bar -->
-    <div class="co-topbar">
-        <a href="/" class="co-logo">
-            <img src="havoc_logo.png" alt="Havoc Logo" class="logo-icon">
-            <div class="logo-text">
-                <div class="logo-main">HAVOC</div>
-                <div class="logo-sub">SIM PODIUM</div>
+    <header class="co-topbar-wrapper">
+        <div class="co-topbar">
+            <a href="/" class="co-logo">
+                <img src="havoc_logo.png" alt="Havoc Logo" class="logo-icon">
+                <div class="logo-text">
+                    <div class="logo-main">HAVOC</div>
+                    <div class="logo-sub">SIM PODIUM</div>
                     <div class="logo-unit-text" style="margin-top: 2px; display: block;">A Unit of Havoc Hobby Center Pvt. Ltd</div>
-            </div>
-        </a>
-        <span class="co-title">CHECKOUT</span>
-        <a href="/book" class="co-back">🛒 Back to Cart</a>
-    </div>
+                </div>
+            </a>
+            <span class="co-title">CHECKOUT</span>
+            <a href="/book" class="co-back">🛒 Back to Cart</a>
+        </div>
+    </header>
 
     <main class="co-main">
         <!-- LEFT: Customer Details -->
@@ -45,8 +47,8 @@
                     </div>
                     <div class="co-field">
                         <label for="co-phone">Phone Number</label>
-                        <div style="display: flex; gap: 0.5rem;">
-                            <select id="co-country-code" style="width: 140px; flex-shrink: 0;" required>
+                        <div class="co-phone-row">
+                            <select id="co-country-code" required>
                                 <option value="+91" selected>🇮🇳 +91 (IND)</option>
                                 <option value="+1">🇺🇸 +1 (USA)</option>
                                 <option value="+44">🇬🇧 +44 (UK)</option>
@@ -54,7 +56,7 @@
                                 <option value="+61">🇦🇺 +61 (AUS)</option>
                                 <option value="+65">🇸🇬 +65 (SGP)</option>
                             </select>
-                            <input type="tel" id="co-phone" placeholder="e.g. 98765 43210" style="flex-grow: 1;" required>
+                            <input type="tel" id="co-phone" placeholder="e.g. 98765 43210" required>
                         </div>
                     </div>
 
@@ -157,6 +159,6 @@
         </div>
     </main>
 
-    <script src="checkout.js?v=4"></script>
+    <script src="checkout.js?v=5"></script>
 </body>
 </html>

@@ -48,22 +48,22 @@ document.addEventListener("DOMContentLoaded", async () => {
             div.className = "summary-item";
             div.innerHTML = `
                 <img id="co-item-img-${index}" src="${productMap[item.itemName] || item.itemImage || 'havoc_logo.png'}" alt="Simulator" class="summary-img">
-                <div class="summary-details" style="width: 100%;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.2rem;">
-                        <strong id="co-item-name-${index}">${item.itemName}</strong>
-                        <span class="summary-price" style="font-size: 1rem; white-space: nowrap; margin-left: 0.5rem;">₹${(isNaN(priceVal) ? 0 : priceVal).toFixed(2)}</span>
+                <div class="summary-details" style="width: 100%; min-width: 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.2rem; min-width: 0;">
+                        <strong id="co-item-name-${index}" style="min-width: 0; word-break: break-word;">${item.itemName}</strong>
+                        <span class="summary-price" style="font-size: 1rem; white-space: nowrap; flex-shrink: 0;">₹${(isNaN(priceVal) ? 0 : priceVal).toFixed(2)}</span>
                     </div>
                     <span id="co-item-date-${index}" class="summary-meta">Date: ${item.dateLabel}</span>
                     <span id="co-item-time-${index}" class="summary-meta">Slot: ${item.slot}</span>
                     ${item.players === 2 ? `
-                    <div style="display:flex; align-items:center; gap:0.4rem; margin:0.3rem 0;">
+                    <div style="display:flex; align-items:center; gap:0.4rem; margin:0.3rem 0; flex-wrap: wrap;">
                         <span style="color:var(--gold); font-size:0.75rem; background:rgba(229,184,105,0.12); border:1px solid rgba(229,184,105,0.3); padding:2px 8px; border-radius:12px; font-weight:600;">👥 2 Players (Combo)</span>
                         ${item.playerTwoName ? `<span style="font-size:0.75rem; color:#aaa;">P2: ${item.playerTwoName}</span>` : ''}
                     </div>` : ''}
                     ${item.instructor ? `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px dashed rgba(255,255,255,0.1);">
-                        <span id="co-item-instructor-${index}" class="summary-meta" style="color: var(--gold); margin: 0;">👨‍✈️ Instructor: ${item.instructor.name}</span>
-                        <span style="color: var(--gold); font-size: 0.9rem; font-weight: 500;">+₹${instFee.toFixed(2)}</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.4rem; padding-top: 0.4rem; border-top: 1px dashed rgba(255,255,255,0.1); gap: 0.5rem;">
+                        <span id="co-item-instructor-${index}" class="summary-meta" style="color: var(--gold); margin: 0; min-width: 0; word-break: break-word;">👨‍✈️ Instructor: ${item.instructor.name}</span>
+                        <span style="color: var(--gold); font-size: 0.9rem; font-weight: 500; white-space: nowrap; flex-shrink: 0;">+₹${instFee.toFixed(2)}</span>
                     </div>
                     ` : ''}
                 </div>
