@@ -4623,38 +4623,82 @@ window.verifyDeskOtp = async () => {
             autoFulfillBanner.style.color = '#fbbf24';
         }
 
-        // Render full session breakdown
+        // Render full session breakdown with ULTRA CLEAR child-proof visuals
         const listContainer = document.getElementById('deskVerifiedBookingsList');
         let html = '';
 
-        data.bookings.forEach(b => {
-            const isFulfilled = (b.status === 'ATTENDED');
-            const isPaid = (b.status === 'PAID' || b.status === 'CASH');
-            const statusBadge = isFulfilled 
-                ? '<span style="background: rgba(16,185,129,0.15); color: #10B981; border: 1px solid rgba(16,185,129,0.3); padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">FULFILLED (CHECKED IN)</span>'
-                : (isPaid 
-                    ? '<span style="background: rgba(229,184,105,0.15); color: var(--gold); border: 1px solid rgba(229,184,105,0.3); padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">PAID</span>'
-                    : '<span style="background: rgba(248,113,113,0.15); color: #f87171; border: 1px solid rgba(248,113,113,0.3); padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700;">UNPAID / PENDING</span>');
+        if (!data.bookings || data.bookings.length === 0) {
+            html = `<div style="text-align: center; color: var(--muted); padding: 1.5rem 0;">No active sessions for today.</div>`;
+        } else {
+            data.bookings.forEach((b, idx) => {
+                const isFulfilled = (b.status === 'ATTENDED');
+                const isPaid = (b.status === 'PAID' || b.status === 'CASH');
 
-            html += `
-                <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 1rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.5rem;">
-                        <div>
-                            <div style="font-weight: 700; color: #fff; font-size: 1rem;">${b.item_name}</div>
-                            <div style="font-size: 0.82rem; color: var(--gold); margin-top: 2px;">Order #${b.order_id}</div>
+                // Big clear colors
+                const cardBorder = isPaid ? 'rgba(16,185,129,0.5)' : 'rgba(239,68,68,0.5)';
+                const cardBg = isPaid ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)';
+                
+                // Clear big badge
+                let statusHeader = '';
+                if (isFulfilled) {
+                    statusHeader = `
+                        <div style="background: #10B981; color: #000; font-weight: 800; font-size: 0.85rem; padding: 6px 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.5px;">
+                            <span>✓</span> READY & CHECKED IN
                         </div>
-                        <div>${statusBadge}</div>
-                    </div>
+                    `;
+                } else if (isPaid) {
+                    statusHeader = `
+                        <div style="background: #10B981; color: #000; font-weight: 800; font-size: 0.85rem; padding: 6px 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.5px;">
+                            <span>✓</span> PAID — ADMIT TO SIMULATOR
+                        </div>
+                    `;
+                } else {
+                    statusHeader = `
+                        <div style="background: #EF4444; color: #fff; font-weight: 800; font-size: 0.85rem; padding: 6px 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.5px;">
+                            <span>⚠️</span> UNPAID — COLLECT ₹${parseFloat(b.price || 0).toFixed(0)} AT DESK
+                        </div>
+                    `;
+                }
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 0.82rem; color: #ccc; margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px solid rgba(255,255,255,0.06);">
-                        <div><strong>📅 Date:</strong> ${b.booking_date}</div>
-                        <div><strong>⏰ Slot:</strong> ${b.booking_time}</div>
-                        <div><strong>💰 Price:</strong> ₹${parseFloat(b.price || 0).toFixed(2)}</div>
-                        <div><strong>👥 Players:</strong> ${b.players || 1} ${b.player_two_name ? `(${b.player_two_name})` : ''}</div>
+                html += `
+                    <div style="background: ${cardBg}; border: 2px solid ${cardBorder}; border-radius: 14px; padding: 1.25rem; margin-bottom: 0.4rem;">
+                        
+                        <!-- Status Banner -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.9rem; flex-wrap: wrap; gap: 8px;">
+                            ${statusHeader}
+                            <span style="font-size: 0.75rem; color: var(--muted); font-family: monospace;">Order #${b.order_id}</span>
+                        </div>
+
+                        <!-- Big Simulator Name -->
+                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0.8rem;">
+                            <span style="font-size: 1.4rem;">🎮</span>
+                            <div>
+                                <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); font-weight: 700;">SIMULATOR</div>
+                                <div style="font-size: 1.25rem; font-weight: 800; color: #fff; line-height: 1.2;">${b.item_name}</div>
+                            </div>
+                        </div>
+
+                        <!-- Big Slot & Date Block -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(0,0,0,0.3); padding: 0.85rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
+                            <div>
+                                <div style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px;">📅 DATE</div>
+                                <div style="font-size: 1rem; font-weight: 700; color: var(--gold); margin-top: 2px;">${b.booking_date}</div>
+                            </div>
+                            <div>
+                                <div style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px;">⏰ TIME SLOT</div>
+                                <div style="font-size: 1rem; font-weight: 700; color: #fff; margin-top: 2px;">${b.booking_time}</div>
+                            </div>
+                        </div>
+
+                        <!-- Extra details if any -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; font-size: 0.8rem; color: #bbb;">
+                            <span><strong>Players:</strong> ${b.players || 1} ${b.player_two_name ? `(${b.player_two_name})` : ''}</span>
+                            <span style="font-size: 0.95rem; font-weight: 700; color: #fff;">Amount: ₹${parseFloat(b.price || 0).toFixed(2)}</span>
+                        </div>
                     </div>
-                </div>
-            `;
-        });
+                `;
+            });
+        }
 
         listContainer.innerHTML = html;
 
