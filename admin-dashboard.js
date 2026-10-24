@@ -4623,6 +4623,8 @@ window.backToStep1 = () => {
 
 window.lookupCustomerBookings = async () => {
     const phoneInput = document.getElementById('deskCustomerPhone');
+    const countryCodeSelect = document.getElementById('deskCustomerCountryCode');
+    const countryCode = (countryCodeSelect?.value || '+91').trim();
     const errorDiv = document.getElementById('deskOtpError1');
     const resultDiv = document.getElementById('deskLookupResult');
     const sendOtpBtn = document.getElementById('deskSendOtpBtn');
@@ -4632,8 +4634,8 @@ window.lookupCustomerBookings = async () => {
     resultDiv.style.display = 'none';
     if (sendOtpBtn) sendOtpBtn.style.display = 'none';
 
-    if (!phone || phone.length < 10) {
-        errorDiv.textContent = 'Please enter a valid 10-digit customer phone number.';
+    if (!phone || phone.length < 5) {
+        errorDiv.textContent = 'Please enter a valid customer phone number.';
         errorDiv.style.display = 'block';
         return;
     }
@@ -4646,7 +4648,7 @@ window.lookupCustomerBookings = async () => {
     try {
         const res = await fetchAuth('/api/admin/verify/lookup', {
             method: 'POST',
-            body: JSON.stringify({ phone })
+            body: JSON.stringify({ phone, country_code: countryCode })
         });
         const data = await res.json();
 
@@ -4663,7 +4665,7 @@ window.lookupCustomerBookings = async () => {
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 0.5rem;">
                 <div>
                     <div style="font-weight: 800; color: #fff; font-size: 1.05rem;">👤 ${data.customer_name}</div>
-                    <div style="font-size: 0.75rem; color: #10B981; font-weight: 700;">✓ Customer Scheduled for Today</div>
+                    <div style="font-size: 0.75rem; color: #10B981; font-weight: 700;">✓ Customer Scheduled for Today (${data.country_code || countryCode} ${data.phone})</div>
                 </div>
                 <span style="font-size: 0.8rem; background: rgba(16,185,129,0.15); color: #10B981; border: 1px solid rgba(16,185,129,0.3); padding: 4px 10px; border-radius: 8px; font-weight: 700;">
                     ${data.booking_count} Today's Session(s)
@@ -4712,13 +4714,15 @@ window.lookupCustomerBookings = async () => {
 
 window.sendDeskOtp = async () => {
     const phoneInput = document.getElementById('deskCustomerPhone');
+    const countryCodeSelect = document.getElementById('deskCustomerCountryCode');
+    const countryCode = (countryCodeSelect?.value || '+91').trim();
     const errorDiv = document.getElementById('deskOtpError1');
     const phone = (phoneInput.value || '').trim();
 
     errorDiv.style.display = 'none';
 
-    if (!phone || phone.length < 10) {
-        errorDiv.textContent = 'Please enter a valid 10-digit customer phone number first.';
+    if (!phone || phone.length < 5) {
+        errorDiv.textContent = 'Please enter a valid customer phone number first.';
         errorDiv.style.display = 'block';
         return;
     }
@@ -4731,7 +4735,7 @@ window.sendDeskOtp = async () => {
     try {
         const res = await fetchAuth('/api/admin/verify/generate-otp', {
             method: 'POST',
-            body: JSON.stringify({ phone })
+            body: JSON.stringify({ phone, country_code: countryCode })
         });
         const data = await res.json();
 
@@ -4744,7 +4748,7 @@ window.sendDeskOtp = async () => {
         // Switch to Step 2
         document.getElementById('deskOtpStep1').style.display = 'none';
         document.getElementById('deskOtpStep2').style.display = 'block';
-        document.getElementById('deskTargetPhoneDisplay').textContent = `+91 ${data.phone}`;
+        document.getElementById('deskTargetPhoneDisplay').textContent = `${data.country_code || countryCode} ${data.phone}`;
 
         const devBanner = document.getElementById('deskOtpDevBanner');
         if (data.dev_otp) {
@@ -4768,6 +4772,8 @@ window.sendDeskOtp = async () => {
 
 window.verifyDeskOtp = async () => {
     const phoneInput = document.getElementById('deskCustomerPhone');
+    const countryCodeSelect = document.getElementById('deskCustomerCountryCode');
+    const countryCode = (countryCodeSelect?.value || '+91').trim();
     const otpInput = document.getElementById('deskOtpInput');
     const errorDiv = document.getElementById('deskOtpError2');
     const phone = (phoneInput.value || '').trim();
@@ -4789,7 +4795,7 @@ window.verifyDeskOtp = async () => {
     try {
         const res = await fetchAuth('/api/admin/verify/confirm-otp', {
             method: 'POST',
-            body: JSON.stringify({ phone, otp })
+            body: JSON.stringify({ phone, country_code: countryCode, otp })
         });
         const data = await res.json();
 
@@ -4808,7 +4814,7 @@ window.verifyDeskOtp = async () => {
         document.getElementById('deskOtpStep2').style.display = 'none';
         document.getElementById('deskOtpStep3').style.display = 'block';
 
-        document.getElementById('resCustomerName').textContent = `${data.customer_name} (+91 ${data.phone})`;
+        document.getElementById('resCustomerName').textContent = `${data.customer_name} (${data.country_code || countryCode} ${data.phone})`;
 
         const autoFulfillBanner = document.getElementById('resAutoFulfillBanner');
         if (data.auto_fulfilled) {

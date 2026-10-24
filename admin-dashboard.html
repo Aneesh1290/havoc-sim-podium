@@ -1625,8 +1625,50 @@
                         Customer Phone Number
                     </label>
                     <div style="display: flex; gap: 8px;">
-                        <span style="display: flex; align-items: center; padding: 0 0.9rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: var(--gold); font-weight: 600; font-size: 0.95rem;">+91</span>
-                        <input type="tel" id="deskCustomerPhone" placeholder="Enter 10-digit mobile number" maxlength="10" style="flex: 1; padding: 0.85rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 1.05rem; letter-spacing: 1px; outline: none;">
+                        <select id="deskCustomerCountryCode" style="padding: 0 0.75rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: var(--gold); font-weight: 600; font-size: 0.92rem; font-family: 'Outfit'; outline: none; cursor: pointer; max-width: 155px; appearance: auto;">
+                            <option value="+91" selected style="background:#1c1d26; color:#fff;">🇮🇳 +91 (IND)</option>
+                            <option value="+1" style="background:#1c1d26; color:#fff;">🇺🇸 +1 (USA)</option>
+                            <option value="+44" style="background:#1c1d26; color:#fff;">🇬🇧 +44 (UK)</option>
+                            <option value="+971" style="background:#1c1d26; color:#fff;">🇦🇪 +971 (UAE)</option>
+                            <option value="+61" style="background:#1c1d26; color:#fff;">🇦🇺 +61 (AUS)</option>
+                            <option value="+65" style="background:#1c1d26; color:#fff;">🇸🇬 +65 (SGP)</option>
+                            <option value="+1" style="background:#1c1d26; color:#fff;">🇨🇦 +1 (CAN)</option>
+                            <option value="+966" style="background:#1c1d26; color:#fff;">🇸🇦 +966 (KSA)</option>
+                            <option value="+974" style="background:#1c1d26; color:#fff;">🇶🇦 +974 (QAT)</option>
+                            <option value="+968" style="background:#1c1d26; color:#fff;">🇴🇲 +968 (OMN)</option>
+                            <option value="+965" style="background:#1c1d26; color:#fff;">🇰🇼 +965 (KWT)</option>
+                            <option value="+973" style="background:#1c1d26; color:#fff;">🇧🇭 +973 (BHR)</option>
+                            <option value="+49" style="background:#1c1d26; color:#fff;">🇩🇪 +49 (DEU)</option>
+                            <option value="+33" style="background:#1c1d26; color:#fff;">🇫🇷 +33 (FRA)</option>
+                            <option value="+39" style="background:#1c1d26; color:#fff;">🇮🇹 +39 (ITA)</option>
+                            <option value="+34" style="background:#1c1d26; color:#fff;">🇪🇸 +34 (ESP)</option>
+                            <option value="+31" style="background:#1c1d26; color:#fff;">🇳🇱 +31 (NLD)</option>
+                            <option value="+41" style="background:#1c1d26; color:#fff;">🇨🇭 +41 (CHE)</option>
+                            <option value="+46" style="background:#1c1d26; color:#fff;">🇸🇪 +46 (SWE)</option>
+                            <option value="+47" style="background:#1c1d26; color:#fff;">🇳🇴 +47 (NOR)</option>
+                            <option value="+353" style="background:#1c1d26; color:#fff;">🇮🇪 +353 (IRL)</option>
+                            <option value="+64" style="background:#1c1d26; color:#fff;">🇳🇿 +64 (NZL)</option>
+                            <option value="+60" style="background:#1c1d26; color:#fff;">🇲🇾 +60 (MYS)</option>
+                            <option value="+62" style="background:#1c1d26; color:#fff;">🇮🇩 +62 (IDN)</option>
+                            <option value="+66" style="background:#1c1d26; color:#fff;">🇹🇭 +66 (THA)</option>
+                            <option value="+63" style="background:#1c1d26; color:#fff;">🇵🇭 +63 (PHL)</option>
+                            <option value="+84" style="background:#1c1d26; color:#fff;">🇻🇳 +84 (VNM)</option>
+                            <option value="+81" style="background:#1c1d26; color:#fff;">🇯🇵 +81 (JPN)</option>
+                            <option value="+82" style="background:#1c1d26; color:#fff;">🇰🇷 +82 (KOR)</option>
+                            <option value="+86" style="background:#1c1d26; color:#fff;">🇨🇳 +86 (CHN)</option>
+                            <option value="+852" style="background:#1c1d26; color:#fff;">🇭🇰 +852 (HKG)</option>
+                            <option value="+27" style="background:#1c1d26; color:#fff;">🇿🇦 +27 (ZAF)</option>
+                            <option value="+55" style="background:#1c1d26; color:#fff;">🇧🇷 +55 (BRA)</option>
+                            <option value="+52" style="background:#1c1d26; color:#fff;">🇲🇽 +52 (MEX)</option>
+                            <option value="+94" style="background:#1c1d26; color:#fff;">🇱🇰 +94 (LKA)</option>
+                            <option value="+880" style="background:#1c1d26; color:#fff;">🇧🇩 +880 (BGD)</option>
+                            <option value="+977" style="background:#1c1d26; color:#fff;">🇳🇵 +977 (NPL)</option>
+                            <option value="+92" style="background:#1c1d26; color:#fff;">🇵🇰 +92 (PAK)</option>
+                            <option value="+20" style="background:#1c1d26; color:#fff;">🇪🇬 +20 (EGY)</option>
+                            <option value="+90" style="background:#1c1d26; color:#fff;">🇹🇷 +90 (TUR)</option>
+                            <option value="+7" style="background:#1c1d26; color:#fff;">🇷🇺 +7 (RUS)</option>
+                        </select>
+                        <input type="tel" id="deskCustomerPhone" placeholder="Enter mobile number" maxlength="15" style="flex: 1; padding: 0.85rem 1rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 1.05rem; letter-spacing: 1px; outline: none;">
                     </div>
                 </div>
 

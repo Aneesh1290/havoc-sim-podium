@@ -1877,11 +1877,10 @@ app.post('/api/admin/bookings/:order_id/refund', verifyToken, async (req, res) =
 // In-memory OTP storage: key = normalized phone, value = { otp, expiresAt, orderIds }
 const deskOtpStore = new Map();
 
-// Helper to normalize phone number (extract last 10 digits)
+// Helper to normalize phone number (extract digits)
 function normalizePhone(rawPhone) {
     if (!rawPhone) return '';
-    const digits = String(rawPhone).replace(/[^0-9]/g, '');
-    return digits.length >= 10 ? digits.slice(-10) : digits;
+    return String(rawPhone).replace(/[^0-9]/g, '');
 }
 
 // Helper to parse booking date string into Date object
@@ -1962,26 +1961,37 @@ function isTodayBooking(b) {
 app.post('/api/admin/verify/lookup', verifyToken, (req, res) => {
     const rawPhone = (req.body.phone || '').trim();
     const cleanPhone = normalizePhone(rawPhone);
+    const rawCountryCode = (req.body.country_code || '+91').trim();
+    const cleanCountryCode = rawCountryCode.startsWith('+') ? rawCountryCode : ('+' + rawCountryCode);
+    const codeDigits = cleanCountryCode.replace(/[^0-9]/g, '');
 
-    if (!cleanPhone || cleanPhone.length < 10) {
-        return res.status(400).json({ error: 'Please enter a valid 10-digit phone number' });
+    if (!cleanPhone || cleanPhone.length < 5) {
+        return res.status(400).json({ error: 'Please enter a valid phone number' });
     }
 
-    // Query bookings that match phone (handling with or without +91 / 0)
+    // Query bookings that match phone (handling with or without country code)
+    const phoneQueries = [
+        cleanPhone,
+        `%${cleanPhone}`,
+        `%${codeDigits}${cleanPhone}`,
+        `%${cleanCountryCode}${cleanPhone}`,
+        `%${cleanPhone}%`
+    ];
+
     db.all(`
         SELECT id, order_id, name, phone, email, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, created_at
         FROM bookings
-        WHERE (phone LIKE ? OR phone LIKE ? OR phone = ?)
+        WHERE (phone = ? OR phone LIKE ? OR phone LIKE ? OR phone LIKE ? OR phone LIKE ?)
         ORDER BY created_at DESC, booking_date DESC, booking_time DESC
         LIMIT 30
-    `, [`%${cleanPhone}`, `%${cleanPhone}%`, cleanPhone], (err, rows) => {
+    `, phoneQueries, (err, rows) => {
         if (err) {
             console.error('Error looking up customer bookings:', err);
             return res.status(500).json({ error: 'Database error searching customer' });
         }
 
         if (!rows || rows.length === 0) {
-            return res.status(404).json({ error: `No bookings found for phone ending in ${cleanPhone}` });
+            return res.status(404).json({ error: `No bookings found for ${cleanCountryCode} ${cleanPhone}` });
         }
 
         // Strictly match ONLY today's sessions
@@ -1990,13 +2000,14 @@ app.post('/api/admin/verify/lookup', verifyToken, (req, res) => {
 
         if (todaySessions.length === 0) {
             return res.status(404).json({ 
-                error: `No sessions scheduled for TODAY for this customer (+91 ${cleanPhone}). Past or future bookings cannot be checked in today.` 
+                error: `No sessions scheduled for TODAY for this customer (${cleanCountryCode} ${cleanPhone}). Past or future bookings cannot be checked in today.` 
             });
         }
 
         res.json({
             success: true,
             phone: cleanPhone,
+            country_code: cleanCountryCode,
             customer_name: customerName,
             booking_count: todaySessions.length,
             bookings: todaySessions
@@ -2008,18 +2019,29 @@ app.post('/api/admin/verify/lookup', verifyToken, (req, res) => {
 app.post('/api/admin/verify/generate-otp', verifyToken, async (req, res) => {
     const rawPhone = (req.body.phone || '').trim();
     const cleanPhone = normalizePhone(rawPhone);
+    const rawCountryCode = (req.body.country_code || '+91').trim();
+    const cleanCountryCode = rawCountryCode.startsWith('+') ? rawCountryCode : ('+' + rawCountryCode);
+    const codeDigits = cleanCountryCode.replace(/[^0-9]/g, '');
 
-    if (!cleanPhone || cleanPhone.length < 10) {
-        return res.status(400).json({ error: 'Valid 10-digit phone number is required' });
+    if (!cleanPhone || cleanPhone.length < 5) {
+        return res.status(400).json({ error: 'Valid phone number is required' });
     }
+
+    const phoneQueries = [
+        cleanPhone,
+        `%${cleanPhone}`,
+        `%${codeDigits}${cleanPhone}`,
+        `%${cleanCountryCode}${cleanPhone}`,
+        `%${cleanPhone}%`
+    ];
 
     // Verify booking exists
     db.all(`
         SELECT order_id, name, phone, status, booking_date, created_at
         FROM bookings 
-        WHERE (phone LIKE ? OR phone LIKE ?)
+        WHERE (phone = ? OR phone LIKE ? OR phone LIKE ? OR phone LIKE ? OR phone LIKE ?)
         ORDER BY created_at DESC
-    `, [`%${cleanPhone}`, `%${cleanPhone}%`], async (err, rows) => {
+    `, phoneQueries, async (err, rows) => {
         if (err || !rows || rows.length === 0) {
             return res.status(404).json({ error: 'No matching bookings found for this number' });
         }
@@ -2033,14 +2055,18 @@ app.post('/api/admin/verify/generate-otp', verifyToken, async (req, res) => {
         const otp = Math.floor(1000 + Math.random() * 9000).toString();
         const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
 
-        deskOtpStore.set(cleanPhone, {
+        const otpPayload = {
             otp,
             expiresAt,
+            countryCode: cleanCountryCode,
+            phone: cleanPhone,
             customerName: rows[0].name,
             matchedOrders: todaySessions.map(r => r.order_id)
-        });
+        };
+        deskOtpStore.set(`${cleanCountryCode}_${cleanPhone}`, otpPayload);
+        deskOtpStore.set(cleanPhone, otpPayload); // fallback for reverse lookups
 
-        console.log(`[Desk OTP] Generated OTP for customer (${cleanPhone}): ${otp}`);
+        console.log(`[Desk OTP] Generated OTP for customer (${cleanCountryCode} ${cleanPhone}): ${otp}`);
 
         // Dispatch via Interakt WhatsApp API if credentials exist
         const interaktApiKey = process.env.INTERAKT_API_KEY;
@@ -2056,7 +2082,7 @@ app.post('/api/admin/verify/generate-otp', verifyToken, async (req, res) => {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        countryCode: '+91',
+                        countryCode: cleanCountryCode,
                         phoneNumber: cleanPhone,
                         type: 'Template',
                         template: {
@@ -2072,7 +2098,7 @@ app.post('/api/admin/verify/generate-otp', verifyToken, async (req, res) => {
 
                 if (response.ok) {
                     sentViaInterakt = true;
-                    console.log(`[Desk OTP] Interakt WhatsApp message dispatched successfully to +91${cleanPhone}`);
+                    console.log(`[Desk OTP] Interakt WhatsApp message dispatched successfully to ${cleanCountryCode}${cleanPhone}`);
                 } else {
                     const errData = await response.text();
                     console.warn(`[Desk OTP] Interakt returned status ${response.status}:`, errData);
@@ -2087,6 +2113,7 @@ app.post('/api/admin/verify/generate-otp', verifyToken, async (req, res) => {
         res.json({
             success: true,
             phone: cleanPhone,
+            country_code: cleanCountryCode,
             customer_name: rows[0].name,
             sent_via_interakt: sentViaInterakt,
             // For convenience before Interakt template approval, return dev_otp if Interakt not configured
@@ -2103,17 +2130,21 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
     const rawPhone = (req.body.phone || '').trim();
     const enteredOtp = (req.body.otp || '').trim();
     const cleanPhone = normalizePhone(rawPhone);
+    const rawCountryCode = (req.body.country_code || '+91').trim();
+    const cleanCountryCode = rawCountryCode.startsWith('+') ? rawCountryCode : ('+' + rawCountryCode);
+    const codeDigits = cleanCountryCode.replace(/[^0-9]/g, '');
 
     if (!cleanPhone || !enteredOtp) {
         return res.status(400).json({ error: 'Phone number and OTP are required' });
     }
 
-    const record = deskOtpStore.get(cleanPhone);
+    const record = deskOtpStore.get(`${cleanCountryCode}_${cleanPhone}`) || deskOtpStore.get(cleanPhone);
     if (!record) {
         return res.status(400).json({ error: 'No OTP requested for this number or it has expired. Please generate a new OTP.' });
     }
 
     if (Date.now() > record.expiresAt) {
+        deskOtpStore.delete(`${cleanCountryCode}_${cleanPhone}`);
         deskOtpStore.delete(cleanPhone);
         return res.status(400).json({ error: 'OTP has expired. Please generate a new code.' });
     }
@@ -2123,16 +2154,25 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
     }
 
     // OTP Verified! Remove from cache
+    deskOtpStore.delete(`${cleanCountryCode}_${cleanPhone}`);
     deskOtpStore.delete(cleanPhone);
+
+    const phoneQueries = [
+        cleanPhone,
+        `%${cleanPhone}`,
+        `%${codeDigits}${cleanPhone}`,
+        `%${cleanCountryCode}${cleanPhone}`,
+        `%${cleanPhone}%`
+    ];
 
     // Fetch all bookings for this customer
     db.all(`
         SELECT id, order_id, name, phone, email, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, created_at
         FROM bookings
-        WHERE phone LIKE ? OR phone LIKE ? OR phone = ?
+        WHERE phone = ? OR phone LIKE ? OR phone LIKE ? OR phone LIKE ? OR phone LIKE ?
         ORDER BY created_at DESC, booking_date DESC, booking_time DESC
         LIMIT 25
-    `, [`%${cleanPhone}`, `%${cleanPhone}%`, cleanPhone], (err, allBookings) => {
+    `, phoneQueries, (err, allBookings) => {
         if (err || !allBookings || allBookings.length === 0) {
             return res.status(404).json({ error: 'Verified, but no booking records could be retrieved' });
         }
@@ -2161,13 +2201,14 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
         });
 
         Promise.all(updatePromises).then(() => {
-            console.log(`[Desk Verification] Customer verified: ${cleanPhone}. Auto-fulfilled today's orders:`, autoFulfilledOrders);
+            console.log(`[Desk Verification] Customer verified: ${cleanCountryCode} ${cleanPhone}. Auto-fulfilled today's orders:`, autoFulfilledOrders);
 
             res.json({
                 success: true,
                 verified: true,
                 customer_name: allBookings[0].name,
                 phone: cleanPhone,
+                country_code: cleanCountryCode,
                 auto_fulfilled: autoFulfilledOrders.length > 0,
                 auto_fulfilled_orders: autoFulfilledOrders,
                 bookings: todaySessions
