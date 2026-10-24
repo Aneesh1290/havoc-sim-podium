@@ -1733,13 +1733,39 @@ app.delete('/api/admin/blocked-slots/:id', verifyToken, (req, res) => {
     });
 });
 
-// Delete a booking (Protected)
+// Delete a booking or slot lock (Protected - handles Sim Podium & Fun Zone orders)
 app.delete('/api/admin/bookings/:order_id', verifyToken, (req, res) => {
-    const { order_id } = req.params;
-    db.run("DELETE FROM bookings WHERE order_id LIKE ?", [`${order_id}%`], function(err) {
-        if (err) return res.status(500).json({ error: 'Database error' });
-        if (this.changes === 0) return res.status(404).json({ error: 'Booking not found' });
-        res.json({ success: true });
+    let { order_id } = req.params;
+    order_id = decodeURIComponent(order_id).trim();
+
+    // 1. Delete from bookings table
+    db.run("DELETE FROM bookings WHERE order_id = ? OR order_id LIKE ?", [order_id, `${order_id}%`], function(bErr) {
+        if (bErr) {
+            console.error('Error deleting from bookings:', bErr);
+            return res.status(500).json({ error: 'Database error deleting booking' });
+        }
+        const bookingsDeleted = this?.changes || 0;
+
+        // 2. Also delete from simulator_slot_locks table (for cross-platform combo passes like RC Fun Zone)
+        db.run("DELETE FROM simulator_slot_locks WHERE source_order_id = ? OR source_order_id LIKE ?", [order_id, `${order_id}%`], function(lErr) {
+            if (lErr) {
+                console.error('Error deleting from simulator_slot_locks:', lErr);
+            }
+            const locksDeleted = this?.changes || 0;
+
+            console.log(`[Admin Delete] Order: ${order_id} -> Deleted: ${bookingsDeleted} bookings, ${locksDeleted} slot locks`);
+
+            if (bookingsDeleted === 0 && locksDeleted === 0) {
+                return res.status(404).json({ error: `Order #${order_id} not found in bookings or simulator locks.` });
+            }
+
+            res.json({ 
+                success: true, 
+                message: `Order #${order_id} deleted successfully.`,
+                bookingsDeleted,
+                locksDeleted
+            });
+        });
     });
 });
 
@@ -1780,7 +1806,8 @@ app.put('/api/admin/bookings/:order_id/attend', verifyToken, (req, res) => {
 
 // Manually override booking status (Protected - accessible by all staff)
 app.put('/api/admin/bookings/:order_id/status', verifyToken, (req, res) => {
-    const { order_id } = req.params;
+    let { order_id } = req.params;
+    order_id = decodeURIComponent(order_id).trim();
     const { status } = req.body;
     
     const validStatuses = ['PENDING', 'PAID', 'ATTENDED', 'CANCELLED', 'CASH', 'REFUNDED'];
@@ -1788,10 +1815,27 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, (req, res) => {
         return res.status(400).json({ error: 'Invalid status value' });
     }
     
-    db.run("UPDATE bookings SET status = ? WHERE order_id LIKE ?", [status.toUpperCase(), `${order_id}%`], function(err) {
+    const targetStatus = status.toUpperCase();
+
+    db.run("UPDATE bookings SET status = ? WHERE order_id = ? OR order_id LIKE ?", [targetStatus, order_id, `${order_id}%`], function(err) {
         if (err) return res.status(500).json({ error: 'Database error' });
-        if (this.changes === 0) return res.status(404).json({ error: 'Booking not found' });
-        res.json({ success: true });
+        const bookingsUpdated = this?.changes || 0;
+
+        // Also sync status on simulator_slot_locks (e.g. Fun Zone combo passes)
+        const lockAction = (targetStatus === 'CANCELLED' || targetStatus === 'REFUNDED')
+            ? "DELETE FROM simulator_slot_locks WHERE source_order_id = ? OR source_order_id LIKE ?"
+            : "UPDATE simulator_slot_locks SET status = ? WHERE source_order_id = ? OR source_order_id LIKE ?";
+        const lockParams = (targetStatus === 'CANCELLED' || targetStatus === 'REFUNDED')
+            ? [order_id, `${order_id}%`]
+            : [targetStatus, order_id, `${order_id}%`];
+
+        db.run(lockAction, lockParams, function(lockErr) {
+            const locksUpdated = this?.changes || 0;
+            if (bookingsUpdated === 0 && locksUpdated === 0) {
+                return res.status(404).json({ error: `Order #${order_id} not found.` });
+            }
+            res.json({ success: true, bookingsUpdated, locksUpdated });
+        });
     });
 });
 

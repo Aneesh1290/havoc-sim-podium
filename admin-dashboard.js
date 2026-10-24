@@ -419,17 +419,20 @@ function updateAnalyticsSummary(bookings) {
 }
 
 window.deleteBookingRow = async function(orderId) {
-    if (!confirm('Are you sure you want to delete this booking?')) return;
+    if (!confirm(`Are you sure you want to permanently delete Order #${orderId}? This cannot be undone.`)) return;
     try {
         const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}`, { method: 'DELETE' });
+        const data = await res.json().catch(() => ({}));
         if (res.ok) {
-            loadBookings();
+            alert(data.message || 'Booking deleted successfully.');
+            closeOrderDetails();
+            await loadBookings();
         } else {
-            alert('Failed to delete booking');
+            alert(data.error || 'Failed to delete booking');
         }
     } catch (err) {
         console.error(err);
-        alert('Server error');
+        alert('Server error: ' + err.message);
     }
 }
 
@@ -624,6 +627,7 @@ window.openOrderDetails = (baseOrderId) => {
                     <div class="custom-dropdown-item" onclick="markOrderAsFulfilled('${baseOrderId}')">✓ Mark as fulfilled</div>
                     <div class="custom-dropdown-item" onclick="markOrderAsUnfulfilled('${baseOrderId}')">✗ Mark as unfulfilled</div>
                     <div class="custom-dropdown-item" onclick="cancelOrder('${baseOrderId}')">✗ Cancel order</div>
+                    <div class="custom-dropdown-item" style="color: #ef4444; border-top: 1px solid rgba(255,255,255,0.08);" onclick="deleteBookingRow('${baseOrderId}')">🗑 Delete order permanently</div>
                     ${paymentBadge !== 'REFUNDED' && (paymentBadge === 'PAID' || fulfillBadge === 'ATTENDED') ? `
                     <div class="custom-dropdown-item" style="color: #ef4444; border-top: 1px solid rgba(255,255,255,0.08);" onclick="refundOrder('${baseOrderId}', '${priceFormatted}')">💸 Refund Payment (ICICI)</div>
                     ` : ''}
