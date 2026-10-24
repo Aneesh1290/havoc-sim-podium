@@ -656,6 +656,21 @@ window.openOrderDetails = (baseOrderId) => {
                 <div class="od-summary-row"><span>Tax (18% GST)</span><span>₹${taxFormatted}</span></div>
                 <div class="od-summary-row total"><span>Total</span><span>₹${priceFormatted}</span></div>
                 <div class="od-summary-row" style="margin-top: 1rem; margin-bottom: 0;"><span>Amount due</span><span style="font-weight: 700; color: #fff;">₹${isPending ? priceFormatted : '0.00'}</span></div>
+                ${(order.icici_txn_id || items.find(i => i.icici_txn_id)?.icici_txn_id) ? `
+                <div class="od-summary-row" style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px dashed rgba(255,255,255,0.1);">
+                    <span style="color: var(--gold); font-size: 0.8rem;">Gateway Txn ID (ICICI)</span>
+                    <span style="font-family: monospace; font-size: 0.8rem; color: #fff; user-select: all;">${order.icici_txn_id || items.find(i => i.icici_txn_id)?.icici_txn_id}</span>
+                </div>` : ''}
+                ${(order.payment_ref || items.find(i => i.payment_ref)?.payment_ref) ? `
+                <div class="od-summary-row" style="margin-top: 0.5rem;">
+                    <span style="color: #60a5fa; font-size: 0.8rem;">Desk Payment Ref / UTR</span>
+                    <span style="font-family: monospace; font-size: 0.8rem; color: #fff; user-select: all;">${order.payment_ref || items.find(i => i.payment_ref)?.payment_ref}</span>
+                </div>` : ''}
+                ${(order.refund_id || items.find(i => i.refund_id)?.refund_id) ? `
+                <div class="od-summary-row" style="margin-top: 0.5rem;">
+                    <span style="color: #ef4444; font-size: 0.8rem;">Refund Txn ID</span>
+                    <span style="font-family: monospace; font-size: 0.8rem; color: #fff; user-select: all;">${order.refund_id || items.find(i => i.refund_id)?.refund_id}</span>
+                </div>` : ''}
             </div>
         </div>
 
@@ -4538,6 +4553,10 @@ window.loadPaymentLinksPageHistory = async () => {
                         <div style="font-size: 0.78rem; color: #aaa; margin-top: 2px;">
                             ${pl.description ? `<span style="color: var(--gold);">${pl.description}</span> • ` : ''}<span style="color: var(--muted);">#${pl.link_id}</span> • ${createdDate}
                         </div>
+                        ${pl.icici_txn_id ? `
+                        <div style="font-size: 0.75rem; color: var(--gold); margin-top: 4px; font-family: monospace;">
+                            Txn ID: <strong style="color: #fff; user-select: all;">${pl.icici_txn_id}</strong>
+                        </div>` : ''}
                     </div>
                     <div style="display: flex; gap: 8px; flex-shrink: 0;">
                         <button class="btn" onclick="navigator.clipboard.writeText('${fullUrl}').then(() => alert('Link copied to clipboard!'))" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid var(--border); font-size: 0.82rem; padding: 0.45rem 0.85rem; border-radius: 8px; cursor: pointer;">📋 Copy</button>
