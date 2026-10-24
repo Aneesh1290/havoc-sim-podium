@@ -2586,47 +2586,50 @@ document.addEventListener('DOMContentLoaded', () => {
         return wsRows;
     }
 
-    function isTodayOrUpcomingBookingDate(dateStr) {
+    function isPreviousPresentOrFutureBookingDate(dateStr) {
         if (!dateStr) return false;
         try {
             const clean = String(dateStr).trim().replace(/\([A-Za-z]+\)/g, '').trim();
             const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            // Previous day boundary (yesterday at 00:00:00)
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            yesterday.setHours(0, 0, 0, 0);
+
             const currentYear = today.getFullYear();
 
             // 1. If ISO format: YYYY-MM-DD
             if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
                 const [y, m, d] = clean.split('-').map(Number);
                 const target = new Date(y, m - 1, d);
-                today.setHours(0, 0, 0, 0);
                 target.setHours(0, 0, 0, 0);
-                return target.getTime() >= today.getTime();
+                return target.getTime() >= yesterday.getTime();
             }
 
             // 2. If DD/MM/YYYY
             if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(clean)) {
                 const [d, m, y] = clean.split('/').map(Number);
                 const target = new Date(y, m - 1, d);
-                today.setHours(0, 0, 0, 0);
                 target.setHours(0, 0, 0, 0);
-                return target.getTime() >= today.getTime();
+                return target.getTime() >= yesterday.getTime();
             }
 
             // 3. If string has 4-digit year (e.g. 'Oct 23 2026')
             if (/\b\d{4}\b/.test(clean)) {
                 const target = new Date(clean);
                 if (!isNaN(target.getTime())) {
-                    today.setHours(0, 0, 0, 0);
                     target.setHours(0, 0, 0, 0);
-                    return target.getTime() >= today.getTime();
+                    return target.getTime() >= yesterday.getTime();
                 }
             }
 
             // 4. If string has month and date without year (e.g. 'Oct 23') -> use current year
             const withYear = new Date(clean + ' ' + currentYear);
             if (!isNaN(withYear.getTime())) {
-                today.setHours(0, 0, 0, 0);
                 withYear.setHours(0, 0, 0, 0);
-                return withYear.getTime() >= today.getTime();
+                return withYear.getTime() >= yesterday.getTime();
             }
         } catch (e) {}
         return false;
@@ -2930,11 +2933,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     runningSl = res.nextSl;
                 });
 
-                // 2. INDIVIDUAL DATE TABS (Only for Today / Existing Date and Upcoming Dates)
+                // 2. INDIVIDUAL DATE TABS (Previous Day, Present Day, and Future Dates)
                 const usedSheetNames = new Set(['All Bookings']);
                 dateKeys.forEach(dateKey => {
-                    // Do not create individual sheets for past dates
-                    if (!isTodayOrUpcomingBookingDate(dateKey)) {
+                    // Include previous day (yesterday), present day (today), and future dates
+                    if (!isPreviousPresentOrFutureBookingDate(dateKey)) {
                         return;
                     }
 
@@ -2943,7 +2946,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (dateKey.includes('-')) {
                             const dObj = new Date(dateKey);
                             const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-                            tabName = `${monthsShort[dObj.getMonth()]} ${dObj.getDate()}`;
+                            const daysShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                            // Formatted as "Oct 24 (Sat)" matching user reference
+                            tabName = `${monthsShort[dObj.getMonth()]} ${dObj.getDate()} (${daysShort[dObj.getDay()]})`;
                         }
                     } catch (e) {}
 
@@ -2952,7 +2957,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let uniqueTabName = tabName;
                     let counter = 1;
                     while (usedSheetNames.has(uniqueTabName)) {
-                        uniqueTabName = `${tabName.substring(0, 27)} (${counter++})`;
+                        uniqueTabName = `${tabName.substring(0, 26)} (${counter++})`;
                     }
                     usedSheetNames.add(uniqueTabName);
 
