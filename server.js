@@ -204,15 +204,22 @@ const getIciciBaseUrl = () => {
 // ADMIN DASHBOARD & 2FA ROUTES
 // ==========================================
 
-// Middleware to verify JWT
+// Middleware to verify JWT and ensure user still exists in database
 const verifyToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.status(403).json({ error: 'No token provided.' });
     
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) return res.status(401).json({ error: 'Unauthorized.' });
-        req.user = decoded;
-        next();
+        
+        // Check if user still exists in database
+        db.get("SELECT id, username, role, permissions FROM admin_auth WHERE id = ?", [decoded.id], (dbErr, user) => {
+            if (dbErr || !user) {
+                return res.status(401).json({ error: 'User account has been deleted or deactivated.' });
+            }
+            req.user = user;
+            next();
+        });
     });
 };
 
@@ -230,25 +237,17 @@ const checkPermission = (requiredPerm) => {
         if (req.user.username === 'admin' || req.user.role === 'super_admin') {
             return next();
         }
-        db.get("SELECT role, permissions FROM admin_auth WHERE id = ?", [req.user.id], (err, user) => {
-            if (err || !user) return res.status(403).json({ error: 'Access denied.' });
-            if (user.role === 'super_admin' || user.permissions === 'all') return next();
-            const perms = (user.permissions || '').split(',').map(p => p.trim());
-            if (perms.includes(requiredPerm)) {
-                return next();
-            }
-            return res.status(403).json({ error: `Access denied. Requires '${requiredPerm}' permission.` });
-        });
+        if (req.user.permissions === 'all') return next();
+        const perms = (req.user.permissions || '').split(',').map(p => p.trim());
+        if (perms.includes(requiredPerm)) {
+            return next();
+        }
+        return res.status(403).json({ error: `Access denied. Requires '${requiredPerm}' permission.` });
     };
 };
 
 app.get('/api/admin/me', verifyToken, (req, res) => {
-    db.get("SELECT username, role, permissions FROM admin_auth WHERE id = ?", [req.user.id], (err, user) => {
-        if (!err && user) {
-            return res.json({ username: user.username, role: user.role, permissions: user.permissions || 'all' });
-        }
-        res.json({ username: req.user.username, role: req.user.role, permissions: 'all' });
-    });
+    res.json({ username: req.user.username, role: req.user.role, permissions: req.user.permissions || '' });
 });
 
 // Newsletter Subscription
