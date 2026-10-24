@@ -2403,8 +2403,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const showType = document.getElementById('exp-col-type')?.checked;
         const showAmount = document.getElementById('exp-col-amount')?.checked;
         const showStatus = document.getElementById('exp-col-status')?.checked;
+        const showTxnId = document.getElementById('exp-col-txnid')?.checked;
+        const showPayRef = document.getElementById('exp-col-payref')?.checked;
 
-        return { showSn, showOrder, showName, showPhone, showEmail, showDate, showTime, showType, showAmount, showStatus };
+        return { showSn, showOrder, showName, showPhone, showEmail, showDate, showTime, showType, showAmount, showStatus, showTxnId, showPayRef };
     }
 
     function generateReportDataset() {
@@ -2452,6 +2454,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cols.showType) { headerRow.push("TYPE OF SIM PODIUM", "PPT"); }
         if (cols.showAmount) headerRow.push("AMOUNT DUE (INR)");
         if (cols.showStatus) headerRow.push("STATUS");
+        if (cols.showTxnId) headerRow.push("GATEWAY TXN ID");
+        if (cols.showPayRef) headerRow.push("DESK REF / UTR");
 
         Object.keys(grouped).forEach((date, i) => {
             let displayDate = date;
@@ -2506,6 +2510,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (cols.showType) { rowData.push(b.item_name || '', ppt); }
                 if (cols.showAmount) rowData.push(amt);
                 if (cols.showStatus) rowData.push(statusLabel);
+                if (cols.showTxnId) rowData.push(b.icici_txn_id || '');
+                if (cols.showPayRef) rowData.push(b.payment_ref || '');
 
                 wsRows.push(rowData);
                 totalSlCounter++;
@@ -2661,6 +2667,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (cols.showAmount) headersConfig.push({ title: "AMOUNT DUE", type: "green", align: "right", width: 18 });
                 if (cols.showStatus) headersConfig.push({ title: "STATUS", type: "green", align: "center", width: 25 });
+                if (cols.showTxnId) headersConfig.push({ title: "GATEWAY TXN ID", type: "pink", align: "center", width: 28 });
+                if (cols.showPayRef) headersConfig.push({ title: "DESK REF / UTR", type: "green", align: "center", width: 22 });
 
                 const totalCols = headersConfig.length;
 
@@ -2793,6 +2801,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         if (cols.showStatus) {
                             rowValues.push(statusLabel);
+                            aligns.push('center');
+                        }
+                        if (cols.showTxnId) {
+                            rowValues.push(b.icici_txn_id || '');
+                            aligns.push('center');
+                        }
+                        if (cols.showPayRef) {
+                            rowValues.push(b.payment_ref || '');
                             aligns.push('center');
                         }
 
