@@ -1549,55 +1549,55 @@
     </div>
 
     <!-- Export Columns Modal -->
-    <div class="modal-overlay" id="exportModal" style="display:none; z-index: 10000;">
-        <div class="modal-box" style="max-width: 400px; text-align: left;">
-            <div class="modal-header">
+    <div class="modal-overlay" id="exportModal" style="display:none; z-index: 10000; align-items: center; justify-content: center;">
+        <div class="modal-box" style="max-width: 480px; width: 92%; text-align: left; padding: 1.75rem;">
+            <div class="modal-header" style="margin-bottom: 1rem;">
                 <h2 class="modal-title">Export Options</h2>
                 <button class="modal-close" onclick="document.getElementById('exportModal').style.display='none'">&times;</button>
             </div>
-            <div class="modal-body" style="padding-top: 1rem;">
-                <p style="color: var(--muted); margin-bottom: 1rem;">Select the columns you want to include in the export:</p>
-                <div style="display: flex; flex-direction: column; gap: 0.8rem; margin-bottom: 1.5rem;">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+            <div class="modal-body" style="padding: 0;">
+                <p style="color: var(--muted); margin-bottom: 1.25rem; font-size: 0.9rem;">Select the columns you want to include in the export report:</p>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem 1.25rem; margin-bottom: 1.75rem; background: rgba(255,255,255,0.02); padding: 1rem; border-radius: 10px; border: 1px solid var(--border);">
+                    <label style="display: flex; align-items: center; gap: 0.55rem; cursor: pointer; font-size: 0.88rem;">
                         <input type="checkbox" id="exp-col-sn" checked> S.No
                     </label>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <label style="display: flex; align-items: center; gap: 0.55rem; cursor: pointer; font-size: 0.88rem;">
                         <input type="checkbox" id="exp-col-order" checked> Order No
                     </label>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <label style="display: flex; align-items: center; gap: 0.55rem; cursor: pointer; font-size: 0.88rem;">
                         <input type="checkbox" id="exp-col-name" checked> Name
                     </label>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <label style="display: flex; align-items: center; gap: 0.55rem; cursor: pointer; font-size: 0.88rem;">
                         <input type="checkbox" id="exp-col-phone" checked> Phone No
                     </label>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <label style="display: flex; align-items: center; gap: 0.55rem; cursor: pointer; font-size: 0.88rem;">
                         <input type="checkbox" id="exp-col-email" checked> Email ID
                     </label>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <label style="display: flex; align-items: center; gap: 0.55rem; cursor: pointer; font-size: 0.88rem;">
                         <input type="checkbox" id="exp-col-date" checked> Date
                     </label>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <label style="display: flex; align-items: center; gap: 0.55rem; cursor: pointer; font-size: 0.88rem;">
                         <input type="checkbox" id="exp-col-time" checked> Time/Slot
                     </label>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <label style="display: flex; align-items: center; gap: 0.55rem; cursor: pointer; font-size: 0.88rem;">
                         <input type="checkbox" id="exp-col-type" checked> Type of Sim
                     </label>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <label style="display: flex; align-items: center; gap: 0.55rem; cursor: pointer; font-size: 0.88rem;">
                         <input type="checkbox" id="exp-col-amount" checked> Amount Due
                     </label>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <label style="display: flex; align-items: center; gap: 0.55rem; cursor: pointer; font-size: 0.88rem;">
                         <input type="checkbox" id="exp-col-status" checked> Status
                     </label>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                        <input type="checkbox" id="exp-col-txnid" checked> Gateway Txn ID (ICICI)
+                    <label style="display: flex; align-items: center; gap: 0.55rem; cursor: pointer; font-size: 0.88rem;">
+                        <input type="checkbox" id="exp-col-txnid" checked> Gateway Txn ID
                     </label>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                        <input type="checkbox" id="exp-col-payref" checked> Desk Payment Ref / UTR
+                    <label style="display: flex; align-items: center; gap: 0.55rem; cursor: pointer; font-size: 0.88rem;">
+                        <input type="checkbox" id="exp-col-payref" checked> Desk Ref / UTR
                     </label>
                 </div>
-                <div style="display: flex; gap: 0.8rem; justify-content: flex-end;">
-                    <button type="button" class="btn" style="background: rgba(255,255,255,0.1); color: #fff; min-width: 90px;" onclick="document.getElementById('exportModal').style.display='none'">Cancel</button>
-                    <button type="button" class="btn" id="confirmExportBtn" style="background: #116dff; color: #fff; border: none; font-weight: 600; min-width: 160px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0.6rem 1.2rem;">
+                <div style="display: flex; gap: 0.85rem; justify-content: flex-end; align-items: center; padding-top: 0.5rem; border-top: 1px solid var(--border);">
+                    <button type="button" class="btn" style="background: rgba(255,255,255,0.08); color: #fff; padding: 0.65rem 1.2rem; border-radius: 8px; font-weight: 500;" onclick="document.getElementById('exportModal').style.display='none'">Cancel</button>
+                    <button type="button" class="btn" id="confirmExportBtn" style="background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #fff; border: none; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; padding: 0.65rem 1.4rem; border-radius: 8px; white-space: nowrap; box-shadow: 0 4px 14px rgba(37,99,235,0.35); cursor: pointer;">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                             <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
                             <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
