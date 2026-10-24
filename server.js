@@ -150,6 +150,38 @@ db.run(`
     }
 });
 
+// Ensure online_checkout_holds table exists for temporary payment gateway reservations
+db.run(`
+    CREATE TABLE IF NOT EXISTS online_checkout_holds (
+        id SERIAL PRIMARY KEY,
+        txn_id TEXT UNIQUE NOT NULL,
+        customer_name TEXT,
+        customer_email TEXT,
+        customer_phone TEXT,
+        amount REAL NOT NULL,
+        items_json TEXT NOT NULL,
+        whatsapp_consent INTEGER DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`, [], (err) => {
+    if (err) {
+        // SQLite fallback
+        db.run(`
+            CREATE TABLE IF NOT EXISTS online_checkout_holds (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                txn_id TEXT UNIQUE NOT NULL,
+                customer_name TEXT,
+                customer_email TEXT,
+                customer_phone TEXT,
+                amount REAL NOT NULL,
+                items_json TEXT NOT NULL,
+                whatsapp_consent INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `, [], () => {});
+    }
+});
+
 // Redirect all secondary domains to canonical https://www.havocsim.in
 app.use((req, res, next) => {
     const host = req.hostname;
@@ -1380,8 +1412,30 @@ app.get('/api/availability/:date', (req, res) => {
             }
         });
 
-        // Also merge slot locks from shared simulator_slot_locks table (including RC Fun Zone combo passes)
-        let lockQuery = "SELECT booking_time, status, source_order_id, created_at FROM simulator_slot_locks WHERE (booking_date = ? OR booking_date = ?) AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
+        // Also check active online checkout holds (< 2 minutes old)
+        db.all("SELECT items_json, created_at FROM online_checkout_holds", [], (holdErr, holdRows) => {
+            if (!holdErr && holdRows) {
+                holdRows.forEach(hr => {
+                    const ageMs = now - new Date(hr.created_at).getTime();
+                    if (ageMs <= 2 * 60 * 1000) {
+                        try {
+                            const heldItems = JSON.parse(hr.items_json || '[]');
+                            heldItems.forEach(hi => {
+                                const hiDateClean = (hi.date || '').replace(/ \([A-Za-z]+\)/, '');
+                                const qDateClean = date.replace(/ \([A-Za-z]+\)/, '');
+                                if (hiDateClean === qDateClean && (!item || hi.item_name === item)) {
+                                    if (hi.time && !bookedSlots.includes(hi.time)) {
+                                        bookedSlots.push(hi.time);
+                                    }
+                                }
+                            });
+                        } catch (e) {}
+                    }
+                });
+            }
+
+            // Also merge slot locks from shared simulator_slot_locks table (including RC Fun Zone combo passes)
+            let lockQuery = "SELECT booking_time, status, source_order_id, created_at FROM simulator_slot_locks WHERE (booking_date = ? OR booking_date = ?) AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
         let lockParams = [date, date.replace(/ \([A-Za-z]+\)/, '')];
         if (item) {
             lockQuery += " AND simulator_name = ?";
@@ -1424,6 +1478,7 @@ app.get('/api/availability/:date', (req, res) => {
                 }
                 res.json({ bookedSlots });
             });
+        });
         });
     });
 });
@@ -2635,13 +2690,36 @@ app.post('/api/bookings/cod', async (req, res) => {
                     db.get(lockQuery, lockParams, (lockErr, lockRow) => {
                         if (!lockErr && lockRow && lockRow.count > 0) hasConflict = true;
 
-                        // Also check admin blocked_slots
-                        const bQuery = "SELECT COUNT(*) as count FROM blocked_slots WHERE (simulator_name = ? OR simulator_name = 'ALL') AND (booking_date = ? OR booking_date = ? OR booking_date = 'ALL') AND (time_slot = ? OR time_slot = 'ALL_DAY')";
-                        const bParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
-                        db.get(bQuery, bParams, (bErr, bRow) => {
-                            if (!bErr && bRow && bRow.count > 0) hasConflict = true;
-                            checkCount++;
-                            if (checkCount === items.length) resolve(hasConflict);
+                        // Also check active online checkout holds (< 2 minutes old)
+                        db.all("SELECT items_json, created_at FROM online_checkout_holds", [], (holdErr, holdRows) => {
+                            if (!holdErr && holdRows) {
+                                const now = Date.now();
+                                for (const hr of holdRows) {
+                                    const ageMs = now - new Date(hr.created_at).getTime();
+                                    if (ageMs > 2 * 60 * 1000) continue;
+                                    try {
+                                        const heldItems = JSON.parse(hr.items_json || '[]');
+                                        for (const hi of heldItems) {
+                                            const hiDate = (hi.date || '').replace(/ \([A-Za-z]+\)/, '');
+                                            const itDate = (item.date || '').replace(/ \([A-Za-z]+\)/, '');
+                                            if (hi.item_name === item.item_name && hiDate === itDate && hi.time === item.time) {
+                                                hasConflict = true;
+                                                break;
+                                            }
+                                        }
+                                    } catch (e) {}
+                                    if (hasConflict) break;
+                                }
+                            }
+
+                            // Also check admin blocked_slots
+                            const bQuery = "SELECT COUNT(*) as count FROM blocked_slots WHERE (simulator_name = ? OR simulator_name = 'ALL') AND (booking_date = ? OR booking_date = ? OR booking_date = 'ALL') AND (time_slot = ? OR time_slot = 'ALL_DAY')";
+                            const bParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
+                            db.get(bQuery, bParams, (bErr, bRow) => {
+                                if (!bErr && bRow && bRow.count > 0) hasConflict = true;
+                                checkCount++;
+                                if (checkCount === items.length) resolve(hasConflict);
+                            });
                         });
                     });
                 });
@@ -2829,13 +2907,41 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                                 }
                             }
 
-                            // Also check admin blocked_slots
-                            const bQuery = "SELECT COUNT(*) as count FROM blocked_slots WHERE (simulator_name = ? OR simulator_name = 'ALL') AND (booking_date = ? OR booking_date = ? OR booking_date = 'ALL') AND (time_slot = ? OR time_slot = 'ALL_DAY')";
-                            const bParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
-                            db.get(bQuery, bParams, (bErr, bRow) => {
-                                if (!bErr && bRow && bRow.count > 0) hasConflict = true;
-                                checkCount++;
-                                if (checkCount === items.length) resolve(hasConflict);
+                            // Also check active online checkout holds (< 2 minutes old)
+                            db.all("SELECT txn_id, customer_email, customer_phone, items_json, created_at FROM online_checkout_holds", [], (holdErr, holdRows) => {
+                                if (!holdErr && holdRows) {
+                                    for (const hr of holdRows) {
+                                        const hrEmail = (hr.customer_email || '').trim().toLowerCase();
+                                        const hrPhone = (hr.customer_phone || '').replace(/[^\d]/g, '');
+                                        const isSameCust = (custEmail && hrEmail === custEmail) || (custPhone && hrPhone && hrPhone === custPhone);
+                                        if (isSameCust) continue;
+
+                                        const ageMs = Date.now() - new Date(hr.created_at).getTime();
+                                        if (ageMs > 2 * 60 * 1000) continue;
+
+                                        try {
+                                            const heldItems = JSON.parse(hr.items_json || '[]');
+                                            for (const hi of heldItems) {
+                                                const hiDate = (hi.date || '').replace(/ \([A-Za-z]+\)/, '');
+                                                const itDate = (item.date || '').replace(/ \([A-Za-z]+\)/, '');
+                                                if (hi.item_name === item.item_name && hiDate === itDate && hi.time === item.time) {
+                                                    hasConflict = true;
+                                                    break;
+                                                }
+                                            }
+                                        } catch (e) {}
+                                        if (hasConflict) break;
+                                    }
+                                }
+
+                                // Also check admin blocked_slots
+                                const bQuery = "SELECT COUNT(*) as count FROM blocked_slots WHERE (simulator_name = ? OR simulator_name = 'ALL') AND (booking_date = ? OR booking_date = ? OR booking_date = 'ALL') AND (time_slot = ? OR time_slot = 'ALL_DAY')";
+                                const bParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
+                                db.get(bQuery, bParams, (bErr, bRow) => {
+                                    if (!bErr && bRow && bRow.count > 0) hasConflict = true;
+                                    checkCount++;
+                                    if (checkCount === items.length) resolve(hasConflict);
+                                });
                             });
                         });
                     });
@@ -2861,40 +2967,28 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
             formattedDate = (dateParts[1] + dateParts[0]).toUpperCase() + String(year).slice(-2);
         }
 
-        const orderNo = await getNextOrderNumber();
-        // ICICI requires merchantTxnNo to be globally unique across ALL attempts (strictly <= 20 chars).
-        // If an attempt fails, is cancelled, or was deleted from DB, ICICI permanently rejects reusing the same reference.
-        // We append a compact 4-digit timestamp suffix so every attempt is guaranteed unique.
-        // Format: PAID_SP_41_5821 (length ~15 chars <= 20 chars)
-        const attemptSuffix = Date.now().toString().slice(-4);
-        const baseOrderId = `PAID_SP_${orderNo}_${attemptSuffix}`;
+        // Temporary tracking reference for payment gateway strictly <= 20 chars
+        // Format: TXN_SP_<compact_timestamp_suffix> (e.g. TXN_SP_948271, 13 chars)
+        // We do NOT call getNextOrderNumber() or insert into bookings here, so no order numbers are burned or skipped!
+        const attemptSuffix = Date.now().toString().slice(-6);
+        const tempTxnId = `TXN_SP_${attemptSuffix}`;
+        const baseOrderId = tempTxnId;
 
-        let insertedCount = 0;
-        const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
+        const whatsappConsentVal = (customer_details && customer_details.whatsapp_consent === false) ? 0 : 1;
 
-        items.forEach((item, index) => {
-            const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
-            
-            let itemPrice = (parseFloat(amount) / items.length).toFixed(2);
-            if (totalBaseCost > 0) {
-                const itemRatio = ((Number(item.base_price) || 0) + (Number(item.instructor_fee) || 0)) / totalBaseCost;
-                itemPrice = (parseFloat(amount) * itemRatio).toFixed(2);
+        // Save temporary hold in online_checkout_holds table
+        db.run(
+            `INSERT INTO online_checkout_holds (txn_id, customer_name, customer_email, customer_phone, amount, items_json, whatsapp_consent)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [tempTxnId, customer_details.name || 'Customer', customer_details.email || '', customer_details.phone || '', orderAmount, JSON.stringify(items), whatsappConsentVal],
+            function(err) {
+                if (err) {
+                    console.error("Hold Insert Error:", err);
+                    return res.status(500).json({ error: 'Failed to hold selected slots for payment' });
+                }
+                createIciciOrder();
             }
-            
-            // Save pending booking to DB
-            const whatsappConsentVal = (customer_details && customer_details.whatsapp_consent === false) ? 0 : 1;
-            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, whatsapp_consent) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null, item.players || 1, item.player_two_name || null, whatsappConsentVal], 
-                function(err) {
-                    if (err) console.error("DB Insert Error:", err);
-                    insertedCount++;
-                    
-                    if (insertedCount === items.length) {
-                        createIciciOrder();
-                    }
-            });
-        });
+        );
 
         async function createIciciOrder() {
             // Build Request Payload as per Step Wise Doc using India Standard Time (IST / Asia/Kolkata)
@@ -2952,7 +3046,7 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                 
                 if (data.responseCode !== "R1000") {
                     console.error('ICICI initiateSale error response:', data);
-                    db.run("DELETE FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`]);
+                    db.run("DELETE FROM online_checkout_holds WHERE txn_id = ?", [baseOrderId]);
                     return res.status(500).json({ 
                         error: data.responseDescription || 'Failed to initiate ICICI PG order',
                         code: data.responseCode,
@@ -2968,7 +3062,7 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                 });
             } catch (err) {
                 console.error('Create ICICI order API error:', err);
-                db.run("DELETE FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`]);
+                db.run("DELETE FROM online_checkout_holds WHERE txn_id = ?", [baseOrderId]);
                 res.status(500).json({ error: 'Failed to communicate with ICICI Gateway' });
             }
         }
@@ -3030,8 +3124,98 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                 return res.redirect(`/pay.html?id=${linkId}&status=success`);
             }
 
+            // Check if this was a slot booking initiated via online_checkout_holds (TXN_SP_*)
+            if (baseOrderId.startsWith('TXN_SP_')) {
+                db.get("SELECT * FROM online_checkout_holds WHERE txn_id = ?", [baseOrderId], async (holdErr, holdRow) => {
+                    if (holdErr || !holdRow) {
+                        console.error("Hold record not found for txn_id:", baseOrderId, holdErr);
+                        // If already converted to booking, look up in bookings by icici_txn_id
+                        db.all("SELECT * FROM bookings WHERE icici_txn_id = ? ORDER BY id ASC", [txnID], (bErr, existingRows) => {
+                            if (!bErr && existingRows && existingRows.length > 0) {
+                                return res.redirect(`/success.html?order_id=${existingRows[0].order_id}`);
+                            }
+                            return res.redirect('/checkout.html?error=Hold expired or booking missing');
+                        });
+                        return;
+                    }
+
+                    try {
+                        const items = JSON.parse(holdRow.items_json || '[]');
+                        const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
+                        const orderNo = await getNextOrderNumber();
+                        const finalOrderId = `PAID_SP_${orderNo}`;
+
+                        let insertedCount = 0;
+                        items.forEach((item, index) => {
+                            const rowOrderId = items.length > 1 ? `${finalOrderId}_${index}` : finalOrderId;
+                            let itemPrice = (parseFloat(holdRow.amount) / items.length).toFixed(2);
+                            if (totalBaseCost > 0) {
+                                const itemRatio = ((Number(item.base_price) || 0) + (Number(item.instructor_fee) || 0)) / totalBaseCost;
+                                itemPrice = (parseFloat(holdRow.amount) * itemRatio).toFixed(2);
+                            }
+
+                            db.run(
+                                `INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, whatsapp_consent, icici_txn_id)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PAID', ?, ?, ?, ?, ?)`,
+                                [
+                                    rowOrderId,
+                                    holdRow.customer_name,
+                                    holdRow.customer_email,
+                                    holdRow.customer_phone,
+                                    item.item_name,
+                                    itemPrice,
+                                    item.date,
+                                    item.time,
+                                    item.instructor_id || null,
+                                    item.players || 1,
+                                    item.player_two_name || null,
+                                    holdRow.whatsapp_consent,
+                                    txnID
+                                ],
+                                function(insErr) {
+                                    if (insErr) console.error("Insert confirmed booking error:", insErr);
+                                    insertedCount++;
+
+                                    if (insertedCount === items.length) {
+                                        // Delete hold now that booking is confirmed
+                                        db.run("DELETE FROM online_checkout_holds WHERE txn_id = ?", [baseOrderId]);
+
+                                        // Fetch confirmed rows and send communications
+                                        db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${finalOrderId}%`], (err, rows) => {
+                                            if (!err && rows && rows.length > 0) {
+                                                try {
+                                                    const mailer = require('./mailer');
+                                                    mailer.sendConfirmationEmail(rows);
+                                                    dispatchBookingWhatsAppNotification(rows, 'Paid Online');
+
+                                                    if (rows[0].instructor_id) {
+                                                        db.get("SELECT * FROM instructors WHERE id = ?", [rows[0].instructor_id], (err, inst) => {
+                                                            if (!err && inst && inst.email) {
+                                                                mailer.sendInstructorEmail(inst, rows[0]);
+                                                            }
+                                                        });
+                                                    }
+                                                } catch (e) {
+                                                    console.error("Email/WhatsApp send failed:", e);
+                                                }
+                                            }
+                                        });
+
+                                        return res.redirect(`/success.html?order_id=${finalOrderId}`);
+                                    }
+                                }
+                            );
+                        });
+                    } catch (parseErr) {
+                        console.error("Failed to parse hold items_json:", parseErr);
+                        return res.redirect('/checkout.html?error=Error confirming booking');
+                    }
+                });
+                return;
+            }
+
+            // Fallback for legacy or direct baseOrderId
             db.run("UPDATE bookings SET status = 'PAID', icici_txn_id = ? WHERE order_id LIKE ?", [txnID, `${baseOrderId}%`], () => {
-                // Fetch booking details and send confirmation email & WhatsApp
                 db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`], (err, rows) => {
                     if (!err && rows && rows.length > 0) {
                         try {
@@ -3061,6 +3245,11 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                 const linkId = parts.length >= 3 ? `${parts[0]}_${parts[1]}` : baseOrderId;
                 db.run("UPDATE payment_links SET status = 'FAILED' WHERE link_id = ?", [linkId]);
                 return res.redirect(`/pay.html?id=${linkId}&status=failed&error=${encodeURIComponent(body.respDescription || 'Payment Failed')}`);
+            }
+            if (baseOrderId.startsWith('TXN_SP_')) {
+                // Delete temporary hold immediately - slot is released, no order number burned!
+                db.run("DELETE FROM online_checkout_holds WHERE txn_id = ?", [baseOrderId]);
+                return res.redirect('/checkout.html?error=Payment Failed or Cancelled');
             }
             db.run("UPDATE bookings SET status = 'FAILED' WHERE order_id LIKE ?", [`${baseOrderId}%`]);
             return res.redirect('/checkout.html?error=Payment Failed or Cancelled');
@@ -3304,6 +3493,14 @@ setInterval(() => {
         else if (this.changes > 0) {
             console.log(`[${new Date().toISOString()}] Cleanup: Auto-deleted ${this.changes} expired pending booking(s)`);
         }
+    });
+
+    // Also auto-delete expired temporary holds older than 2 minutes
+    const holdCleanupQuery = isProd
+        ? `DELETE FROM online_checkout_holds WHERE created_at <= NOW() - INTERVAL '2 minutes'`
+        : `DELETE FROM online_checkout_holds WHERE datetime(created_at) <= datetime('now', '-2 minutes')`;
+    db.run(holdCleanupQuery, function(err) {
+        if (err) console.error("Hold Cleanup Error:", err);
     });
 }, 60 * 1000); // Check every minute so abandoned slots release promptly
 

@@ -114,6 +114,34 @@ if (DB_URL) {
                     // Expired pending bookings cleanup (exclude PAYDUE desk bookings)
                     await pool.query(`DELETE FROM simulator_slot_locks WHERE status = 'PENDING' AND source_order_id NOT LIKE 'PAYDUE%' AND created_at <= NOW() - INTERVAL '2 minutes'`);
                 }
+            } else if (lower.includes('insert into online_checkout_holds')) {
+                // params: [txn_id, customer_name, customer_email, customer_phone, amount, items_json, whatsapp_consent]
+                const txnId = params[0];
+                const custName = params[1];
+                const custPhone = params[3];
+                const itemsJson = params[5];
+                try {
+                    const items = JSON.parse(itemsJson);
+                    for (const item of items) {
+                        if (item.item_name && item.date && item.time) {
+                            await pool.query(`
+                                INSERT INTO simulator_slot_locks 
+                                    (simulator_name, booking_date, booking_time, source_platform, source_order_id, customer_name, customer_phone, status)
+                                VALUES ($1, $2, $3, 'HAVOC_SIM_PODIUM', $4, $5, $6, 'PENDING')
+                                ON CONFLICT (simulator_name, booking_date, booking_time) DO UPDATE 
+                                SET source_order_id = excluded.source_order_id,
+                                    status = excluded.status,
+                                    customer_name = excluded.customer_name,
+                                    customer_phone = excluded.customer_phone
+                            `, [item.item_name, item.date, item.time, txnId, custName, custPhone]);
+                        }
+                    }
+                } catch (pe) {}
+            } else if (lower.includes('delete from online_checkout_holds')) {
+                const match = params && params[0];
+                if (match) {
+                    await pool.query(`DELETE FROM simulator_slot_locks WHERE source_order_id = $1`, [match]);
+                }
             }
         } catch (lockErr) {
             console.warn('[Slot Lock Sync Notice]', lockErr.message);
