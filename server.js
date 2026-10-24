@@ -1927,6 +1927,153 @@ function normalizePhone(rawPhone) {
     return String(rawPhone).replace(/[^0-9]/g, '');
 }
 
+// Helper to parse international phone number into countryCode and clean phoneNumber
+function parseInternationalPhone(rawPhone) {
+    if (!rawPhone) return { countryCode: '+91', phoneNumber: '' };
+    const str = String(rawPhone).trim();
+
+    if (str.startsWith('+')) {
+        const digits = str.slice(1).replace(/\D/g, '');
+        // Known 3-digit country codes (e.g. +971 UAE, +966 KSA, +974 QAT, +353 IRL, +852 HKG, +880 BGD, +977 NPL)
+        const threeDigitCodes = ['971', '966', '974', '968', '965', '973', '353', '852', '880', '977'];
+        for (const code of threeDigitCodes) {
+            if (digits.startsWith(code) && digits.length > code.length) {
+                return { countryCode: `+${code}`, phoneNumber: digits.slice(code.length) };
+            }
+        }
+        // Known 2-digit country codes (e.g. +91 IND, +44 GBR, +61 AUS, +65 SGP, +49 DEU, +33 FRA, +39 ITA, +34 ESP, +31 NLD, +41 CHE, +46 SWE, +47 NOR, +64 NZL, +60 MYS, +62 IDN, +66 THA, +63 PHL, +84 VNM, +81 JPN, +82 KOR, +86 CHN, +27 ZAF, +55 BRA, +52 MEX, +94 LKA, +92 PAK, +20 EGY, +90 TUR)
+        const twoDigitCodes = ['91', '44', '61', '65', '49', '33', '39', '34', '31', '41', '46', '47', '64', '60', '62', '66', '63', '84', '81', '82', '86', '27', '55', '52', '94', '92', '20', '90'];
+        for (const code of twoDigitCodes) {
+            if (digits.startsWith(code) && digits.length > code.length) {
+                return { countryCode: `+${code}`, phoneNumber: digits.slice(code.length) };
+            }
+        }
+        // Known 1-digit country codes (e.g. +1 USA/CAN, +7 RUS)
+        const oneDigitCodes = ['1', '7'];
+        for (const code of oneDigitCodes) {
+            if (digits.startsWith(code) && digits.length > code.length) {
+                return { countryCode: `+${code}`, phoneNumber: digits.slice(code.length) };
+            }
+        }
+        // Fallback for general + prefixed numbers: first 2 digits as code if length >= 12
+        if (digits.length >= 12) {
+            return { countryCode: `+${digits.slice(0, 2)}`, phoneNumber: digits.slice(2) };
+        }
+        return { countryCode: '+91', phoneNumber: digits };
+    }
+
+    const clean = str.replace(/\D/g, '');
+    // If standard 10-digit Indian mobile number
+    if (clean.length === 10) {
+        return { countryCode: '+91', phoneNumber: clean };
+    }
+    // If 12-digit starting with 91
+    if (clean.length === 12 && clean.startsWith('91')) {
+        return { countryCode: '+91', phoneNumber: clean.slice(2) };
+    }
+    // If 11-digit starting with 0
+    if (clean.length === 11 && clean.startsWith('0')) {
+        return { countryCode: '+91', phoneNumber: clean.slice(1) };
+    }
+
+    return { countryCode: '+91', phoneNumber: clean };
+}
+
+// Automated WhatsApp Booking Confirmation Notification via Interakt API
+async function sendBookingConfirmationWhatsApp({ customerName, customerPhone, orderId, sessionDetails, date, timeSlot, totalAmount, paymentStatus }) {
+    const interaktApiKey = process.env.INTERAKT_API_KEY;
+    if (!interaktApiKey) {
+        console.log('[Interakt WhatsApp] INTERAKT_API_KEY not configured. Skipping WhatsApp confirmation.');
+        return;
+    }
+
+    if (!customerPhone) {
+        console.log('[Interakt WhatsApp] No customer phone provided. Skipping WhatsApp confirmation.');
+        return;
+    }
+
+    const { countryCode, phoneNumber } = parseInternationalPhone(customerPhone);
+    if (!phoneNumber) {
+        console.warn(`[Interakt WhatsApp] Could not extract valid phone number from: "${customerPhone}". Skipping.`);
+        return;
+    }
+
+    const templateName = process.env.INTERAKT_BOOKING_TEMPLATE || "sim_podium_booking_confirmation";
+    const driverName = (customerName || "Driver").trim();
+    const formattedOrderId = String(orderId || "").replace(/_\d+$/, '');
+    const formattedSession = String(sessionDetails || "Simulator Session").trim();
+    const formattedDateTime = `${date || 'Scheduled Date'} • ${timeSlot || 'Scheduled Time'}`;
+    const formattedAmount = `₹${totalAmount} (${paymentStatus || 'Confirmed'})`;
+
+    const requestPayload = {
+        countryCode: countryCode,
+        phoneNumber: phoneNumber,
+        type: "Template",
+        template: {
+            name: templateName,
+            languageCode: "en",
+            bodyValues: [
+                driverName,
+                formattedOrderId,
+                formattedSession,
+                formattedDateTime,
+                formattedAmount
+            ]
+        }
+    };
+
+    try {
+        console.log(`[Interakt WhatsApp] Sending booking confirmation to ${countryCode}${phoneNumber} (Order #${formattedOrderId})...`);
+        const response = await fetch('https://api.interakt.ai/v1/public/message/', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${interaktApiKey.trim()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestPayload)
+        });
+
+        if (response.ok) {
+            const data = await response.json().catch(() => ({}));
+            console.log(`[Interakt WhatsApp] Booking confirmation dispatched successfully to ${countryCode}${phoneNumber}! Result:`, data.result || 'OK');
+        } else {
+            const errText = await response.text();
+            console.warn(`[Interakt WhatsApp] Interakt API returned status ${response.status}:`, errText);
+        }
+    } catch (err) {
+        console.error('[Interakt WhatsApp] Error sending booking confirmation:', err.message);
+    }
+}
+
+// Helper to format booking rows into parameters for sendBookingConfirmationWhatsApp
+function dispatchBookingWhatsAppNotification(rows, paymentStatus) {
+    if (!rows || rows.length === 0) return;
+    const primary = rows[0];
+    const customerName = primary.name;
+    const customerPhone = primary.phone;
+    const orderId = primary.order_id ? primary.order_id.replace(/_\d+$/, '') : '';
+
+    const sessionSummary = rows.map(r => {
+        const isDuo = (Number(r.players) === 2 || r.player_two_name);
+        return `${r.item_name || 'Simulator'}${isDuo ? ' (2-Player Duo)' : ''}`;
+    }).join(' + ');
+
+    const date = primary.booking_date || '';
+    const timeSlot = rows.map(r => r.booking_time).filter(Boolean).join(', ') || '';
+    const totalAmount = rows.reduce((sum, r) => sum + (parseFloat(r.price) || 0), 0).toFixed(2);
+
+    sendBookingConfirmationWhatsApp({
+        customerName,
+        customerPhone,
+        orderId,
+        sessionDetails: sessionSummary,
+        date,
+        timeSlot,
+        totalAmount,
+        paymentStatus
+    }).catch(e => console.error('[Interakt WhatsApp] Unhandled rejection:', e));
+}
+
 // Helper to parse booking date string into Date object
 function parseBookingDate(dateStr) {
     if (!dateStr) return null;
@@ -2339,6 +2486,23 @@ app.post('/api/admin/bookings', verifyToken, (req, res) => {
         [orderId, finalName, finalEmail, finalPhone, item_name, finalPrice, booking_date, booking_time, finalStatus], 
         function(err) {
             if (err) return res.status(500).json({ error: 'Database error' });
+
+            if (finalPhone || finalEmail) {
+                const bookingRecord = [{
+                    order_id: orderId,
+                    name: finalName,
+                    email: finalEmail,
+                    phone: finalPhone,
+                    item_name: item_name,
+                    price: finalPrice,
+                    booking_date: booking_date,
+                    booking_time: booking_time,
+                    status: finalStatus
+                }];
+                if (finalEmail) sendConfirmationEmail(bookingRecord);
+                if (finalPhone) dispatchBookingWhatsAppNotification(bookingRecord, finalStatus === 'PAID' ? 'Paid' : (finalStatus === 'CASH' ? 'Paid (Cash)' : 'Confirmed'));
+            }
+
             res.json({ success: true, order_id: orderId });
         }
     );
@@ -2483,10 +2647,11 @@ app.post('/api/bookings/cod', async (req, res) => {
                     if (insertedCount === items.length) {
                         if (hasError) return res.status(500).json({ error: 'Database error while inserting items' });
                         
-                        // Send single consolidated confirmation email for all booked items
+                        // Send single consolidated confirmation email and WhatsApp notification for all booked items
                         db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`], (err, rows) => {
                             if (!err && rows && rows.length > 0) {
                                 sendConfirmationEmail(rows);
+                                dispatchBookingWhatsAppNotification(rows, 'Pay at Desk');
                                 rows.forEach(row => {
                                     if (row.instructor_id) {
                                         db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
@@ -2810,12 +2975,13 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
             }
 
             db.run("UPDATE bookings SET status = 'PAID', icici_txn_id = ? WHERE order_id LIKE ?", [txnID, `${baseOrderId}%`], () => {
-                // Fetch booking details and send confirmation email
+                // Fetch booking details and send confirmation email & WhatsApp
                 db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`], (err, rows) => {
                     if (!err && rows && rows.length > 0) {
                         try {
                             const mailer = require('./mailer');
                             mailer.sendConfirmationEmail(rows);
+                            dispatchBookingWhatsAppNotification(rows, 'Paid Online');
                             
                             if (rows[0].instructor_id) {
                                 db.get("SELECT * FROM instructors WHERE id = ?", [rows[0].instructor_id], (err, inst) => {
@@ -2825,7 +2991,7 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                                 });
                             }
                         } catch (e) {
-                            console.error("Email send failed:", e);
+                            console.error("Email/WhatsApp send failed:", e);
                         }
                     }
                 });
@@ -3224,6 +3390,7 @@ app.post('/api/upi/callback', async (req, res) => {
                 db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${orderId}%`], (err, rows) => {
                     if (!err && rows && rows.length > 0) {
                         sendConfirmationEmail(rows);
+                        dispatchBookingWhatsAppNotification(rows, 'Paid Online');
                         rows.forEach(row => {
                             if (row.instructor_id) {
                                 db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
