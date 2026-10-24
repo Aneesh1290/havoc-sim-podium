@@ -224,6 +224,24 @@ const verifySuperAdmin = (req, res, next) => {
     next();
 };
 
+// Middleware to verify specific permission or Super Admin
+const checkPermission = (requiredPerm) => {
+    return (req, res, next) => {
+        if (req.user.username === 'admin' || req.user.role === 'super_admin') {
+            return next();
+        }
+        db.get("SELECT role, permissions FROM admin_auth WHERE id = ?", [req.user.id], (err, user) => {
+            if (err || !user) return res.status(403).json({ error: 'Access denied.' });
+            if (user.role === 'super_admin' || user.permissions === 'all') return next();
+            const perms = (user.permissions || '').split(',').map(p => p.trim());
+            if (perms.includes(requiredPerm)) {
+                return next();
+            }
+            return res.status(403).json({ error: `Access denied. Requires '${requiredPerm}' permission.` });
+        });
+    };
+};
+
 app.get('/api/admin/me', verifyToken, (req, res) => {
     db.get("SELECT username, role, permissions FROM admin_auth WHERE id = ?", [req.user.id], (err, user) => {
         if (!err && user) {
@@ -1733,8 +1751,8 @@ app.delete('/api/admin/blocked-slots/:id', verifyToken, (req, res) => {
     });
 });
 
-// Delete a booking or slot lock (Protected - handles Sim Podium & Fun Zone orders)
-app.delete('/api/admin/bookings/:order_id', verifyToken, (req, res) => {
+// Delete a booking or slot lock (Protected - requires 'delete_orders' permission or Super Admin)
+app.delete('/api/admin/bookings/:order_id', verifyToken, checkPermission('delete_orders'), (req, res) => {
     let { order_id } = req.params;
     order_id = decodeURIComponent(order_id).trim();
 
@@ -1769,8 +1787,8 @@ app.delete('/api/admin/bookings/:order_id', verifyToken, (req, res) => {
     });
 });
 
-// Purge test orders by specific order_id or name (Protected)
-app.post('/api/admin/purge-test-orders', verifyToken, (req, res) => {
+// Purge test orders by specific order_id or name (Protected - Super Admin only)
+app.post('/api/admin/purge-test-orders', verifyToken, verifySuperAdmin, (req, res) => {
     const { order_id, name } = req.body || {};
     if (!order_id && !name) {
         return res.json({ success: true, message: 'No target specified.', bookingsDeleted: 0, locksDeleted: 0 });
@@ -1804,8 +1822,8 @@ app.put('/api/admin/bookings/:order_id/attend', verifyToken, (req, res) => {
     });
 });
 
-// Manually override booking status (Protected - accessible by all staff)
-app.put('/api/admin/bookings/:order_id/status', verifyToken, (req, res) => {
+// Manually override booking status (Protected - requires 'edit_orders' permission or Super Admin)
+app.put('/api/admin/bookings/:order_id/status', verifyToken, checkPermission('edit_orders'), (req, res) => {
     let { order_id } = req.params;
     order_id = decodeURIComponent(order_id).trim();
     const { status } = req.body;
@@ -1839,8 +1857,8 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, (req, res) => {
     });
 });
 
-// Process ICICI Refund for a Booking (Protected)
-app.post('/api/admin/bookings/:order_id/refund', verifyToken, async (req, res) => {
+// Process ICICI Refund for a Booking (Protected - requires 'refunds' permission or Super Admin)
+app.post('/api/admin/bookings/:order_id/refund', verifyToken, checkPermission('refunds'), async (req, res) => {
     const { order_id } = req.params;
     const refundAmount = req.body.amount ? parseFloat(req.body.amount).toFixed(2) : null;
 

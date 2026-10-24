@@ -2292,8 +2292,10 @@
 
                         <!-- Permissions Checklist for Staff -->
                         <div id="staffPermissionsBox" style="margin-bottom: 1.5rem; background: rgba(0,0,0,0.25); border: 1px solid var(--border); border-radius: 10px; padding: 1rem;">
-                            <label style="font-size: 0.75rem; text-transform: uppercase; color: var(--gold); font-weight: 700; letter-spacing: 1px; display: block; margin-bottom: 0.8rem;">Select Allowed Tabs & Modules</label>
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; font-size: 0.85rem;">
+                            <label style="font-size: 0.75rem; text-transform: uppercase; color: var(--gold); font-weight: 700; letter-spacing: 1px; display: block; margin-bottom: 0.8rem;">Allowed Tabs & Functions</label>
+                            
+                            <div style="font-size: 0.72rem; color: #60a5fa; font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem;">Navigation Tabs:</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem; margin-bottom: 1rem;">
                                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                                     <input type="checkbox" name="newStaffPerm" value="bookings" checked> <span>📅 Bookings</span>
                                 </label>
@@ -2305,6 +2307,9 @@
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                                     <input type="checkbox" name="newStaffPerm" value="availability" checked> <span>📅 Availability</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="newStaffPerm" value="block_slots"> <span>🛡️ Block Slots</span>
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                                     <input type="checkbox" name="newStaffPerm" value="coupons"> <span>🎟️ Coupons</span>
@@ -2320,6 +2325,22 @@
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                                     <input type="checkbox" name="newStaffPerm" value="settings"> <span>⚙️ Settings</span>
+                                </label>
+                            </div>
+
+                            <div style="font-size: 0.72rem; color: #f59e0b; font-weight: 700; text-transform: uppercase; margin-bottom: 0.4rem; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 0.6rem;">Sensitive Actions / Restrictions:</div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.85rem;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="newStaffPerm" value="edit_orders" checked> <span>✏️ Edit/Fulfill Orders</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="newStaffPerm" value="export_reports" checked> <span>📊 Export Reports</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ef4444;">
+                                    <input type="checkbox" name="newStaffPerm" value="delete_orders"> <span>🗑️ Delete Orders</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #ef4444;">
+                                    <input type="checkbox" name="newStaffPerm" value="refunds"> <span>💸 Issue Refunds</span>
                                 </label>
                             </div>
                         </div>

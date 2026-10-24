@@ -608,6 +608,51 @@ window.openOrderDetails = (baseOrderId) => {
 
         const duoItem = items.find(i => i.player_two_name);
 
+        const isSuperAdmin = window._isSuperAdmin || (window._currentUser && (window._currentUser.username === 'admin' || window._currentUser.role === 'super_admin'));
+        const userPerms = window._userPerms || [];
+        const hasAllPerms = isSuperAdmin || (window._currentUser && window._currentUser.permissions === 'all');
+        const canEdit = hasAllPerms || userPerms.includes('edit_orders');
+        const canDelete = hasAllPerms || userPerms.includes('delete_orders');
+        const canRefund = hasAllPerms || userPerms.includes('refunds');
+
+        let moreActionsMenuHtml = '';
+        if (canEdit) {
+            moreActionsMenuHtml += `
+                <div class="custom-dropdown-item" onclick="markOrderAsFulfilled('${baseOrderId}')">✓ Mark as fulfilled</div>
+                <div class="custom-dropdown-item" onclick="markOrderAsUnfulfilled('${baseOrderId}')">✗ Mark as unfulfilled</div>
+                <div class="custom-dropdown-item" onclick="cancelOrder('${baseOrderId}')">✗ Cancel order</div>
+            `;
+        }
+        if (canDelete) {
+            moreActionsMenuHtml += `
+                <div class="custom-dropdown-item" style="color: #ef4444; border-top: 1px solid rgba(255,255,255,0.08);" onclick="deleteBookingRow('${baseOrderId}')">🗑 Delete order permanently</div>
+            `;
+        }
+        if (canRefund && paymentBadge !== 'REFUNDED' && (paymentBadge === 'PAID' || fulfillBadge === 'ATTENDED')) {
+            moreActionsMenuHtml += `
+                <div class="custom-dropdown-item" style="color: #ef4444; border-top: 1px solid rgba(255,255,255,0.08);" onclick="refundOrder('${baseOrderId}', '${priceFormatted}')">💸 Refund Payment (ICICI)</div>
+            `;
+        }
+
+        const moreActionsBtnHtml = moreActionsMenuHtml.trim() ? `
+            <div class="custom-dropdown">
+                <button class="btn-secondary" onclick="togglePaymentDropdown('${baseOrderId}', 'more', event)">More Actions ˅</button>
+                <div class="custom-dropdown-menu" id="pay-menu-more-${baseOrderId}" style="right:0; left:auto; min-width: 240px; background: #1c1c21;">
+                    ${moreActionsMenuHtml}
+                </div>
+            </div>
+        ` : '';
+
+        const collectPaymentBtnHtml = canEdit ? `
+            <div class="custom-dropdown">
+                <button class="btn-blue" onclick="togglePaymentDropdown('${baseOrderId}', 'header', event)">Collect Payment ˅</button>
+                <div class="custom-dropdown-menu" id="pay-menu-header-${baseOrderId}" style="right:0; left:auto; min-width: 200px;">
+                    <div class="custom-dropdown-item" onclick="markOrderAsPaid('${baseOrderId}')">✓ Mark as paid</div>
+                    <div class="custom-dropdown-item" onclick="markOrderAsUnpaid('${baseOrderId}')">✗ Mark as unpaid</div>
+                </div>
+            </div>
+        ` : '';
+
         view.innerHTML = `
     <div class="od-breadcrumb" onclick="closeOrderDetails()" style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
         <span style="color: #60a5fa; font-weight: 500;">← Back to Bookings</span>
@@ -621,25 +666,8 @@ window.openOrderDetails = (baseOrderId) => {
             <div class="od-date">Placed on ${placedDateStr}</div>
         </div>
         <div class="od-actions">
-            <div class="custom-dropdown">
-                <button class="btn-secondary" onclick="togglePaymentDropdown('${baseOrderId}', 'more', event)">More Actions ˅</button>
-                <div class="custom-dropdown-menu" id="pay-menu-more-${baseOrderId}" style="right:0; left:auto; min-width: 240px; background: #1c1c21;">
-                    <div class="custom-dropdown-item" onclick="markOrderAsFulfilled('${baseOrderId}')">✓ Mark as fulfilled</div>
-                    <div class="custom-dropdown-item" onclick="markOrderAsUnfulfilled('${baseOrderId}')">✗ Mark as unfulfilled</div>
-                    <div class="custom-dropdown-item" onclick="cancelOrder('${baseOrderId}')">✗ Cancel order</div>
-                    <div class="custom-dropdown-item" style="color: #ef4444; border-top: 1px solid rgba(255,255,255,0.08);" onclick="deleteBookingRow('${baseOrderId}')">🗑 Delete order permanently</div>
-                    ${paymentBadge !== 'REFUNDED' && (paymentBadge === 'PAID' || fulfillBadge === 'ATTENDED') ? `
-                    <div class="custom-dropdown-item" style="color: #ef4444; border-top: 1px solid rgba(255,255,255,0.08);" onclick="refundOrder('${baseOrderId}', '${priceFormatted}')">💸 Refund Payment (ICICI)</div>
-                    ` : ''}
-                </div>
-            </div>
-            <div class="custom-dropdown">
-                <button class="btn-blue" onclick="togglePaymentDropdown('${baseOrderId}', 'header', event)">Collect Payment ˅</button>
-                <div class="custom-dropdown-menu" id="pay-menu-header-${baseOrderId}" style="right:0; left:auto; min-width: 200px;">
-                    <div class="custom-dropdown-item" onclick="markOrderAsPaid('${baseOrderId}')">✓ Mark as paid</div>
-                    <div class="custom-dropdown-item" onclick="markOrderAsUnpaid('${baseOrderId}')">✗ Mark as unpaid</div>
-                </div>
-            </div>
+            ${moreActionsBtnHtml}
+            ${collectPaymentBtnHtml}
         </div>
     </div>
 
@@ -1871,7 +1899,11 @@ window.togglePermBoxes = function(role) {
 
 // Map of permission keys to labels and navigation selectors
 const PERMISSION_CONFIG = [
-    { key: 'bookings', label: '📅 Bookings', navId: 'tab-bookings' },
+    { key: 'bookings', label: '📅 Bookings View', navId: 'tab-bookings' },
+    { key: 'edit_orders', label: '✏️ Edit / Fulfill Orders', category: 'action' },
+    { key: 'delete_orders', label: '🗑️ Delete Orders', category: 'action' },
+    { key: 'refunds', label: '💸 Issue Refunds (ICICI)', category: 'action' },
+    { key: 'export_reports', label: '📊 Export Excel Reports', category: 'action' },
     { key: 'payment_links', label: '🔗 Payment Links', navId: 'tab-payment-links' },
     { key: 'inventory_matrix', label: '📦 Inventory', navId: 'tab-inventory-matrix' },
     { key: 'availability', label: '📅 Availability', navId: 'tab-availability' },
@@ -2074,6 +2106,18 @@ async function checkRole() {
         } else {
             loadCoupons();
             loadStaff();
+        }
+
+        // Store user permissions globally for granular UI enforcement
+        window._currentUser = user;
+        window._isSuperAdmin = isSuperAdmin;
+        window._userPerms = userPerms;
+
+        // Granular action restrictions on Bookings view
+        const exportBtn = document.getElementById('exportCsvBtn');
+        if (exportBtn) {
+            const canExport = isSuperAdmin || userPerms.includes('export_reports') || user.permissions === 'all';
+            exportBtn.style.display = canExport ? 'flex' : 'none';
         }
 
         // Granular sidebar button controls based on assigned permissions
@@ -3210,8 +3254,12 @@ window.updateBulkActionsUI = () => {
     const bulkCount = document.getElementById('bulkCount');
     
     if (!bulkActions || !bulkCount) return;
-    
-    if (window.selectedBookings.size > 0) {
+
+    const isSuperAdmin = window._isSuperAdmin || (window._currentUser && (window._currentUser.username === 'admin' || window._currentUser.role === 'super_admin'));
+    const userPerms = window._userPerms || [];
+    const canDelete = isSuperAdmin || (window._currentUser && window._currentUser.permissions === 'all') || userPerms.includes('delete_orders');
+
+    if (window.selectedBookings.size > 0 && canDelete) {
         bulkActions.style.display = 'flex';
         bulkCount.textContent = `${window.selectedBookings.size} selected`;
     } else {
@@ -3222,6 +3270,14 @@ window.updateBulkActionsUI = () => {
 window.deleteSelectedBookings = async () => {
     if (window.selectedBookings.size === 0) return;
     
+    const isSuperAdmin = window._isSuperAdmin || (window._currentUser && (window._currentUser.username === 'admin' || window._currentUser.role === 'super_admin'));
+    const userPerms = window._userPerms || [];
+    const canDelete = isSuperAdmin || (window._currentUser && window._currentUser.permissions === 'all') || userPerms.includes('delete_orders');
+    if (!canDelete) {
+        alert("You do not have permission to delete orders.");
+        return;
+    }
+
     if (!confirm(`Are you sure you want to delete ${window.selectedBookings.size} bookings?`)) return;
     
     try {
