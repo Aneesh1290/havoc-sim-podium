@@ -2166,6 +2166,38 @@ function isTodayBooking(b) {
     return false;
 }
 
+// Helper to strictly check if a stored booking phone matches the requested country code & national number
+function matchesCountryCodeAndPhone(storedPhone, targetCountryCode, targetPhoneDigits) {
+    if (!storedPhone || !targetPhoneDigits) return false;
+    const cleanStoredDigits = String(storedPhone).replace(/[^0-9]/g, '');
+    const cleanTargetDigits = String(targetPhoneDigits).replace(/[^0-9]/g, '');
+    const cleanCodeDigits = String(targetCountryCode || '+91').replace(/[^0-9]/g, '');
+
+    // 1. If stored phone includes country code (e.g. "+91 8618796251" or "918618796251")
+    if (String(storedPhone).trim().startsWith('+')) {
+        const parsed = parseInternationalPhone(storedPhone);
+        return parsed.countryCode === (targetCountryCode.startsWith('+') ? targetCountryCode : `+${targetCountryCode}`) &&
+               parsed.phoneNumber === cleanTargetDigits;
+    }
+
+    // 2. If stored phone starts with the code digits followed by target phone digits
+    if (cleanStoredDigits === `${cleanCodeDigits}${cleanTargetDigits}`) {
+        return true;
+    }
+
+    // 3. If stored phone is stored without country code (e.g. 10 digits "8618796251")
+    // In India (+91), 10-digit mobile numbers default to +91. Other country codes must not match a plain 10-digit Indian number!
+    if (cleanStoredDigits === cleanTargetDigits) {
+        if (cleanCodeDigits === '91') {
+            return true;
+        }
+        // If user selected non-+91 country code (e.g. +1), a plain Indian number without country code should not match
+        return false;
+    }
+
+    return false;
+}
+
 // 1. Lookup active / upcoming bookings by customer phone
 app.post('/api/admin/verify/lookup', verifyToken, (req, res) => {
     const rawPhone = (req.body.phone || '').trim();
@@ -2199,13 +2231,16 @@ app.post('/api/admin/verify/lookup', verifyToken, (req, res) => {
             return res.status(500).json({ error: 'Database error searching customer' });
         }
 
-        if (!rows || rows.length === 0) {
+        // Strictly filter to ensure the country code AND phone number match
+        const matchingRows = (rows || []).filter(r => matchesCountryCodeAndPhone(r.phone, cleanCountryCode, cleanPhone));
+
+        if (!matchingRows || matchingRows.length === 0) {
             return res.status(404).json({ error: `No bookings found for ${cleanCountryCode} ${cleanPhone}` });
         }
 
         // Strictly match ONLY today's sessions
-        const todaySessions = rows.filter(isTodayBooking);
-        const customerName = rows[0].name || 'Valued Customer';
+        const todaySessions = matchingRows.filter(isTodayBooking);
+        const customerName = matchingRows[0].name || 'Valued Customer';
 
         if (todaySessions.length === 0) {
             return res.status(404).json({ 
@@ -2250,14 +2285,18 @@ app.post('/api/admin/verify/generate-otp', verifyToken, async (req, res) => {
         FROM bookings 
         WHERE (phone = ? OR phone LIKE ? OR phone LIKE ? OR phone LIKE ? OR phone LIKE ?)
         ORDER BY created_at DESC
+        LIMIT 50
     `, phoneQueries, async (err, rows) => {
-        if (err || !rows || rows.length === 0) {
-            return res.status(404).json({ error: 'No matching bookings found for this number' });
+        // Strictly filter to ensure the country code AND phone number match
+        const matchingRows = (rows || []).filter(r => matchesCountryCodeAndPhone(r.phone, cleanCountryCode, cleanPhone));
+
+        if (err || !matchingRows || matchingRows.length === 0) {
+            return res.status(404).json({ error: `No matching bookings found for ${cleanCountryCode} ${cleanPhone}` });
         }
 
-        const todaySessions = rows.filter(isTodayBooking);
+        const todaySessions = matchingRows.filter(isTodayBooking);
         if (todaySessions.length === 0) {
-            return res.status(404).json({ error: 'Customer has no bookings scheduled for TODAY. Cannot generate check-in OTP.' });
+            return res.status(404).json({ error: `Customer (${cleanCountryCode} ${cleanPhone}) has no bookings scheduled for TODAY. Cannot generate check-in OTP.` });
         }
 
         // Generate 4-digit numeric OTP
@@ -2269,11 +2308,10 @@ app.post('/api/admin/verify/generate-otp', verifyToken, async (req, res) => {
             expiresAt,
             countryCode: cleanCountryCode,
             phone: cleanPhone,
-            customerName: rows[0].name,
+            customerName: matchingRows[0].name,
             matchedOrders: todaySessions.map(r => r.order_id)
         };
         deskOtpStore.set(`${cleanCountryCode}_${cleanPhone}`, otpPayload);
-        deskOtpStore.set(cleanPhone, otpPayload); // fallback for reverse lookups
 
         console.log(`[Desk OTP] Generated OTP for customer (${cleanCountryCode} ${cleanPhone}): ${otp}`);
 
@@ -2347,14 +2385,13 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
         return res.status(400).json({ error: 'Phone number and OTP are required' });
     }
 
-    const record = deskOtpStore.get(`${cleanCountryCode}_${cleanPhone}`) || deskOtpStore.get(cleanPhone);
+    const record = deskOtpStore.get(`${cleanCountryCode}_${cleanPhone}`);
     if (!record) {
         return res.status(400).json({ error: 'No OTP requested for this number or it has expired. Please generate a new OTP.' });
     }
 
     if (Date.now() > record.expiresAt) {
         deskOtpStore.delete(`${cleanCountryCode}_${cleanPhone}`);
-        deskOtpStore.delete(cleanPhone);
         return res.status(400).json({ error: 'OTP has expired. Please generate a new code.' });
     }
 
@@ -2364,7 +2401,6 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
 
     // OTP Verified! Remove from cache
     deskOtpStore.delete(`${cleanCountryCode}_${cleanPhone}`);
-    deskOtpStore.delete(cleanPhone);
 
     const phoneQueries = [
         cleanPhone,
@@ -2380,14 +2416,17 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
         FROM bookings
         WHERE phone = ? OR phone LIKE ? OR phone LIKE ? OR phone LIKE ? OR phone LIKE ?
         ORDER BY created_at DESC, booking_date DESC, booking_time DESC
-        LIMIT 25
+        LIMIT 50
     `, phoneQueries, (err, allBookings) => {
-        if (err || !allBookings || allBookings.length === 0) {
+        // Strictly filter to ensure the country code AND phone number match
+        const matchingBookings = (allBookings || []).filter(r => matchesCountryCodeAndPhone(r.phone, cleanCountryCode, cleanPhone));
+
+        if (err || !matchingBookings || matchingBookings.length === 0) {
             return res.status(404).json({ error: 'Verified, but no booking records could be retrieved' });
         }
 
         // Filter: ONLY touch TODAY's active sessions! DO NOT TOUCH any other date!
-        const todaySessions = allBookings.filter(isTodayBooking);
+        const todaySessions = matchingBookings.filter(isTodayBooking);
 
         if (todaySessions.length === 0) {
             return res.status(404).json({ error: 'Verified, but this customer has no sessions scheduled for today.' });

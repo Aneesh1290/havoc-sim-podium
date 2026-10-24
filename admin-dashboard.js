@@ -4694,7 +4694,27 @@ window.openDeskOtpModal = () => {
 
     currentDeskCustomer = null;
     modal.style.display = 'flex';
-    document.getElementById('deskCustomerPhone').focus();
+
+    // Reset when user edits phone or changes country code
+    const phoneInput = document.getElementById('deskCustomerPhone');
+    const ccSelect = document.getElementById('deskCustomerCountryCode');
+    const resetLookupState = () => {
+        document.getElementById('deskLookupResult').style.display = 'none';
+        document.getElementById('deskOtpError1').style.display = 'none';
+        const sendBtn = document.getElementById('deskSendOtpBtn');
+        if (sendBtn) sendBtn.style.display = 'none';
+        currentDeskCustomer = null;
+    };
+    if (phoneInput && !phoneInput._hasResetListener) {
+        phoneInput.addEventListener('input', resetLookupState);
+        phoneInput._hasResetListener = true;
+    }
+    if (ccSelect && !ccSelect._hasResetListener) {
+        ccSelect.addEventListener('change', resetLookupState);
+        ccSelect._hasResetListener = true;
+    }
+
+    phoneInput?.focus();
 };
 
 window.closeDeskOtpModal = () => {
