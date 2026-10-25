@@ -24,8 +24,14 @@ const sendConfirmationEmail = async (bookingOrBookings) => {
 
     if (!customerEmail) return;
 
-    // Determine base order id (strip _0, _1 if present)
-    const baseOrderId = primary.order_id.replace(/_\d+$/, '');
+    // Determine base order id (properly preserve order number like PAYDUE_SP_40 and only strip multi-item sub-indices like _0, _1)
+    let baseOrderId = primary.order_id || '';
+    const parts = baseOrderId.split('_');
+    if (parts[1] === 'SP') {
+        baseOrderId = parts.slice(0, 3).join('_');
+    } else if (parts.length >= 4) {
+        baseOrderId = parts.slice(0, 3).join('_');
+    }
     
     // Check if any booking is Cash/Pay At Desk or Paid
     const isPayAtDesk = bookings.some(b => b.status === 'CASH' || (b.order_id && b.order_id.startsWith('PAYDUE_')));

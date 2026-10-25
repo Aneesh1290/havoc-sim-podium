@@ -2137,7 +2137,13 @@ function dispatchBookingWhatsAppNotification(rows, paymentStatus) {
     const primary = rows[0];
     const customerName = primary.name;
     const customerPhone = primary.phone;
-    const orderId = primary.order_id ? primary.order_id.replace(/_\d+$/, '') : '';
+    let orderId = primary.order_id || '';
+    const parts = orderId.split('_');
+    if (parts[1] === 'SP') {
+        orderId = parts.slice(0, 3).join('_');
+    } else if (parts.length >= 4) {
+        orderId = parts.slice(0, 3).join('_');
+    }
 
     const sessionSummary = rows.map(r => {
         const isDuo = (Number(r.players) === 2 || r.player_two_name);
@@ -2814,23 +2820,22 @@ const getNextOrderNumber = () => {
             }
             let maxNum = 0;
             rows.forEach(r => {
-                const parts = (r.order_id || '').split('_');
-                // Format could be:
-                // New: PAYDUE_SP_40 or PAID_SP_40_123 or PAYDUE_SP_40_0
-                // Old: PAYDUE_10OCT26_21 or PAYDUE_10OCT26_21_0 or PAID_18OCT26_39_123
-                if (parts[1] === 'SP' && parts[2]) {
+                const oid = r.order_id || '';
+                // 1. Matches SP format: PAYDUE_SP_40 or PAID_SP_40 with optional suffixes
+                const spMatch = oid.match(/(?:PAYDUE|PAID)_SP_(\d+)/i);
+                if (spMatch && spMatch[1]) {
+                    const num = parseInt(spMatch[1], 10);
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
+                    return;
+                }
+                // 2. Legacy format: PREFIX_DATE_ORDERNO (e.g. PAYDUE_10OCT26_21)
+                const parts = oid.split('_');
+                if (parts.length >= 3) {
                     const num = parseInt(parts[2], 10);
-                    if (!isNaN(num) && num > maxNum) {
-                        maxNum = num;
-                    }
-                } else if (parts.length >= 3) {
-                    const num = parseInt(parts[2], 10);
-                    if (!isNaN(num) && num > maxNum) {
-                        maxNum = num;
-                    }
+                    if (!isNaN(num) && num > maxNum) maxNum = num;
                 }
             });
-            const nextNum = maxNum + 1;
+            const nextNum = maxNum > 0 ? (maxNum + 1) : 1;
             resolve(String(nextNum).padStart(2, '0'));
         });
     });
