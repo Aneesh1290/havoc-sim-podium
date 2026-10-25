@@ -2568,9 +2568,8 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
         Promise.all(updatePromises).then(() => {
             console.log(`[Desk Verification] Customer verified: ${cleanCountryCode} ${cleanPhone}. Auto-fulfilled today's orders:`, autoFulfilledOrders);
 
-            // Trigger Google Review Request via WhatsApp and Email for the verified customer
+            // Trigger Google Review Request via WhatsApp for the verified customer
             const primaryCustomer = allBookings[0];
-            const custEmail = (primaryCustomer && primaryCustomer.email) ? primaryCustomer.email.trim() : '';
             const custName = (primaryCustomer && primaryCustomer.name) ? primaryCustomer.name.trim() : 'Customer';
             const fullPhone = `${cleanCountryCode}${cleanPhone}`;
 
@@ -2579,18 +2578,6 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
                 customerName: custName,
                 customerPhone: fullPhone
             }).catch(e => console.error('[Review WhatsApp] Send error:', e));
-
-            // Dispatch Email Review Request asynchronously if email available
-            if (custEmail) {
-                try {
-                    const mailer = require('./mailer');
-                    if (typeof mailer.sendReviewRequestEmail === 'function') {
-                        mailer.sendReviewRequestEmail({ name: custName, email: custEmail }).catch(e => console.error('[Review Email] Send error:', e));
-                    }
-                } catch (mErr) {
-                    console.error('[Review Email] Mailer error:', mErr);
-                }
-            }
 
             res.json({
                 success: true,
@@ -2655,26 +2642,12 @@ app.post('/api/admin/verify/collect-and-fulfill', verifyToken, (req, res) => {
 
             // Send Google Review Request on desk payment completion
             const primaryCustomer = rows[0];
-            if (primaryCustomer) {
+            if (primaryCustomer && primaryCustomer.phone) {
                 const custName = primaryCustomer.name || 'Customer';
-                const custPhone = primaryCustomer.phone;
-                const custEmail = primaryCustomer.email;
-
-                if (custPhone) {
-                    sendGoogleReviewWhatsApp({
-                        customerName: custName,
-                        customerPhone: custPhone
-                    }).catch(e => console.error('[Review WhatsApp] Send error:', e));
-                }
-
-                if (custEmail) {
-                    try {
-                        const mailer = require('./mailer');
-                        if (typeof mailer.sendReviewRequestEmail === 'function') {
-                            mailer.sendReviewRequestEmail({ name: custName, email: custEmail }).catch(e => console.error('[Review Email] Send error:', e));
-                        }
-                    } catch (mErr) {}
-                }
+                sendGoogleReviewWhatsApp({
+                    customerName: custName,
+                    customerPhone: primaryCustomer.phone
+                }).catch(e => console.error('[Review WhatsApp] Send error:', e));
             }
 
             res.json({
@@ -2689,16 +2662,15 @@ app.post('/api/admin/verify/collect-and-fulfill', verifyToken, (req, res) => {
     });
 });
 
-// 5. Explicit route to send / re-send Google Review request
+// 5. Explicit route to send / re-send Google Review request via WhatsApp
 app.post('/api/admin/verify/send-review-link', verifyToken, async (req, res) => {
     try {
-        const { phone, country_code, name, email } = req.body;
+        const { phone, country_code, name } = req.body;
         const cleanPhone = normalizePhone(phone || '');
         const rawCountryCode = (country_code || '+91').trim();
         const cleanCountryCode = rawCountryCode.startsWith('+') ? rawCountryCode : ('+' + rawCountryCode);
         const fullPhone = `${cleanCountryCode}${cleanPhone}`;
         const custName = (name || 'Customer').trim();
-        const custEmail = (email || '').trim();
 
         if (!cleanPhone) {
             return res.status(400).json({ error: 'Valid phone number is required' });
@@ -2709,24 +2681,10 @@ app.post('/api/admin/verify/send-review-link', verifyToken, async (req, res) => 
             customerPhone: fullPhone
         });
 
-        let emailSent = false;
-        if (custEmail) {
-            try {
-                const mailer = require('./mailer');
-                if (typeof mailer.sendReviewRequestEmail === 'function') {
-                    const emRes = await mailer.sendReviewRequestEmail({ name: custName, email: custEmail });
-                    emailSent = !!(emRes && emRes.success);
-                }
-            } catch (emErr) {
-                console.error('[Manual Review Email Error]:', emErr);
-            }
-        }
-
         res.json({
             success: true,
-            message: `Google Review request sent to ${fullPhone}${custEmail ? ' and ' + custEmail : ''}!`,
-            whatsapp: waResult,
-            emailSent
+            message: `Google Review WhatsApp message sent to ${fullPhone}!`,
+            whatsapp: waResult
         });
     } catch (err) {
         console.error('Send review link error:', err);

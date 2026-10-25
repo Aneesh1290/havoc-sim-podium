@@ -4943,7 +4943,7 @@ window.verifyDeskOtp = async () => {
 
         const reviewStatus = document.getElementById('deskReviewSentStatus');
         if (reviewStatus) {
-            reviewStatus.textContent = 'Experience review link sent to customer via WhatsApp & Email';
+            reviewStatus.textContent = 'Experience feedback link sent to customer\'s WhatsApp';
             reviewStatus.style.color = 'var(--gold)';
         }
 
