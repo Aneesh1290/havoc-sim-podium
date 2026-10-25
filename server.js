@@ -2146,6 +2146,69 @@ function dispatchBookingWhatsAppNotification(rows, paymentStatus) {
     }).catch(e => console.error('[Interakt WhatsApp] Unhandled rejection:', e));
 }
 
+// Automated Google Review / Experience Feedback Notification via Interakt WhatsApp
+const GOOGLE_REVIEW_URL = "https://search.google.com/local/writereview?placeid=ChIJb8-vOgMVrjsRW__4-FpHspA";
+
+async function sendGoogleReviewWhatsApp({ customerName, customerPhone, reviewUrl = GOOGLE_REVIEW_URL }) {
+    const interaktApiKey = process.env.INTERAKT_API_KEY;
+    if (!interaktApiKey) {
+        console.log(`[Review WhatsApp] INTERAKT_API_KEY not configured. Mock review message for ${customerPhone} (${customerName}): "Thanks for racing at Havoc Sim Podium! Rate your experience here: ${reviewUrl}"`);
+        return { success: false, reason: 'INTERAKT_API_KEY not configured' };
+    }
+
+    if (!customerPhone) {
+        return { success: false, reason: 'No customer phone provided' };
+    }
+
+    const { countryCode, phoneNumber } = parseInternationalPhone(customerPhone);
+    if (!phoneNumber) {
+        console.warn(`[Review WhatsApp] Invalid phone number: "${customerPhone}". Skipping.`);
+        return { success: false, reason: 'Invalid phone number' };
+    }
+
+    const templateName = process.env.INTERAKT_REVIEW_TEMPLATE || "sim_podium_google_review";
+    const driverName = (customerName || "Driver").trim();
+
+    const requestPayload = {
+        countryCode: countryCode,
+        phoneNumber: phoneNumber,
+        type: "Template",
+        template: {
+            name: templateName,
+            languageCode: "en",
+            bodyValues: [
+                driverName,
+                reviewUrl
+            ]
+        }
+    };
+
+    try {
+        console.log(`[Review WhatsApp] Sending experience review request to ${countryCode}${phoneNumber}...`);
+        const response = await fetch('https://api.interakt.ai/v1/public/message/', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${interaktApiKey.trim()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestPayload)
+        });
+
+        if (response.ok) {
+            const data = await response.json().catch(() => ({}));
+            console.log(`[Review WhatsApp] Google Review request dispatched successfully to ${countryCode}${phoneNumber}! Result:`, data.result || 'OK');
+            return { success: true, result: data.result || 'OK' };
+        } else {
+            const errText = await response.text();
+            console.warn(`[Review WhatsApp] Interakt API returned status ${response.status}:`, errText);
+            return { success: false, error: errText };
+        }
+    } catch (err) {
+        console.error('[Review WhatsApp] Error sending Google review request:', err.message);
+        return { success: false, error: err.message };
+    }
+}
+
 // Helper to parse booking date string into Date object
 function parseBookingDate(dateStr) {
     if (!dateStr) return null;
@@ -2505,6 +2568,30 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
         Promise.all(updatePromises).then(() => {
             console.log(`[Desk Verification] Customer verified: ${cleanCountryCode} ${cleanPhone}. Auto-fulfilled today's orders:`, autoFulfilledOrders);
 
+            // Trigger Google Review Request via WhatsApp and Email for the verified customer
+            const primaryCustomer = allBookings[0];
+            const custEmail = (primaryCustomer && primaryCustomer.email) ? primaryCustomer.email.trim() : '';
+            const custName = (primaryCustomer && primaryCustomer.name) ? primaryCustomer.name.trim() : 'Customer';
+            const fullPhone = `${cleanCountryCode}${cleanPhone}`;
+
+            // Dispatch WhatsApp Review Request asynchronously
+            sendGoogleReviewWhatsApp({
+                customerName: custName,
+                customerPhone: fullPhone
+            }).catch(e => console.error('[Review WhatsApp] Send error:', e));
+
+            // Dispatch Email Review Request asynchronously if email available
+            if (custEmail) {
+                try {
+                    const mailer = require('./mailer');
+                    if (typeof mailer.sendReviewRequestEmail === 'function') {
+                        mailer.sendReviewRequestEmail({ name: custName, email: custEmail }).catch(e => console.error('[Review Email] Send error:', e));
+                    }
+                } catch (mErr) {
+                    console.error('[Review Email] Mailer error:', mErr);
+                }
+            }
+
             res.json({
                 success: true,
                 verified: true,
@@ -2513,7 +2600,8 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
                 country_code: cleanCountryCode,
                 auto_fulfilled: autoFulfilledOrders.length > 0,
                 auto_fulfilled_orders: autoFulfilledOrders,
-                bookings: todaySessions
+                bookings: todaySessions,
+                review_requested: true
             });
         });
     });
@@ -2539,7 +2627,7 @@ app.post('/api/admin/verify/collect-and-fulfill', verifyToken, (req, res) => {
 
     // Verify order(s) and amounts
     const placeholders = order_ids.map(() => '?').join(',');
-    db.all(`SELECT id, order_id, price, status FROM bookings WHERE order_id IN (${placeholders})`, order_ids, (err, rows) => {
+    db.all(`SELECT id, order_id, name, phone, email, price, status FROM bookings WHERE order_id IN (${placeholders})`, order_ids, (err, rows) => {
         if (err || !rows || rows.length === 0) {
             return res.status(404).json({ error: 'Booking records not found.' });
         }
@@ -2564,15 +2652,86 @@ app.post('/api/admin/verify/collect-and-fulfill', verifyToken, (req, res) => {
 
         Promise.all(updatePromises).then(() => {
             console.log(`[Desk Payment] Successfully collected ₹${amt.toFixed(2)} (Ref: ${txnRef}) for orders:`, order_ids);
+
+            // Send Google Review Request on desk payment completion
+            const primaryCustomer = rows[0];
+            if (primaryCustomer) {
+                const custName = primaryCustomer.name || 'Customer';
+                const custPhone = primaryCustomer.phone;
+                const custEmail = primaryCustomer.email;
+
+                if (custPhone) {
+                    sendGoogleReviewWhatsApp({
+                        customerName: custName,
+                        customerPhone: custPhone
+                    }).catch(e => console.error('[Review WhatsApp] Send error:', e));
+                }
+
+                if (custEmail) {
+                    try {
+                        const mailer = require('./mailer');
+                        if (typeof mailer.sendReviewRequestEmail === 'function') {
+                            mailer.sendReviewRequestEmail({ name: custName, email: custEmail }).catch(e => console.error('[Review Email] Send error:', e));
+                        }
+                    } catch (mErr) {}
+                }
+            }
+
             res.json({
                 success: true,
                 message: `Payment of ₹${amt.toFixed(2)} recorded and order(s) marked as PAID and FULFILLED!`,
                 order_ids,
                 amount_collected: amt,
-                transaction_ref: txnRef
+                transaction_ref: txnRef,
+                review_requested: true
             });
         });
     });
+});
+
+// 5. Explicit route to send / re-send Google Review request
+app.post('/api/admin/verify/send-review-link', verifyToken, async (req, res) => {
+    try {
+        const { phone, country_code, name, email } = req.body;
+        const cleanPhone = normalizePhone(phone || '');
+        const rawCountryCode = (country_code || '+91').trim();
+        const cleanCountryCode = rawCountryCode.startsWith('+') ? rawCountryCode : ('+' + rawCountryCode);
+        const fullPhone = `${cleanCountryCode}${cleanPhone}`;
+        const custName = (name || 'Customer').trim();
+        const custEmail = (email || '').trim();
+
+        if (!cleanPhone) {
+            return res.status(400).json({ error: 'Valid phone number is required' });
+        }
+
+        const waResult = await sendGoogleReviewWhatsApp({
+            customerName: custName,
+            customerPhone: fullPhone
+        });
+
+        let emailSent = false;
+        if (custEmail) {
+            try {
+                const mailer = require('./mailer');
+                if (typeof mailer.sendReviewRequestEmail === 'function') {
+                    const emRes = await mailer.sendReviewRequestEmail({ name: custName, email: custEmail });
+                    emailSent = !!(emRes && emRes.success);
+                }
+            } catch (emErr) {
+                console.error('[Manual Review Email Error]:', emErr);
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Google Review request sent to ${fullPhone}${custEmail ? ' and ' + custEmail : ''}!`,
+            whatsapp: waResult,
+            emailSent
+        });
+    } catch (err) {
+        console.error('Send review link error:', err);
+        res.status(500).json({ error: 'Failed to dispatch review request' });
+    }
 });
 
 // Manually create a walk-in booking (Protected)

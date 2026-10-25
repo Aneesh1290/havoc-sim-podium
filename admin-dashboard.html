@@ -1774,6 +1774,20 @@
                     </div>
                 </div>
 
+                <!-- GOOGLE REVIEW REQUEST STATUS & RE-TRIGGER -->
+                <div id="deskReviewBox" style="background: rgba(229,184,105,0.08); border: 1px solid rgba(229,184,105,0.25); border-radius: 12px; padding: 0.9rem 1.1rem; margin-bottom: 1.25rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.4rem;">⭐</span>
+                        <div>
+                            <div style="font-size: 0.85rem; font-weight: 700; color: #fff;">Google Review Request Dispatched</div>
+                            <div style="font-size: 0.75rem; color: var(--gold);" id="deskReviewSentStatus">Experience review link sent to customer via WhatsApp & Email</div>
+                        </div>
+                    </div>
+                    <button type="button" id="deskResendReviewBtn" onclick="resendDeskReviewRequest()" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 0.45rem 0.9rem; border-radius: 8px; font-size: 0.75rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.2s;">
+                        <span>📲 Resend Review Link</span>
+                    </button>
+                </div>
+
                 <div style="display: flex; justify-content: flex-end; gap: 10px;">
                     <button type="button" id="deskDoneCloseBtn" class="btn" onclick="handleDeskDoneClose()" style="width: 100%; background: linear-gradient(135deg, #e5b869, #c9952f); color: #000; border: none; font-weight: 800; font-size: 1rem; padding: 0.85rem 1.8rem; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: all 0.2s;">
                         Done / Close

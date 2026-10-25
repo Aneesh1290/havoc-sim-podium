@@ -4934,6 +4934,19 @@ window.verifyDeskOtp = async () => {
         document.getElementById('deskOtpStep2').style.display = 'none';
         document.getElementById('deskOtpStep3').style.display = 'block';
 
+        window._lastVerifiedCustomer = {
+            name: data.customer_name,
+            phone: data.phone,
+            country_code: data.country_code || countryCode,
+            email: (data.bookings && data.bookings[0] && data.bookings[0].email) || ''
+        };
+
+        const reviewStatus = document.getElementById('deskReviewSentStatus');
+        if (reviewStatus) {
+            reviewStatus.textContent = 'Experience review link sent to customer via WhatsApp & Email';
+            reviewStatus.style.color = 'var(--gold)';
+        }
+
         document.getElementById('resCustomerName').textContent = `${data.customer_name} (${data.country_code || countryCode} ${data.phone})`;
 
         const autoFulfillBanner = document.getElementById('resAutoFulfillBanner');
@@ -5173,4 +5186,53 @@ window.handleDeskDoneClose = async function() {
         closeDeskOtpModal();
     }
 };
+
+window.resendDeskReviewRequest = async function() {
+    const cust = window._lastVerifiedCustomer;
+    if (!cust || !cust.phone) {
+        alert('No verified customer found in current session.');
+        return;
+    }
+
+    const btn = document.getElementById('deskResendReviewBtn');
+    const statusEl = document.getElementById('deskReviewSentStatus');
+    const origHtml = btn.innerHTML;
+
+    btn.disabled = true;
+    btn.innerHTML = 'Sending...';
+
+    try {
+        const res = await fetchAuth('/api/admin/verify/send-review-link', {
+            method: 'POST',
+            body: JSON.stringify({
+                phone: cust.phone,
+                country_code: cust.country_code,
+                name: cust.name,
+                email: cust.email
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.error || 'Failed to resend review link.');
+            return;
+        }
+
+        if (statusEl) {
+            statusEl.textContent = `✓ Review request resent successfully to ${cust.phone}!`;
+            statusEl.style.color = '#10B981';
+        }
+        btn.innerHTML = '✓ Sent!';
+        setTimeout(() => {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }, 3000);
+    } catch (err) {
+        console.error('Resend review error:', err);
+        alert('Server error while sending review request.');
+        btn.disabled = false;
+        btn.innerHTML = origHtml;
+    }
+};
+
 
