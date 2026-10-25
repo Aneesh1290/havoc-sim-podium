@@ -4967,8 +4967,16 @@ window.verifyDeskOtp = async () => {
 
         const reviewStatus = document.getElementById('deskReviewSentStatus');
         if (reviewStatus) {
-            reviewStatus.textContent = 'Experience feedback link sent to customer\'s WhatsApp';
-            reviewStatus.style.color = 'var(--gold)';
+            if (data.review_result && data.review_result.success) {
+                reviewStatus.textContent = '✓ Google Review feedback link sent to WhatsApp!';
+                reviewStatus.style.color = '#10B981';
+            } else if (data.review_result && data.review_result.error) {
+                reviewStatus.textContent = `⚠️ WhatsApp Review failed: ${data.review_result.error}`;
+                reviewStatus.style.color = '#f87171';
+            } else {
+                reviewStatus.textContent = 'Experience feedback link sent to customer\'s WhatsApp';
+                reviewStatus.style.color = 'var(--gold)';
+            }
         }
 
         document.getElementById('resCustomerName').textContent = `${data.customer_name} (${data.country_code || countryCode} ${data.phone})`;
@@ -5239,6 +5247,16 @@ window.resendDeskReviewRequest = async function() {
         const data = await res.json();
         if (!res.ok || !data.success) {
             alert(data.error || 'Failed to resend review link.');
+            return;
+        }
+
+        if (data.whatsapp && !data.whatsapp.success) {
+            const reason = data.whatsapp.error || data.whatsapp.reason || 'WhatsApp rejected the request';
+            alert(`WhatsApp Error from Interakt:\n${reason}`);
+            if (statusEl) {
+                statusEl.textContent = `⚠️ WhatsApp Error: ${reason}`;
+                statusEl.style.color = '#f87171';
+            }
             return;
         }
 

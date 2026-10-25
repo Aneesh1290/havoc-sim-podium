@@ -2182,6 +2182,7 @@ async function sendGoogleReviewWhatsApp({ customerName, customerPhone, reviewUrl
 
     const templateName = process.env.INTERAKT_REVIEW_TEMPLATE || "simpodium_google_review";
     const driverName = (customerName || "Driver").trim();
+    const languageCode = process.env.INTERAKT_REVIEW_LANG || "en";
 
     const requestPayload = {
         countryCode: countryCode,
@@ -2189,7 +2190,7 @@ async function sendGoogleReviewWhatsApp({ customerName, customerPhone, reviewUrl
         type: "Template",
         template: {
             name: templateName,
-            languageCode: "en",
+            languageCode: languageCode,
             bodyValues: [
                 driverName
             ]
@@ -2197,8 +2198,10 @@ async function sendGoogleReviewWhatsApp({ customerName, customerPhone, reviewUrl
     };
 
     try {
-        console.log(`[Review WhatsApp] Sending experience review request to ${countryCode}${phoneNumber}...`);
-        const response = await fetch('https://api.interakt.ai/v1/public/message/', {
+        console.log(`[Review WhatsApp] Sending experience review request to ${countryCode}${phoneNumber} with template "${templateName}" (lang: ${languageCode})...`);
+        console.log(`[Review WhatsApp] Request Payload:`, JSON.stringify(requestPayload));
+
+        let response = await fetch('https://api.interakt.ai/v1/public/message/', {
             method: 'POST',
             headers: {
                 'Authorization': `Basic ${interaktApiKey.trim()}`,
@@ -2211,11 +2214,34 @@ async function sendGoogleReviewWhatsApp({ customerName, customerPhone, reviewUrl
             const data = await response.json().catch(() => ({}));
             console.log(`[Review WhatsApp] Google Review request dispatched successfully to ${countryCode}${phoneNumber}! Result:`, data.result || 'OK');
             return { success: true, result: data.result || 'OK' };
-        } else {
-            const errText = await response.text();
-            console.warn(`[Review WhatsApp] Interakt API returned status ${response.status}:`, errText);
-            return { success: false, error: errText };
         }
+
+        let errText = await response.text();
+        console.warn(`[Review WhatsApp] Interakt API returned status ${response.status}:`, errText);
+
+        // Fallback 1: If languageCode was 'en' and failed (e.g. template approved under en_US), retry with 'en_US'
+        if (languageCode === 'en' && (errText.includes('language') || errText.includes('template') || response.status === 400 || response.status === 404)) {
+            console.log(`[Review WhatsApp] Retrying with languageCode: "en_US"...`);
+            requestPayload.template.languageCode = "en_US";
+            const retryResp = await fetch('https://api.interakt.ai/v1/public/message/', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Basic ${interaktApiKey.trim()}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestPayload)
+            });
+
+            if (retryResp.ok) {
+                const retryData = await retryResp.json().catch(() => ({}));
+                console.log(`[Review WhatsApp] Google Review request dispatched successfully on retry (en_US) to ${countryCode}${phoneNumber}!`);
+                return { success: true, result: retryData.result || 'OK' };
+            }
+            errText = await retryResp.text();
+            console.warn(`[Review WhatsApp] Retry with en_US also returned status ${retryResp.status}:`, errText);
+        }
+
+        return { success: false, error: errText };
     } catch (err) {
         console.error('[Review WhatsApp] Error sending Google review request:', err.message);
         return { success: false, error: err.message };
@@ -2578,7 +2604,7 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
             return Promise.resolve();
         });
 
-        Promise.all(updatePromises).then(() => {
+        Promise.all(updatePromises).then(async () => {
             console.log(`[Desk Verification] Customer verified: ${cleanCountryCode} ${cleanPhone}. Auto-fulfilled today's orders:`, autoFulfilledOrders);
 
             // Trigger Google Review Request via WhatsApp for the verified customer
@@ -2586,11 +2612,17 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
             const custName = (primaryCustomer && primaryCustomer.name) ? primaryCustomer.name.trim() : 'Customer';
             const fullPhone = `${cleanCountryCode}${cleanPhone}`;
 
-            // Dispatch WhatsApp Review Request asynchronously
-            sendGoogleReviewWhatsApp({
-                customerName: custName,
-                customerPhone: fullPhone
-            }).catch(e => console.error('[Review WhatsApp] Send error:', e));
+            // Dispatch WhatsApp Review Request
+            let reviewResult = null;
+            try {
+                reviewResult = await sendGoogleReviewWhatsApp({
+                    customerName: custName,
+                    customerPhone: fullPhone
+                });
+            } catch (e) {
+                console.error('[Review WhatsApp] Send error:', e);
+                reviewResult = { success: false, error: e.message };
+            }
 
             res.json({
                 success: true,
@@ -2601,7 +2633,8 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
                 auto_fulfilled: autoFulfilledOrders.length > 0,
                 auto_fulfilled_orders: autoFulfilledOrders,
                 bookings: todaySessions,
-                review_requested: true
+                review_requested: true,
+                review_result: reviewResult
             });
         });
     });
