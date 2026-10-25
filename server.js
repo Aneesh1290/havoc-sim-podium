@@ -87,6 +87,13 @@ db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_sessions INTEGER", [], 
     }
 });
 
+// Ensure permissions column exists in admin_auth table
+db.run("ALTER TABLE admin_auth ADD COLUMN IF NOT EXISTS permissions TEXT DEFAULT 'bookings,availability'", [], (err) => {
+    if (err && !err.message.includes('already exists') && !err.message.includes('duplicate column')) {
+        db.run("ALTER TABLE admin_auth ADD COLUMN permissions TEXT DEFAULT 'bookings,availability'", [], () => {});
+    }
+});
+
 // Ensure payment_links table exists for custom admin payment requests
 db.run(`
     CREATE TABLE IF NOT EXISTS payment_links (
@@ -528,11 +535,18 @@ app.put('/api/admin/users/:id/role', verifyToken, verifySuperAdmin, (req, res) =
             return res.status(403).json({ error: 'Cannot change the primary admin account role' });
         }
         
-        const userPerms = role === 'super_admin' ? 'all' : (Array.isArray(permissions) ? permissions.join(',') : (permissions !== undefined ? permissions : 'bookings,availability'));
+        let userPerms = 'bookings,availability';
+        if (role === 'super_admin') {
+            userPerms = 'all';
+        } else if (Array.isArray(permissions)) {
+            userPerms = permissions.join(',');
+        } else if (typeof permissions === 'string') {
+            userPerms = permissions;
+        }
         
         db.run("UPDATE admin_auth SET role = ?, permissions = ? WHERE id = ?", [role, userPerms, id], (err) => {
             if (err) return res.status(500).json({ error: 'Error updating role' });
-            res.json({ success: true });
+            res.json({ success: true, permissions: userPerms });
         });
     });
 });
@@ -1749,8 +1763,8 @@ app.get('/api/admin/blocked-slots', verifyToken, (req, res) => {
     });
 });
 
-// Block slot(s) or dates (Protected)
-app.post('/api/admin/blocked-slots', verifyToken, (req, res) => {
+// Block slot(s) or dates (Protected - requires 'block_slots' permission or Super Admin)
+app.post('/api/admin/blocked-slots', verifyToken, checkPermission('block_slots'), (req, res) => {
     const { simulator_name, booking_date, time_slots, reason } = req.body;
 
     if (!booking_date) {
@@ -1796,8 +1810,8 @@ app.post('/api/admin/blocked-slots', verifyToken, (req, res) => {
     });
 });
 
-// Unblock a slot by id (Protected)
-app.delete('/api/admin/blocked-slots/:id', verifyToken, (req, res) => {
+// Unblock a slot by id (Protected - requires 'block_slots' permission or Super Admin)
+app.delete('/api/admin/blocked-slots/:id', verifyToken, checkPermission('block_slots'), (req, res) => {
     const { id } = req.params;
     db.run("DELETE FROM blocked_slots WHERE id = ?", [id], function(err) {
         if (err) return res.status(500).json({ error: 'Database error' });
@@ -1866,8 +1880,8 @@ app.post('/api/admin/purge-test-orders', verifyToken, verifySuperAdmin, (req, re
     });
 });
 
-// Mark booking as attended (Protected)
-app.put('/api/admin/bookings/:order_id/attend', verifyToken, (req, res) => {
+// Mark booking as attended (Protected - requires 'edit_orders' permission or Super Admin)
+app.put('/api/admin/bookings/:order_id/attend', verifyToken, checkPermission('edit_orders'), (req, res) => {
     const { order_id } = req.params;
     db.run("UPDATE bookings SET status = 'ATTENDED' WHERE order_id LIKE ?", [`${order_id}%`], function(err) {
         if (err) return res.status(500).json({ error: 'Database error' });
@@ -2166,7 +2180,7 @@ async function sendGoogleReviewWhatsApp({ customerName, customerPhone, reviewUrl
         return { success: false, reason: 'Invalid phone number' };
     }
 
-    const templateName = process.env.INTERAKT_REVIEW_TEMPLATE || "sim_podium_google_review";
+    const templateName = process.env.INTERAKT_REVIEW_TEMPLATE || "simpodium_google_review";
     const driverName = (customerName || "Driver").trim();
 
     const requestPayload = {
@@ -2177,8 +2191,7 @@ async function sendGoogleReviewWhatsApp({ customerName, customerPhone, reviewUrl
             name: templateName,
             languageCode: "en",
             bodyValues: [
-                driverName,
-                reviewUrl
+                driverName
             ]
         }
     };
@@ -3381,8 +3394,8 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
 // PAYMENT LINKS (Custom Admin Payment Requests)
 // ==========================================
 
-// Create a new Payment Link (Protected - Admin only)
-app.post('/api/admin/payment-links', verifyToken, async (req, res) => {
+// Create a new Payment Link (Protected - requires 'payment_links' permission or Super Admin)
+app.post('/api/admin/payment-links', verifyToken, checkPermission('payment_links'), async (req, res) => {
     try {
         const { amount, customer_name, customer_phone, customer_email, description } = req.body;
         const numAmount = parseFloat(amount);
@@ -3431,8 +3444,8 @@ app.post('/api/admin/payment-links', verifyToken, async (req, res) => {
     }
 });
 
-// Get all Payment Links (Protected - Admin only)
-app.get('/api/admin/payment-links', verifyToken, (req, res) => {
+// Get all Payment Links (Protected - requires 'payment_links' permission or Super Admin)
+app.get('/api/admin/payment-links', verifyToken, checkPermission('payment_links'), (req, res) => {
     db.all("SELECT * FROM payment_links ORDER BY created_at DESC LIMIT 100", [], (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error fetching payment links' });
         res.json(rows || []);

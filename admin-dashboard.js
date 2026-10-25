@@ -1930,7 +1930,8 @@ async function loadStaff() {
         const tr = document.createElement('tr');
         const isMainAdmin = u.username === 'admin';
         const isSuperAdmin = u.role === 'super_admin';
-        const currentPerms = (u.permissions || 'bookings,availability').split(',').map(p => p.trim());
+        const rawPerms = u.permissions !== undefined && u.permissions !== null ? u.permissions : 'bookings,availability';
+        const currentPerms = rawPerms.split(',').map(p => p.trim()).filter(Boolean);
 
         let permsHtml = '';
         if (isMainAdmin || isSuperAdmin) {
@@ -1983,7 +1984,8 @@ window.toggleUserPerm = async (id, username, permKey, isChecked) => {
         const user = users.find(u => u.id === id);
         if (!user) return;
 
-        let perms = (user.permissions || '').split(',').map(p => p.trim()).filter(Boolean);
+        const rawPerms = user.permissions !== undefined && user.permissions !== null ? user.permissions : 'bookings,availability';
+        let perms = rawPerms.split(',').map(p => p.trim()).filter(Boolean);
         if (isChecked) {
             if (!perms.includes(permKey)) perms.push(permKey);
         } else {
@@ -2348,14 +2350,17 @@ if (instructorForm) {
 }
 
 // Init
-initAvailabilityDates();
-renderSimFilters();
-loadBookings();
-loadAvailability();
-checkRole();
-loadInstructors();
-populateInventoryMonthDropdown();
-loadInventoryReport();
+async function initDashboard() {
+    initAvailabilityDates();
+    renderSimFilters();
+    await checkRole();
+    loadBookings();
+    loadAvailability();
+    loadInstructors();
+    populateInventoryMonthDropdown();
+    loadInventoryReport();
+}
+initDashboard();
 
 // ==========================================
 // CHANGE MY PASSWORD LOGIC
@@ -2917,9 +2922,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     return { nextSl: slCounter, tabShortName };
                 }
 
+                // Page Setup configuration to ensure Landscape mode and fit all columns on one page
+                const printPageSetup = {
+                    orientation: 'landscape',
+                    paperSize: 9, // A4 (or 1 for Letter, 9 is standard A4)
+                    fitToPage: true,
+                    fitToWidth: 1,
+                    fitToHeight: 0, // automatic vertical pagination
+                    margins: {
+                        left: 0.3,
+                        right: 0.3,
+                        top: 0.4,
+                        bottom: 0.4,
+                        header: 0.2,
+                        footer: 0.2
+                    }
+                };
+
                 // 1. ALL BOOKINGS TAB (Consolidated overview with all dates)
                 const allSheet = workbook.addWorksheet('All Bookings', {
-                    views: [{ showGridLines: true }]
+                    views: [{ showGridLines: true }],
+                    pageSetup: printPageSetup
                 });
                 allSheet.columns = headersConfig.map(h => ({ width: h.width }));
 
@@ -2962,7 +2985,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     usedSheetNames.add(uniqueTabName);
 
                     const dateSheet = workbook.addWorksheet(uniqueTabName, {
-                        views: [{ showGridLines: true }]
+                        views: [{ showGridLines: true }],
+                        pageSetup: printPageSetup
                     });
                     dateSheet.columns = headersConfig.map(h => ({ width: h.width }));
 

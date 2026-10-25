@@ -120,6 +120,14 @@ const initDb = () => {
             }
         });
 
+        // Migration to add 'permissions' column if it doesn't exist
+        db.run(`ALTER TABLE admin_auth ADD COLUMN permissions TEXT DEFAULT 'bookings,availability'`, (err) => {
+            if (!err) {
+                console.log("Added 'permissions' column to admin_auth table.");
+                db.run(`UPDATE admin_auth SET permissions = 'all' WHERE username = 'admin' OR role = 'super_admin'`);
+            }
+        });
+
         // Migrations for products table (missing columns from fresh deploy)
         db.run(`ALTER TABLE products ADD COLUMN description TEXT`, () => {});
         db.run(`ALTER TABLE products ADD COLUMN image_url TEXT`, () => {});
