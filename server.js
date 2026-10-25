@@ -2184,6 +2184,7 @@ async function sendGoogleReviewWhatsApp({ customerName, customerPhone, reviewUrl
     const driverName = (customerName || "Driver").trim();
     const languageCode = process.env.INTERAKT_REVIEW_LANG || "en";
 
+    // Default payload (with both driverName body variable and optional CTA button URL variable)
     const requestPayload = {
         countryCode: countryCode,
         phoneNumber: phoneNumber,
@@ -2219,7 +2220,34 @@ async function sendGoogleReviewWhatsApp({ customerName, customerPhone, reviewUrl
         let errText = await response.text();
         console.warn(`[Review WhatsApp] Interakt API returned status ${response.status}:`, errText);
 
-        // Fallback 1: If languageCode was 'en' and failed (e.g. template approved under en_US), retry with 'en_US'
+        // Fallback 1: If rejected because the CTA button was configured as a Dynamic URL in Interakt/Meta,
+        // it requires buttonValues: { "0": ["..."] }
+        if (errText.includes('button') || errText.includes('param') || response.status === 400) {
+            console.log(`[Review WhatsApp] Retrying with buttonValues (dynamic URL button fallback)...`);
+            requestPayload.template.buttonValues = {
+                "0": ["ChIJb8-vOgMVrjsRW__4-FpHspA"]
+            };
+            const btnResp = await fetch('https://api.interakt.ai/v1/public/message/', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Basic ${interaktApiKey.trim()}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestPayload)
+            });
+
+            if (btnResp.ok) {
+                const btnData = await btnResp.json().catch(() => ({}));
+                console.log(`[Review WhatsApp] Google Review request dispatched successfully with buttonValues to ${countryCode}${phoneNumber}!`);
+                return { success: true, result: btnData.result || 'OK' };
+            }
+            const btnErr = await btnResp.text();
+            console.warn(`[Review WhatsApp] Retry with buttonValues returned status ${btnResp.status}:`, btnErr);
+            // If still failed, delete buttonValues before testing languageCode fallback
+            delete requestPayload.template.buttonValues;
+        }
+
+        // Fallback 2: If languageCode was 'en' and failed (e.g. template approved under en_US), retry with 'en_US'
         if (languageCode === 'en' && (errText.includes('language') || errText.includes('template') || response.status === 400 || response.status === 404)) {
             console.log(`[Review WhatsApp] Retrying with languageCode: "en_US"...`);
             requestPayload.template.languageCode = "en_US";
@@ -2239,6 +2267,22 @@ async function sendGoogleReviewWhatsApp({ customerName, customerPhone, reviewUrl
             }
             errText = await retryResp.text();
             console.warn(`[Review WhatsApp] Retry with en_US also returned status ${retryResp.status}:`, errText);
+
+            // Also test en_US with buttonValues
+            requestPayload.template.buttonValues = { "0": ["ChIJb8-vOgMVrjsRW__4-FpHspA"] };
+            const retryBtnResp = await fetch('https://api.interakt.ai/v1/public/message/', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Basic ${interaktApiKey.trim()}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestPayload)
+            });
+            if (retryBtnResp.ok) {
+                const rData = await retryBtnResp.json().catch(() => ({}));
+                console.log(`[Review WhatsApp] Google Review request dispatched successfully with en_US + buttonValues!`);
+                return { success: true, result: rData.result || 'OK' };
+            }
         }
 
         return { success: false, error: errText };
