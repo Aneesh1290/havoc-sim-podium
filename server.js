@@ -2649,25 +2649,6 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
         });
 
         Promise.all(updatePromises).then(async () => {
-            console.log(`[Desk Verification] Customer verified: ${cleanCountryCode} ${cleanPhone}. Auto-fulfilled today's orders:`, autoFulfilledOrders);
-
-            // Trigger Google Review Request via WhatsApp for the verified customer
-            const primaryCustomer = allBookings[0];
-            const custName = (primaryCustomer && primaryCustomer.name) ? primaryCustomer.name.trim() : 'Customer';
-            const fullPhone = `${cleanCountryCode}${cleanPhone}`;
-
-            // Dispatch WhatsApp Review Request
-            let reviewResult = null;
-            try {
-                reviewResult = await sendGoogleReviewWhatsApp({
-                    customerName: custName,
-                    customerPhone: fullPhone
-                });
-            } catch (e) {
-                console.error('[Review WhatsApp] Send error:', e);
-                reviewResult = { success: false, error: e.message };
-            }
-
             res.json({
                 success: true,
                 verified: true,
@@ -2676,9 +2657,7 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
                 country_code: cleanCountryCode,
                 auto_fulfilled: autoFulfilledOrders.length > 0,
                 auto_fulfilled_orders: autoFulfilledOrders,
-                bookings: todaySessions,
-                review_requested: true,
-                review_result: reviewResult
+                bookings: todaySessions
             });
         });
     });

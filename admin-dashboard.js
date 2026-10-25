@@ -4986,16 +4986,8 @@ window.verifyDeskOtp = async () => {
 
         const reviewStatus = document.getElementById('deskReviewSentStatus');
         if (reviewStatus) {
-            if (data.review_result && data.review_result.success) {
-                reviewStatus.textContent = '✓ Google Review feedback link sent to WhatsApp!';
-                reviewStatus.style.color = '#10B981';
-            } else if (data.review_result && data.review_result.error) {
-                reviewStatus.textContent = `⚠️ WhatsApp Review failed: ${data.review_result.error}`;
-                reviewStatus.style.color = '#f87171';
-            } else {
-                reviewStatus.textContent = 'Experience feedback link sent to customer\'s WhatsApp';
-                reviewStatus.style.color = 'var(--gold)';
-            }
+            reviewStatus.textContent = 'Will be sent automatically when you click "Done / Close"';
+            reviewStatus.style.color = 'var(--gold)';
         }
 
         document.getElementById('resCustomerName').textContent = `${data.customer_name} (${data.country_code || countryCode} ${data.phone})`;
@@ -5198,6 +5190,8 @@ window.handleDeskDoneClose = async function() {
     const btn = document.getElementById('deskDoneCloseBtn');
     if (btn && btn.disabled) return;
 
+    const cust = window._lastVerifiedCustomer;
+
     if (window._deskUnpaidDue && window._deskUnpaidDue > 0) {
         const txnRef = (document.getElementById('deskTxnRefInput')?.value || '').trim();
         const enteredAmt = parseFloat(document.getElementById('deskAmountCollectedInput')?.value);
@@ -5234,6 +5228,23 @@ window.handleDeskDoneClose = async function() {
             window.updateDeskPaymentValidation();
         }
     } else {
+        // Customer was already paid online. Now that staff clicked "Done / Close", dispatch the Google Review link once!
+        if (cust && cust.phone) {
+            btn.disabled = true;
+            btn.innerHTML = 'Completing & Sending Review...';
+            try {
+                await fetchAuth('/api/admin/verify/send-review-link', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        phone: cust.phone,
+                        country_code: cust.country_code,
+                        name: cust.name
+                    })
+                });
+            } catch (err) {
+                console.warn('[Desk Review] Failed to send review link on Done:', err);
+            }
+        }
         closeDeskOtpModal();
     }
 };
