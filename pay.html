@@ -254,8 +254,53 @@
                     <input type="text" id="payerName" placeholder="Enter your full name">
                 </div>
                 <div class="field">
-                    <label for="payerPhone">Phone Number</label>
-                    <input type="tel" id="payerPhone" placeholder="10-digit mobile number">
+                    <label for="payerPhone">Phone Number *</label>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="payerCountryCode" style="padding: 0.85rem 1.6rem 0.85rem 0.75rem; background: rgba(255,255,255,0.05) url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'10\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23e5b869\' stroke-width=\'2.5\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'%3E%3C/polyline%3E%3C/svg%3E') no-repeat right 0.5rem center; border: 1px solid var(--card-border); border-radius: 10px; color: var(--gold); font-weight: 700; font-size: 0.9rem; font-family: inherit; outline: none; cursor: pointer; flex-shrink: 0; appearance: none; -webkit-appearance: none;">
+                            <option value="+91" selected style="background:#1c1d26; color:#fff;">🇮🇳 +91</option>
+                            <option value="+1" style="background:#1c1d26; color:#fff;">🇺🇸 +1</option>
+                            <option value="+44" style="background:#1c1d26; color:#fff;">🇬🇧 +44</option>
+                            <option value="+971" style="background:#1c1d26; color:#fff;">🇦🇪 +971</option>
+                            <option value="+61" style="background:#1c1d26; color:#fff;">🇦🇺 +61</option>
+                            <option value="+65" style="background:#1c1d26; color:#fff;">🇸🇬 +65</option>
+                            <option value="+1" style="background:#1c1d26; color:#fff;">🇨🇦 +1</option>
+                            <option value="+966" style="background:#1c1d26; color:#fff;">🇸🇦 +966</option>
+                            <option value="+974" style="background:#1c1d26; color:#fff;">🇶🇦 +974</option>
+                            <option value="+968" style="background:#1c1d26; color:#fff;">🇴🇲 +968</option>
+                            <option value="+965" style="background:#1c1d26; color:#fff;">🇰🇼 +965</option>
+                            <option value="+973" style="background:#1c1d26; color:#fff;">🇧🇭 +973</option>
+                            <option value="+49" style="background:#1c1d26; color:#fff;">🇩🇪 +49</option>
+                            <option value="+33" style="background:#1c1d26; color:#fff;">🇫🇷 +33</option>
+                            <option value="+39" style="background:#1c1d26; color:#fff;">🇮🇹 +39</option>
+                            <option value="+34" style="background:#1c1d26; color:#fff;">🇪🇸 +34</option>
+                            <option value="+31" style="background:#1c1d26; color:#fff;">🇳🇱 +31</option>
+                            <option value="+41" style="background:#1c1d26; color:#fff;">🇨🇭 +41</option>
+                            <option value="+46" style="background:#1c1d26; color:#fff;">🇸🇪 +46</option>
+                            <option value="+47" style="background:#1c1d26; color:#fff;">🇳🇴 +47</option>
+                            <option value="+353" style="background:#1c1d26; color:#fff;">🇮🇪 +353</option>
+                            <option value="+64" style="background:#1c1d26; color:#fff;">🇳🇿 +64</option>
+                            <option value="+60" style="background:#1c1d26; color:#fff;">🇲🇾 +60</option>
+                            <option value="+62" style="background:#1c1d26; color:#fff;">🇮🇩 +62</option>
+                            <option value="+66" style="background:#1c1d26; color:#fff;">🇹🇭 +66</option>
+                            <option value="+63" style="background:#1c1d26; color:#fff;">🇵🇭 +63</option>
+                            <option value="+84" style="background:#1c1d26; color:#fff;">🇻🇳 +84</option>
+                            <option value="+81" style="background:#1c1d26; color:#fff;">🇯🇵 +81</option>
+                            <option value="+82" style="background:#1c1d26; color:#fff;">🇰🇷 +82</option>
+                            <option value="+86" style="background:#1c1d26; color:#fff;">🇨🇳 +86</option>
+                            <option value="+852" style="background:#1c1d26; color:#fff;">🇭🇰 +852</option>
+                            <option value="+27" style="background:#1c1d26; color:#fff;">🇿🇦 +27</option>
+                            <option value="+55" style="background:#1c1d26; color:#fff;">🇧🇷 +55</option>
+                            <option value="+52" style="background:#1c1d26; color:#fff;">🇲🇽 +52</option>
+                            <option value="+94" style="background:#1c1d26; color:#fff;">🇱🇰 +94</option>
+                            <option value="+880" style="background:#1c1d26; color:#fff;">🇧🇩 +880</option>
+                            <option value="+977" style="background:#1c1d26; color:#fff;">🇳🇵 +977</option>
+                            <option value="+92" style="background:#1c1d26; color:#fff;">🇵🇰 +92</option>
+                            <option value="+20" style="background:#1c1d26; color:#fff;">🇪🇬 +20</option>
+                            <option value="+90" style="background:#1c1d26; color:#fff;">🇹🇷 +90</option>
+                            <option value="+7" style="background:#1c1d26; color:#fff;">🇷🇺 +7</option>
+                        </select>
+                        <input type="tel" id="payerPhone" placeholder="Mobile number" required style="flex: 1; min-width: 0;">
+                    </div>
                 </div>
                 <div class="field">
                     <label for="payerEmail">Email Address (for receipt)</label>
@@ -357,7 +402,17 @@
                 document.getElementById('displayLinkId').innerText = '#' + data.link_id;
 
                 if (data.customer_name) document.getElementById('payerName').value = data.customer_name;
-                if (data.customer_phone) document.getElementById('payerPhone').value = data.customer_phone;
+                if (data.customer_phone) {
+                    const rawP = String(data.customer_phone).trim();
+                    const matchCc = rawP.match(/^(\+\d{1,4})\s*(.*)$/);
+                    if (matchCc) {
+                        const opt = document.querySelector(`#payerCountryCode option[value="${matchCc[1]}"]`);
+                        if (opt) document.getElementById('payerCountryCode').value = matchCc[1];
+                        document.getElementById('payerPhone').value = matchCc[2];
+                    } else {
+                        document.getElementById('payerPhone').value = rawP;
+                    }
+                }
                 if (data.customer_email) document.getElementById('payerEmail').value = data.customer_email;
 
             } catch (err) {
@@ -371,8 +426,23 @@
         async function initiateLinkPayment() {
             const btn = document.getElementById('payBtn');
             const name = document.getElementById('payerName').value.trim();
-            const phone = document.getElementById('payerPhone').value.trim();
+            const rawPhone = document.getElementById('payerPhone').value.trim();
+            const countryCode = document.getElementById('payerCountryCode').value || '+91';
             const email = document.getElementById('payerEmail').value.trim();
+
+            if (!rawPhone) {
+                alert('Please enter your mobile phone number.');
+                document.getElementById('payerPhone').focus();
+                return;
+            }
+
+            const cleanDigits = rawPhone.replace(/\D/g, '');
+            let finalPhone = rawPhone;
+            if (cleanDigits.length === 10) {
+                finalPhone = `${countryCode} ${cleanDigits}`;
+            } else if (!rawPhone.startsWith('+')) {
+                finalPhone = `${countryCode} ${rawPhone}`;
+            }
 
             btn.disabled = true;
             btn.innerHTML = '<span>Connecting to ICICI Gateway...</span>';
@@ -383,7 +453,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         customer_name: name,
-                        customer_phone: phone,
+                        customer_phone: finalPhone,
                         customer_email: email
                     })
                 });

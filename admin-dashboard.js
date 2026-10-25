@@ -4528,13 +4528,29 @@ window.submitCreatePaymentLinkPage = async (e) => {
     const amountInput = document.getElementById('plPageAmount');
     const amount = amountInput ? amountInput.value : '';
     const name = document.getElementById('plPageName')?.value?.trim() || '';
-    const phone = document.getElementById('plPagePhone')?.value?.trim() || '';
+    const rawPhone = document.getElementById('plPagePhone')?.value?.trim() || '';
+    const countryCode = document.getElementById('plPageCountryCode')?.value || '+91';
     const email = document.getElementById('plPageEmail')?.value?.trim() || '';
     const desc = document.getElementById('plPageDesc')?.value?.trim() || '';
 
     if (!amount || parseFloat(amount) <= 0) {
         alert('Please enter a valid amount.');
         return;
+    }
+
+    if (!rawPhone) {
+        alert('Please enter the customer phone / WhatsApp number.');
+        document.getElementById('plPagePhone')?.focus();
+        return;
+    }
+
+    // Standardize phone with country code
+    const cleanDigits = rawPhone.replace(/\D/g, '');
+    let finalPhone = rawPhone;
+    if (cleanDigits.length === 10) {
+        finalPhone = `${countryCode} ${cleanDigits}`;
+    } else if (!rawPhone.startsWith('+')) {
+        finalPhone = `${countryCode} ${rawPhone}`;
     }
 
     const btn = document.getElementById('plPageSubmitBtn');
@@ -4549,7 +4565,7 @@ window.submitCreatePaymentLinkPage = async (e) => {
             body: JSON.stringify({
                 amount,
                 customer_name: name,
-                customer_phone: phone,
+                customer_phone: finalPhone,
                 customer_email: email,
                 description: desc
             })
@@ -4561,7 +4577,7 @@ window.submitCreatePaymentLinkPage = async (e) => {
         }
 
         activeGeneratedPayUrl = data.pay_url;
-        activeGeneratedPayPhone = data.customer_phone || '';
+        activeGeneratedPayPhone = data.customer_phone || finalPhone;
         activeGeneratedPayAmount = data.amount;
         activeGeneratedPayDesc = data.description || 'Havoc Sim Podium Experience';
 
@@ -4604,8 +4620,11 @@ window.copyPaymentLinkPage = () => {
 
 window.shareOnWhatsAppPage = () => {
     if (!activeGeneratedPayUrl) return;
-    const cleanPhone = (activeGeneratedPayPhone || '').replace(/\D/g, '');
-    const phoneParam = cleanPhone.length === 10 ? `91${cleanPhone}` : (cleanPhone || '');
+    const cleanDigits = (activeGeneratedPayPhone || '').replace(/\D/g, '');
+    let phoneParam = cleanDigits;
+    if (cleanDigits.length === 10) {
+        phoneParam = `91${cleanDigits}`;
+    }
     const purposeLine = activeGeneratedPayDesc ? `Purpose: ${activeGeneratedPayDesc}\n` : '';
     const msg = `Hi! Here is your secure payment link for Havoc Sim Podium:
 Amount: ₹${parseFloat(activeGeneratedPayAmount || 0).toFixed(2)}
