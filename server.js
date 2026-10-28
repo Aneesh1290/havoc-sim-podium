@@ -189,6 +189,93 @@ db.run(`
     }
 });
 
+// Ensure common shared band_items table exists (Shared with Havoc RC Fun Zone)
+db.run(`
+    CREATE TABLE IF NOT EXISTS band_items (
+        id SERIAL PRIMARY KEY,
+        band_code TEXT NOT NULL UNIQUE,
+        color_name TEXT NOT NULL,
+        color_hex TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'Standard',
+        status TEXT NOT NULL DEFAULT 'available',
+        current_holder_name TEXT,
+        current_booking_id INTEGER,
+        current_order_number TEXT,
+        total_uses INTEGER NOT NULL DEFAULT 0,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`, [], (err) => {
+    if (err) {
+        // SQLite fallback
+        db.run(`
+            CREATE TABLE IF NOT EXISTS band_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                band_code TEXT NOT NULL UNIQUE,
+                color_name TEXT NOT NULL,
+                color_hex TEXT NOT NULL,
+                category TEXT NOT NULL DEFAULT 'Standard',
+                status TEXT NOT NULL DEFAULT 'available',
+                current_holder_name TEXT,
+                current_booking_id INTEGER,
+                current_order_number TEXT,
+                total_uses INTEGER NOT NULL DEFAULT 0,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `, [], () => {});
+    }
+    // Create indexes for high-speed queries
+    db.run("CREATE INDEX IF NOT EXISTS idx_band_items_code ON band_items(band_code)", [], () => {});
+    db.run("CREATE INDEX IF NOT EXISTS idx_band_items_status ON band_items(status)", [], () => {});
+    db.run("CREATE INDEX IF NOT EXISTS idx_band_items_color ON band_items(color_name)", [], () => {});
+});
+
+// Ensure common shared band_transactions audit log table exists (Shared with Havoc RC Fun Zone)
+db.run(`
+    CREATE TABLE IF NOT EXISTS band_transactions (
+        id SERIAL PRIMARY KEY,
+        band_id INTEGER NOT NULL,
+        band_code TEXT NOT NULL,
+        color_name TEXT NOT NULL,
+        color_hex TEXT NOT NULL,
+        transaction_type TEXT NOT NULL,
+        quantity INTEGER NOT NULL DEFAULT 1,
+        customer_name TEXT,
+        booking_id INTEGER,
+        order_number TEXT,
+        staff_name TEXT,
+        notes TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`, [], (err) => {
+    if (err) {
+        // SQLite fallback
+        db.run(`
+            CREATE TABLE IF NOT EXISTS band_transactions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                band_id INTEGER NOT NULL,
+                band_code TEXT NOT NULL,
+                color_name TEXT NOT NULL,
+                color_hex TEXT NOT NULL,
+                transaction_type TEXT NOT NULL,
+                quantity INTEGER NOT NULL DEFAULT 1,
+                customer_name TEXT,
+                booking_id INTEGER,
+                order_number TEXT,
+                staff_name TEXT,
+                notes TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `, [], () => {});
+    }
+    db.run("CREATE INDEX IF NOT EXISTS idx_band_tx_band_id ON band_transactions(band_id)", [], () => {});
+    db.run("CREATE INDEX IF NOT EXISTS idx_band_tx_type ON band_transactions(transaction_type)", [], () => {});
+    db.run("CREATE INDEX IF NOT EXISTS idx_band_tx_created ON band_transactions(created_at)", [], () => {});
+});
+
 // Redirect all secondary domains to canonical https://www.havocsim.in
 app.use((req, res, next) => {
     const host = req.hostname;
@@ -2809,6 +2896,773 @@ app.post('/api/admin/bookings', verifyToken, (req, res) => {
             res.json({ success: true, order_id: orderId });
         }
     );
+});
+
+// ==========================================
+// BAND / WRISTBAND INVENTORY MANAGEMENT (Common shared pool with Havoc RC Fun Zone)
+// ==========================================
+
+const WRISTBAND_PALETTE = [
+    { hex: "#06B6D4", name: "Cyan / Neon Blue", bgClass: "bg-cyan-100", textClass: "text-cyan-800" },
+    { hex: "#10B981", name: "Emerald Green",    bgClass: "bg-emerald-100", textClass: "text-emerald-800" },
+    { hex: "#F59E0B", name: "Amber Yellow",     bgClass: "bg-amber-100", textClass: "text-amber-800" },
+    { hex: "#F97316", name: "Vibrant Orange",   bgClass: "bg-orange-100", textClass: "text-orange-800" },
+    { hex: "#EF4444", name: "Ruby Red",         bgClass: "bg-rose-100", textClass: "text-rose-800" },
+    { hex: "#8B5CF6", name: "Electric Purple",  bgClass: "bg-purple-100", textClass: "text-purple-800" },
+    { hex: "#EC4899", name: "Neon Pink",        bgClass: "bg-pink-100", textClass: "text-pink-800" },
+    { hex: "#3B82F6", name: "Royal Blue",       bgClass: "bg-blue-100", textClass: "text-blue-800" },
+    { hex: "#14B8A6", name: "Mint Teal",        bgClass: "bg-teal-100", textClass: "text-teal-800" },
+    { hex: "#84CC16", name: "Lime Green",       bgClass: "bg-lime-100", textClass: "text-lime-800" },
+    { hex: "#EAB308", name: "Golden Yellow",    bgClass: "bg-yellow-100", textClass: "text-yellow-800" },
+    { hex: "#6366F1", name: "Indigo Night",     bgClass: "bg-indigo-100", textClass: "text-indigo-800" },
+    { hex: "#64748B", name: "Slate Silver",     bgClass: "bg-slate-100", textClass: "text-slate-800" }
+];
+
+function ensureBandInventorySeeded(cb) {
+    db.get("SELECT COUNT(*) as count FROM band_items", [], (err, row) => {
+        if (!err && row && Number(row.count) === 0) {
+            console.log("[Band Inventory] Seeding initial starter stock of wristbands...");
+            const seedColors = [
+                { code: "CYAN", name: "Cyan / Neon Blue", hex: "#06B6D4", count: 10 },
+                { code: "GRN",  name: "Emerald Green",    hex: "#10B981", count: 10 },
+                { code: "AMB",  name: "Amber Yellow",     hex: "#F59E0B", count: 10 },
+                { code: "ORG",  name: "Vibrant Orange",   hex: "#F97316", count: 10 },
+                { code: "RED",  name: "Ruby Red",         hex: "#EF4444", count: 10 },
+                { code: "PUR",  name: "Electric Purple",  hex: "#8B5CF6", count: 10 }
+            ];
+
+            let completed = 0;
+            const totalToSeed = seedColors.reduce((sum, c) => sum + c.count, 0);
+
+            seedColors.forEach(item => {
+                for (let i = 1; i <= item.count; i++) {
+                    const padNum = String(i).padStart(3, "0");
+                    const bandCode = `BND-${item.code}-${padNum}`;
+                    db.run(
+                        `INSERT INTO band_items (band_code, color_name, color_hex, category, status, total_uses, notes)
+                         VALUES (?, ?, ?, 'Standard', 'available', 0, 'Initial Starter Stock')`,
+                        [bandCode, item.name, item.hex],
+                        function(itemErr) {
+                            const newId = this ? this.lastID : null;
+                            if (newId) {
+                                db.run(
+                                    `INSERT INTO band_transactions (band_id, band_code, color_name, color_hex, transaction_type, quantity, staff_name, notes)
+                                     VALUES (?, ?, ?, ?, 'STOCK_IN', 1, 'System Setup', 'Initial Master Stock In')`,
+                                    [newId, bandCode, item.name, item.hex]
+                                );
+                            }
+                            completed++;
+                            if (completed === totalToSeed && cb) cb();
+                        }
+                    );
+                }
+            });
+        } else {
+            if (cb) cb();
+        }
+    });
+}
+
+// 1. Get real-time stock summary & color/category breakdowns
+app.get('/api/admin/bands/summary', verifyToken, (req, res) => {
+    ensureBandInventorySeeded(() => {
+        const countsQuery = `
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) AS available,
+                SUM(CASE WHEN status = 'issued' THEN 1 ELSE 0 END) AS issued,
+                SUM(CASE WHEN status = 'damaged' THEN 1 ELSE 0 END) AS damaged,
+                SUM(CASE WHEN status = 'lost' THEN 1 ELSE 0 END) AS lost,
+                SUM(CASE WHEN status = 'retired' THEN 1 ELSE 0 END) AS retired
+            FROM band_items
+        `;
+
+        db.get(countsQuery, [], (err, counts) => {
+            if (err) return res.status(500).json({ error: 'Database error fetching band summary' });
+
+            const totalBands = Number(counts?.total || 0);
+            const available = Number(counts?.available || 0);
+            const issued = Number(counts?.issued || 0);
+            const damaged = Number(counts?.damaged || 0);
+            const lost = Number(counts?.lost || 0);
+            const retired = Number(counts?.retired || 0);
+            const activeInventory = Math.max(0, totalBands - retired);
+            const availabilityRate = activeInventory > 0 ? Math.round((available / activeInventory) * 100) : 0;
+
+            const isPg = Boolean(db && db.isPostgres);
+            const todayQuery = isPg
+                ? `SELECT
+                        SUM(CASE WHEN transaction_type = 'ISSUE' THEN 1 ELSE 0 END) AS issued_today,
+                        SUM(CASE WHEN transaction_type = 'RETURN' THEN 1 ELSE 0 END) AS returned_today
+                   FROM band_transactions
+                   WHERE created_at::date = CURRENT_DATE`
+                : `SELECT
+                        SUM(CASE WHEN transaction_type = 'ISSUE' THEN 1 ELSE 0 END) AS issued_today,
+                        SUM(CASE WHEN transaction_type = 'RETURN' THEN 1 ELSE 0 END) AS returned_today
+                   FROM band_transactions
+                   WHERE DATE(created_at, 'localtime') = DATE('now', 'localtime')`;
+
+            db.get(todayQuery, [], (tErr, todayRow) => {
+                const issuedToday = Number(todayRow?.issued_today || 0);
+                const returnedToday = Number(todayRow?.returned_today || 0);
+
+                const colorQuery = `
+                    SELECT
+                        color_name,
+                        color_hex,
+                        COUNT(*) as total,
+                        SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available,
+                        SUM(CASE WHEN status = 'issued' THEN 1 ELSE 0 END) as issued,
+                        SUM(CASE WHEN status = 'damaged' THEN 1 ELSE 0 END) as damaged,
+                        SUM(CASE WHEN status = 'lost' THEN 1 ELSE 0 END) as lost,
+                        SUM(CASE WHEN status = 'retired' THEN 1 ELSE 0 END) as retired
+                    FROM band_items
+                    GROUP BY color_name, color_hex
+                    ORDER BY total DESC, color_name ASC
+                `;
+
+                db.all(colorQuery, [], (cErr, colorRows) => {
+                    const colorBreakdown = (colorRows || []).map(r => ({
+                        color_name: r.color_name,
+                        color_hex: r.color_hex,
+                        total: Number(r.total || 0),
+                        available: Number(r.available || 0),
+                        issued: Number(r.issued || 0),
+                        damaged: Number(r.damaged || 0),
+                        lost: Number(r.lost || 0),
+                        retired: Number(r.retired || 0)
+                    }));
+
+                    const lowStockColors = colorBreakdown
+                        .filter(c => c.available < 3)
+                        .map(c => ({
+                            color_name: c.color_name,
+                            color_hex: c.color_hex,
+                            available: c.available
+                        }));
+
+                    const catQuery = `
+                        SELECT
+                            category,
+                            COUNT(*) as total,
+                            SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available,
+                            SUM(CASE WHEN status = 'issued' THEN 1 ELSE 0 END) as issued
+                        FROM band_items
+                        GROUP BY category
+                        ORDER BY total DESC
+                    `;
+
+                    db.all(catQuery, [], (catErr, catRows) => {
+                        const categoryBreakdown = (catRows || []).map(r => ({
+                            category: r.category || "Standard",
+                            total: Number(r.total || 0),
+                            available: Number(r.available || 0),
+                            issued: Number(r.issued || 0)
+                        }));
+
+                        res.json({
+                            totalBands,
+                            available,
+                            issued,
+                            damaged,
+                            lost,
+                            retired,
+                            activeInventory,
+                            issuedToday,
+                            returnedToday,
+                            availabilityRate,
+                            colorBreakdown,
+                            categoryBreakdown,
+                            lowStockColors,
+                            palette: WRISTBAND_PALETTE
+                        });
+                    });
+                });
+            });
+        });
+    });
+});
+
+// 2. Get band items list with search, status, and color filtering
+app.get('/api/admin/bands/items', verifyToken, (req, res) => {
+    ensureBandInventorySeeded(() => {
+        const { search, status, color_name, category, limit, offset, sortBy, sortOrder } = req.query;
+
+        const whereClauses = [];
+        const params = [];
+
+        if (search && search.trim()) {
+            const s = `%${search.trim()}%`;
+            whereClauses.push("(band_code LIKE ? OR current_holder_name LIKE ? OR current_order_number LIKE ? OR notes LIKE ?)");
+            params.push(s, s, s, s);
+        }
+
+        if (status && status !== 'all') {
+            whereClauses.push("status = ?");
+            params.push(status.trim().toLowerCase());
+        }
+
+        if (color_name && color_name !== 'all') {
+            whereClauses.push("color_name = ?");
+            params.push(color_name.trim());
+        }
+
+        if (category && category !== 'all') {
+            whereClauses.push("category = ?");
+            params.push(category.trim());
+        }
+
+        const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+        const countQuery = `SELECT COUNT(*) as cnt FROM band_items ${whereSql}`;
+        db.get(countQuery, params, (cErr, cRow) => {
+            if (cErr) return res.status(500).json({ error: 'Database error counting band items' });
+            const totalCount = cRow ? Number(cRow.cnt) : 0;
+
+            const allowedSortCols = ["band_code", "status", "total_uses", "created_at", "updated_at"];
+            const sortCol = allowedSortCols.includes(sortBy) ? sortBy : "updated_at";
+            const orderDir = (sortOrder || '').toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
+            let dataQuery = `SELECT * FROM band_items ${whereSql} ORDER BY ${sortCol} ${orderDir}`;
+            const queryParams = [...params];
+
+            const numLimit = parseInt(limit, 10);
+            const numOffset = Math.max(0, parseInt(offset, 10) || 0);
+
+            if (!isNaN(numLimit) && numLimit > 0) {
+                dataQuery += ` LIMIT ? OFFSET ?`;
+                queryParams.push(numLimit, numOffset);
+            }
+
+            db.all(dataQuery, queryParams, (err, rows) => {
+                if (err) return res.status(500).json({ error: 'Database error fetching bands' });
+                res.json({ items: rows || [], totalCount });
+            });
+        });
+    });
+});
+
+// 3. Get transactions audit log
+app.get('/api/admin/bands/transactions', verifyToken, (req, res) => {
+    ensureBandInventorySeeded(() => {
+        const { band_id, band_code, type, search, startDate, endDate, limit, offset } = req.query;
+
+        const whereClauses = [];
+        const params = [];
+
+        if (band_id) {
+            whereClauses.push("band_id = ?");
+            params.push(parseInt(band_id, 10));
+        }
+
+        if (band_code && band_code.trim()) {
+            whereClauses.push("UPPER(band_code) = UPPER(?)");
+            params.push(band_code.trim());
+        }
+
+        if (type && type !== 'all') {
+            whereClauses.push("transaction_type = ?");
+            params.push(type.trim().toUpperCase());
+        }
+
+        if (search && search.trim()) {
+            const s = `%${search.trim()}%`;
+            whereClauses.push("(band_code LIKE ? OR customer_name LIKE ? OR order_number LIKE ? OR staff_name LIKE ? OR notes LIKE ?)");
+            params.push(s, s, s, s, s);
+        }
+
+        const isPg = Boolean(db && db.isPostgres);
+        if (startDate) {
+            whereClauses.push(isPg ? "created_at::date >= ?" : "DATE(created_at, 'localtime') >= DATE(?)");
+            params.push(startDate);
+        }
+
+        if (endDate) {
+            whereClauses.push(isPg ? "created_at::date <= ?" : "DATE(created_at, 'localtime') <= DATE(?)");
+            params.push(endDate);
+        }
+
+        const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+        const countQuery = `SELECT COUNT(*) as cnt FROM band_transactions ${whereSql}`;
+        db.get(countQuery, params, (cErr, cRow) => {
+            if (cErr) return res.status(500).json({ error: 'Database error counting transactions' });
+            const totalCount = cRow ? Number(cRow.cnt) : 0;
+
+            let dataQuery = `SELECT * FROM band_transactions ${whereSql} ORDER BY created_at DESC, id DESC`;
+            const queryParams = [...params];
+
+            const numLimit = parseInt(limit, 10);
+            const numOffset = Math.max(0, parseInt(offset, 10) || 0);
+
+            if (!isNaN(numLimit) && numLimit > 0) {
+                dataQuery += ` LIMIT ? OFFSET ?`;
+                queryParams.push(numLimit, numOffset);
+            }
+
+            db.all(dataQuery, queryParams, (err, rows) => {
+                if (err) return res.status(500).json({ error: 'Database error fetching transactions' });
+                res.json({ transactions: rows || [], totalCount });
+            });
+        });
+    });
+});
+
+// 4. Create single band item (Stock In)
+app.post('/api/admin/bands/create', verifyToken, (req, res) => {
+    const { band_code, color_name, color_hex, category, notes } = req.body;
+    const cleanCode = (band_code || '').trim().toUpperCase();
+
+    if (!cleanCode) return res.status(400).json({ error: 'Unique Band ID / Code is required.' });
+    if (!color_name || !color_hex) return res.status(400).json({ error: 'Color name and hex code are required.' });
+
+    const bandCategory = category || 'Standard';
+    const staffName = req.user?.username || 'Staff';
+    const cleanNotes = (notes || '').trim() || null;
+
+    db.get("SELECT id FROM band_items WHERE UPPER(band_code) = UPPER(?)", [cleanCode], (chkErr, existing) => {
+        if (chkErr) return res.status(500).json({ error: 'Database error' });
+        if (existing) {
+            return res.status(400).json({ error: `Band ID '${cleanCode}' already exists in inventory.` });
+        }
+
+        db.run(
+            `INSERT INTO band_items (band_code, color_name, color_hex, category, status, total_uses, notes)
+             VALUES (?, ?, ?, ?, 'available', 0, ?)`,
+            [cleanCode, color_name.trim(), color_hex.trim(), bandCategory, cleanNotes],
+            function(insErr) {
+                if (insErr) return res.status(500).json({ error: insErr.message || 'Failed to create band' });
+                const newId = this ? this.lastID : null;
+
+                db.run(
+                    `INSERT INTO band_transactions (band_id, band_code, color_name, color_hex, transaction_type, quantity, staff_name, notes)
+                     VALUES (?, ?, ?, ?, 'STOCK_IN', 1, ?, ?)`,
+                    [newId, cleanCode, color_name.trim(), color_hex.trim(), staffName, cleanNotes || 'Manual stock-in'],
+                    () => {}
+                );
+
+                res.json({ success: true, id: newId, band_code: cleanCode });
+            }
+        );
+    });
+});
+
+// 5. Bulk create bands
+app.post('/api/admin/bands/bulk-create', verifyToken, (req, res) => {
+    const { prefix, startingNumber, count, color_name, color_hex, category, notes } = req.body;
+    const cleanPrefix = (prefix || '').trim().toUpperCase();
+    const numCount = Math.min(Math.max(1, parseInt(count, 10) || 10), 200);
+    const startNum = Math.max(1, parseInt(startingNumber, 10) || 1);
+
+    if (!cleanPrefix) return res.status(400).json({ error: 'Band Code Prefix is required (e.g. BND-CYAN)' });
+    if (!color_name || !color_hex) return res.status(400).json({ error: 'Color selection is required.' });
+
+    const bandCategory = category || 'Standard';
+    const staffName = req.user?.username || 'Staff';
+    const batchNotes = (notes || '').trim() || `Batch Stock-In of ${numCount} bands`;
+
+    let createdCount = 0;
+    let completedChecks = 0;
+
+    for (let i = 0; i < numCount; i++) {
+        const curNum = startNum + i;
+        const padCode = String(curNum).padStart(3, "0");
+        const code = cleanPrefix.endsWith("-") ? `${cleanPrefix}${padCode}` : `${cleanPrefix}-${padCode}`;
+
+        db.get("SELECT id FROM band_items WHERE UPPER(band_code) = UPPER(?)", [code], (cErr, exists) => {
+            if (!exists) {
+                db.run(
+                    `INSERT INTO band_items (band_code, color_name, color_hex, category, status, total_uses, notes)
+                     VALUES (?, ?, ?, ?, 'available', 0, ?)`,
+                    [code, color_name.trim(), color_hex.trim(), bandCategory, batchNotes],
+                    function(insErr) {
+                        if (!insErr) {
+                            const newId = this ? this.lastID : null;
+                            createdCount++;
+                            db.run(
+                                `INSERT INTO band_transactions (band_id, band_code, color_name, color_hex, transaction_type, quantity, staff_name, notes)
+                                 VALUES (?, ?, ?, ?, 'STOCK_IN', 1, ?, ?)`,
+                                [newId, code, color_name.trim(), color_hex.trim(), staffName, batchNotes]
+                            );
+                        }
+                        completedChecks++;
+                        if (completedChecks === numCount) {
+                            res.json({ success: true, createdCount });
+                        }
+                    }
+                );
+            } else {
+                completedChecks++;
+                if (completedChecks === numCount) {
+                    res.json({ success: true, createdCount });
+                }
+            }
+        });
+    }
+});
+
+// 6. Issue wristband to customer / order
+app.post('/api/admin/bands/issue', verifyToken, (req, res) => {
+    const { band_id, band_code, customer_name, booking_id, order_number, notes } = req.body;
+
+    const lookupQuery = band_id 
+        ? "SELECT * FROM band_items WHERE id = ?"
+        : "SELECT * FROM band_items WHERE UPPER(band_code) = UPPER(?)";
+    const lookupParam = band_id ? parseInt(band_id, 10) : (band_code || '').trim();
+
+    db.get(lookupQuery, [lookupParam], (err, band) => {
+        if (err || !band) {
+            return res.status(404).json({ error: `Wristband '${band_code || band_id}' not found in inventory.` });
+        }
+
+        if (band.status === 'issued') {
+            return res.status(400).json({ 
+                error: `Band '${band.band_code}' is currently issued to ${band.current_holder_name || "another player"}. Please return it first.` 
+            });
+        }
+
+        if (band.status === 'damaged' || band.status === 'lost' || band.status === 'retired') {
+            return res.status(400).json({ 
+                error: `Band '${band.band_code}' cannot be issued because its status is '${band.status.toUpperCase()}'.` 
+            });
+        }
+
+        const customerName = (customer_name || '').trim() || 'Guest Player';
+        const orderNum = (order_number || '').trim() || (booking_id ? `#${booking_id}` : null);
+        const staffName = req.user?.username || 'Staff';
+        const issueNotes = (notes || '').trim() || 'Issued at Reception / Track Desk';
+
+        db.run(
+            `UPDATE band_items
+             SET status = 'issued',
+                 current_holder_name = ?,
+                 current_booking_id = ?,
+                 current_order_number = ?,
+                 total_uses = total_uses + 1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [customerName, booking_id || null, orderNum, band.id],
+            function(upErr) {
+                if (upErr) return res.status(500).json({ error: 'Failed to update band status' });
+
+                db.run(
+                    `INSERT INTO band_transactions (
+                        band_id, band_code, color_name, color_hex, transaction_type, 
+                        quantity, customer_name, booking_id, order_number, staff_name, notes
+                    ) VALUES (?, ?, ?, ?, 'ISSUE', 1, ?, ?, ?, ?, ?)`,
+                    [band.id, band.band_code, band.color_name, band.color_hex, customerName, booking_id || null, orderNum, staffName, issueNotes],
+                    () => {}
+                );
+
+                res.json({ success: true, band_id: band.id, band_code: band.band_code, holder: customerName });
+            }
+        );
+    });
+});
+
+// 7. Return wristband back to inventory
+app.post('/api/admin/bands/return', verifyToken, (req, res) => {
+    const { band_id, band_code, condition, notes } = req.body;
+    const lookupQuery = band_id 
+        ? "SELECT * FROM band_items WHERE id = ?"
+        : "SELECT * FROM band_items WHERE UPPER(band_code) = UPPER(?)";
+    const lookupParam = band_id ? parseInt(band_id, 10) : (band_code || '').trim();
+
+    db.get(lookupQuery, [lookupParam], (err, band) => {
+        if (err || !band) {
+            return res.status(404).json({ error: `Wristband '${band_code || band_id}' not found.` });
+        }
+
+        const prevHolder = band.current_holder_name;
+        const prevOrder = band.current_order_number;
+        const prevBookingId = band.current_booking_id;
+        const staffName = req.user?.username || 'Staff';
+
+        let newStatus = 'available';
+        let txType = 'RETURN';
+
+        if (condition === 'damaged') {
+            newStatus = 'damaged';
+            txType = 'DAMAGED';
+        } else if (condition === 'lost') {
+            newStatus = 'lost';
+            txType = 'LOST';
+        }
+
+        const returnNotes = (notes || '').trim() || `Returned condition: ${(condition || 'good').toUpperCase()}`;
+
+        db.run(
+            `UPDATE band_items
+             SET status = ?,
+                 current_holder_name = NULL,
+                 current_booking_id = NULL,
+                 current_order_number = NULL,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [newStatus, band.id],
+            function(upErr) {
+                if (upErr) return res.status(500).json({ error: 'Failed to return band' });
+
+                db.run(
+                    `INSERT INTO band_transactions (
+                        band_id, band_code, color_name, color_hex, transaction_type, 
+                        quantity, customer_name, booking_id, order_number, staff_name, notes
+                    ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
+                    [band.id, band.band_code, band.color_name, band.color_hex, txType, prevHolder, prevBookingId, prevOrder, staffName, returnNotes],
+                    () => {}
+                );
+
+                res.json({ success: true, band_id: band.id, band_code: band.band_code, status: newStatus });
+            }
+        );
+    });
+});
+
+// 8. Retire / Stock-out band
+app.post('/api/admin/bands/retire', verifyToken, (req, res) => {
+    const { band_id, reason } = req.body;
+    if (!band_id) return res.status(400).json({ error: 'band_id is required' });
+
+    db.get("SELECT * FROM band_items WHERE id = ?", [parseInt(band_id, 10)], (err, band) => {
+        if (err || !band) return res.status(404).json({ error: 'Band item not found.' });
+
+        const staffName = req.user?.username || 'Staff';
+        const retireReason = (reason || '').trim() || 'Item retired / written off';
+
+        db.run(
+            `UPDATE band_items 
+             SET status = 'retired',
+                 current_holder_name = NULL,
+                 current_booking_id = NULL,
+                 current_order_number = NULL,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [band.id],
+            function(upErr) {
+                if (upErr) return res.status(500).json({ error: 'Database update failed' });
+
+                db.run(
+                    `INSERT INTO band_transactions (band_id, band_code, color_name, color_hex, transaction_type, quantity, staff_name, notes)
+                     VALUES (?, ?, ?, ?, 'STOCK_OUT', 1, ?, ?)`,
+                    [band.id, band.band_code, band.color_name, band.color_hex, staffName, retireReason],
+                    () => {}
+                );
+
+                res.json({ success: true });
+            }
+        );
+    });
+});
+
+// 9. Restore damaged/lost/retired band back to 'available'
+app.post('/api/admin/bands/restore', verifyToken, (req, res) => {
+    const { band_id, notes } = req.body;
+    if (!band_id) return res.status(400).json({ error: 'band_id is required' });
+
+    db.get("SELECT * FROM band_items WHERE id = ?", [parseInt(band_id, 10)], (err, band) => {
+        if (err || !band) return res.status(404).json({ error: 'Band item not found.' });
+
+        const staffName = req.user?.username || 'Staff';
+        const restoreNotes = (notes || '').trim() || 'Restored back to available stock';
+
+        db.run(
+            `UPDATE band_items 
+             SET status = 'available',
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [band.id],
+            function(upErr) {
+                if (upErr) return res.status(500).json({ error: 'Database update failed' });
+
+                db.run(
+                    `INSERT INTO band_transactions (band_id, band_code, color_name, color_hex, transaction_type, quantity, staff_name, notes)
+                     VALUES (?, ?, ?, ?, 'STATUS_CHANGE', 1, ?, ?)`,
+                    [band.id, band.band_code, band.color_name, band.color_hex, staffName, restoreNotes],
+                    () => {}
+                );
+
+                res.json({ success: true });
+            }
+        );
+    });
+});
+
+// 10. Edit / update band metadata
+app.put('/api/admin/bands/:id', verifyToken, (req, res) => {
+    const { id } = req.params;
+    const { band_code, color_name, color_hex, category, status, notes } = req.body;
+    const cleanCode = (band_code || '').trim().toUpperCase();
+
+    if (!cleanCode) return res.status(400).json({ error: 'Band code is required.' });
+
+    db.get("SELECT id FROM band_items WHERE UPPER(band_code) = UPPER(?) AND id != ?", [cleanCode, parseInt(id, 10)], (chkErr, existing) => {
+        if (existing) {
+            return res.status(400).json({ error: `Band code '${cleanCode}' is already used by another item.` });
+        }
+
+        db.run(
+            `UPDATE band_items
+             SET band_code = ?,
+                 color_name = ?,
+                 color_hex = ?,
+                 category = COALESCE(?, category),
+                 status = COALESCE(?, status),
+                 notes = ?,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?`,
+            [cleanCode, (color_name || '').trim(), (color_hex || '').trim(), category || null, status || null, (notes || '').trim() || null, parseInt(id, 10)],
+            function(upErr) {
+                if (upErr) return res.status(500).json({ error: 'Failed to update band details' });
+                res.json({ success: true });
+            }
+        );
+    });
+});
+
+// 11. Delete band item (Admin only)
+app.delete('/api/admin/bands/:id', verifyToken, verifySuperAdmin, (req, res) => {
+    const { id } = req.params;
+    const numId = parseInt(id, 10);
+
+    db.run("DELETE FROM band_transactions WHERE band_id = ?", [numId], () => {
+        db.run("DELETE FROM band_items WHERE id = ?", [numId], function(delErr) {
+            if (delErr) return res.status(500).json({ error: 'Failed to delete band item' });
+            res.json({ success: true });
+        });
+    });
+});
+
+// 12. Export Band Inventory CSV Reports
+app.get('/api/admin/bands/export', verifyToken, (req, res) => {
+    const reportType = req.query.type || 'master'; // 'master' | 'summary' | 'movements'
+    const nowStr = new Date().toISOString().split('T')[0];
+
+    const escapeCsv = (val) => {
+        if (val === null || val === undefined) return '""';
+        return `"${String(val).replace(/"/g, '""')}"`;
+    };
+
+    if (reportType === 'summary') {
+        db.get(`
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) AS available,
+                SUM(CASE WHEN status = 'issued' THEN 1 ELSE 0 END) AS issued,
+                SUM(CASE WHEN status = 'damaged' THEN 1 ELSE 0 END) AS damaged,
+                SUM(CASE WHEN status = 'lost' THEN 1 ELSE 0 END) AS lost,
+                SUM(CASE WHEN status = 'retired' THEN 1 ELSE 0 END) AS retired
+            FROM band_items
+        `, [], (err, counts) => {
+            const total = Number(counts?.total || 0);
+            const available = Number(counts?.available || 0);
+            const issued = Number(counts?.issued || 0);
+            const damaged = Number(counts?.damaged || 0);
+            const lost = Number(counts?.lost || 0);
+            const retired = Number(counts?.retired || 0);
+            const active = Math.max(0, total - retired);
+            const rate = active > 0 ? Math.round((available / active) * 100) : 0;
+
+            db.all(`
+                SELECT color_name, color_hex, COUNT(*) as total,
+                       SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available,
+                       SUM(CASE WHEN status = 'issued' THEN 1 ELSE 0 END) as issued,
+                       SUM(CASE WHEN status = 'damaged' THEN 1 ELSE 0 END) as damaged,
+                       SUM(CASE WHEN status = 'lost' THEN 1 ELSE 0 END) as lost,
+                       SUM(CASE WHEN status = 'retired' THEN 1 ELSE 0 END) as retired
+                FROM band_items
+                GROUP BY color_name, color_hex
+                ORDER BY total DESC
+            `, [], (cErr, colors) => {
+                const lines = [];
+                lines.push("HAVOC SIM PODIUM & RC FUN ZONE - COMMON WRISTBAND STOCK SUMMARY");
+                lines.push(`Generated On:,"${new Date().toLocaleString()}"`);
+                lines.push(`Generated By:,"${req.user?.username || 'Admin'}"`);
+                lines.push("");
+                lines.push("OVERALL KEY PERFORMANCE METRICS");
+                lines.push("Metric,Count");
+                lines.push(`Total Master Bands,${total}`);
+                lines.push(`Available In Stock,${available}`);
+                lines.push(`Currently Issued (In Race / Active),${issued}`);
+                lines.push(`Damaged / Quarantine,${damaged}`);
+                lines.push(`Reported Lost,${lost}`);
+                lines.push(`Retired / Written-off,${retired}`);
+                lines.push(`Active Inventory Pool,${active}`);
+                lines.push(`Availability Rate,${rate}%`);
+                lines.push("");
+                lines.push("COLOR-WISE STOCK BREAKDOWN");
+                lines.push("Color Name,Color Hex,Total Bands,Available,Issued,Damaged,Lost,Retired,Availability %");
+
+                (colors || []).forEach(c => {
+                    const cRate = c.total > 0 ? Math.round((c.available / c.total) * 100) : 0;
+                    lines.push([
+                        escapeCsv(c.color_name),
+                        escapeCsv(c.color_hex),
+                        c.total,
+                        c.available,
+                        c.issued,
+                        c.damaged,
+                        c.lost,
+                        c.retired,
+                        `${cRate}%`
+                    ].join(","));
+                });
+
+                res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+                res.setHeader('Content-Disposition', `attachment; filename="Havoc_Band_Stock_Summary_${nowStr}.csv"`);
+                res.send(lines.join("\r\n"));
+            });
+        });
+        return;
+    }
+
+    if (reportType === 'movements') {
+        db.all("SELECT * FROM band_transactions ORDER BY created_at DESC, id DESC LIMIT 1000", [], (err, rows) => {
+            const lines = [];
+            lines.push("Date & Time,Band Code,Color,Movement Type,Customer Name,Order / Booking ID,Staff Member,Remarks / Notes");
+            (rows || []).forEach(t => {
+                lines.push([
+                    escapeCsv(t.created_at),
+                    escapeCsv(t.band_code),
+                    escapeCsv(t.color_name),
+                    escapeCsv(t.transaction_type),
+                    escapeCsv(t.customer_name || "-"),
+                    escapeCsv(t.order_number || (t.booking_id ? `#${t.booking_id}` : "-")),
+                    escapeCsv(t.staff_name || "-"),
+                    escapeCsv(t.notes || "-")
+                ].join(","));
+            });
+
+            res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+            res.setHeader('Content-Disposition', `attachment; filename="Havoc_Band_Movements_Log_${nowStr}.csv"`);
+            res.send(lines.join("\r\n"));
+        });
+        return;
+    }
+
+    // Default: 'master' list
+    db.all("SELECT * FROM band_items ORDER BY band_code ASC", [], (err, items) => {
+        const lines = [];
+        lines.push("Band ID,Color Name,Color Hex,Category,Current Status,Current Holder,Order #,Total Uses,Notes,Last Updated,Created At");
+        (items || []).forEach(b => {
+            lines.push([
+                escapeCsv(b.band_code),
+                escapeCsv(b.color_name),
+                escapeCsv(b.color_hex),
+                escapeCsv(b.category),
+                escapeCsv((b.status || '').toUpperCase()),
+                escapeCsv(b.current_holder_name || "-"),
+                escapeCsv(b.current_order_number || "-"),
+                b.total_uses,
+                escapeCsv(b.notes || "-"),
+                escapeCsv(b.updated_at),
+                escapeCsv(b.created_at)
+            ].join(","));
+        });
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="Havoc_Band_Master_Inventory_${nowStr}.csv"`);
+        res.send(lines.join("\r\n"));
+    });
 });
 
 // Helper to get next sequential order number based on highest existing order number

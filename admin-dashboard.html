@@ -1410,6 +1410,9 @@
             <button class="nav-btn" data-target="tab-inventory-matrix">
                 <span class="icon">📦</span> Inventory
             </button>
+            <button class="nav-btn" data-target="tab-band-inventory" id="nav-band-inventory">
+                <span class="icon">🎗️</span> Band Inventory
+            </button>
             <button class="nav-btn" data-target="tab-availability" id="nav-availability">
                 <span class="icon">📅</span> Availability
             </button>
@@ -2362,6 +2365,9 @@
                                     <input type="checkbox" name="newStaffPerm" value="inventory_matrix" checked> <span>📦 Inventory</span>
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" name="newStaffPerm" value="bands" checked> <span>🎗️ Band Inventory</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
                                     <input type="checkbox" name="newStaffPerm" value="availability" checked> <span>📅 Availability</span>
                                 </label>
                                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
@@ -2719,7 +2725,483 @@
             </div>
         </div>
 
+        <!-- ==============================================
+             TAB: BAND INVENTORY MANAGEMENT (Common Pool)
+             ============================================== -->
+        <div id="tab-band-inventory" class="tab-content">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h1 class="page-title" style="display: flex; align-items: center; gap: 0.6rem;">
+                        <span>🎗️</span> Band <span>Inventory</span>
+                    </h1>
+                    <p style="color: var(--muted); font-size: 0.88rem; margin-top: 0.25rem;">
+                        Shared Master Wristband Stock &bull; Havoc Sim Podium &amp; Havoc RC Fun Zone
+                    </p>
+                </div>
+                <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                    <button type="button" class="btn" onclick="openBandIssueModal()" style="background: linear-gradient(135deg, #10B981, #059669); color: #fff; border: none; font-weight: 700; padding: 0.55rem 1.15rem; border-radius: 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(16,185,129,0.25);">
+                        <span>⚡</span> Issue Band
+                    </button>
+                    <button type="button" class="btn" onclick="openBandReturnModal()" style="background: rgba(255,255,255,0.08); color: #fff; border: 1px solid var(--border); font-weight: 600; padding: 0.55rem 1.1rem; border-radius: 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;">
+                        <span>↩️</span> Return Band
+                    </button>
+                    <button type="button" class="btn" onclick="openBandStockInModal()" style="background: linear-gradient(135deg, var(--gold), #c9952f); color: #000; border: none; font-weight: 700; padding: 0.55rem 1.15rem; border-radius: 12px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(229,184,105,0.25);">
+                        <span>+</span> Stock In / Add Bands
+                    </button>
+                    <button type="button" class="btn" onclick="refreshBandInventoryData()" style="background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 0.55rem 0.85rem; border-radius: 12px; cursor: pointer;" title="Refresh Inventory">
+                        <span>↻</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sub Navigation Tabs: Summary | Master List | Movements Log | Reports -->
+            <div style="display: flex; gap: 8px; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem; flex-wrap: wrap;">
+                <button type="button" id="bandSubTab-summary" class="btn" onclick="switchBandSubTab('summary')" style="background: rgba(229,184,105,0.15); color: var(--gold); border: 1px solid rgba(229,184,105,0.4); font-size: 0.85rem; padding: 0.45rem 1.1rem; border-radius: 10px; font-weight: 700;">
+                    📊 Stock Summary
+                </button>
+                <button type="button" id="bandSubTab-master" class="btn" onclick="switchBandSubTab('master')" style="background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 0.85rem; padding: 0.45rem 1.1rem; border-radius: 10px; font-weight: 600;">
+                    🏷️ Master Inventory (<span id="bandMasterCountBadge">0</span>)
+                </button>
+                <button type="button" id="bandSubTab-movements" class="btn" onclick="switchBandSubTab('movements')" style="background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 0.85rem; padding: 0.45rem 1.1rem; border-radius: 10px; font-weight: 600;">
+                    📜 Movement Logs
+                </button>
+                <button type="button" id="bandSubTab-reports" class="btn" onclick="switchBandSubTab('reports')" style="background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 0.85rem; padding: 0.45rem 1.1rem; border-radius: 10px; font-weight: 600;">
+                    📑 Export &amp; Reports
+                </button>
+            </div>
+
+            <!-- SUB TAB 1: STOCK SUMMARY -->
+            <div id="bandView-summary">
+                <!-- KPI Stat Cards -->
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.75rem;">
+                    <div class="stat-card" style="border-top: 3px solid #10B981;">
+                        <div class="stat-label">Available in Stock</div>
+                        <div class="stat-value green" id="bandStatAvailable">0</div>
+                        <div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.3rem;">Ready for track assignment</div>
+                    </div>
+                    <div class="stat-card" style="border-top: 3px solid #3B82F6;">
+                        <div class="stat-label">Currently Issued</div>
+                        <div class="stat-value" style="color: #60a5fa;" id="bandStatIssued">0</div>
+                        <div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.3rem;">In simulator / race sessions</div>
+                    </div>
+                    <div class="stat-card" style="border-top: 3px solid var(--gold);">
+                        <div class="stat-label">Active Pool</div>
+                        <div class="stat-value gold" id="bandStatActivePool">0</div>
+                        <div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.3rem;">Total usable wristbands</div>
+                    </div>
+                    <div class="stat-card" style="border-top: 3px solid #F59E0B;">
+                        <div class="stat-label">Availability Rate</div>
+                        <div class="stat-value" style="color: #fbbf24;" id="bandStatRate">0%</div>
+                        <div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.3rem;">Available / Active stock</div>
+                    </div>
+                    <div class="stat-card" style="border-top: 3px solid #EF4444;">
+                        <div class="stat-label">Damaged / Lost</div>
+                        <div class="stat-value" style="color: #f87171;" id="bandStatDamagedLost">0</div>
+                        <div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.3rem;">Quarantined &amp; missing</div>
+                    </div>
+                    <div class="stat-card" style="border-top: 3px solid #8B5CF6;">
+                        <div class="stat-label">Today's Moves</div>
+                        <div class="stat-value" style="color: #c084fc; font-size: 1.5rem;" id="bandStatTodayMoves">0 / 0</div>
+                        <div style="font-size: 0.72rem; color: var(--muted); margin-top: 0.3rem;">Issued / Returned today</div>
+                    </div>
+                </div>
+
+                <!-- Low Stock Alert Banner (Hidden if none) -->
+                <div id="bandLowStockBanner" style="display: none; background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.5rem;">
+                    <div style="display: flex; align-items: center; gap: 10px; color: #f87171; font-weight: 700; margin-bottom: 0.4rem;">
+                        <span>⚠️</span> Low Stock Colors (< 3 available in inventory)
+                    </div>
+                    <div id="bandLowStockList" style="display: flex; gap: 8px; flex-wrap: wrap;"></div>
+                </div>
+
+                <!-- Color Breakdown Cards Grid -->
+                <div class="table-card" style="margin-bottom: 1.5rem; padding: 1.25rem 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3 style="margin: 0; color: #fff; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                            <span>🎨</span> Stock Breakdown by Wristband Color
+                        </h3>
+                        <span style="font-size: 0.8rem; color: var(--muted);">Real-time live across Sim Podium &amp; Fun Zone</span>
+                    </div>
+
+                    <div id="bandColorCardsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;">
+                        <div style="color: var(--muted); padding: 2rem 0; text-align: center; grid-column: 1 / -1;">Loading color breakdown...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUB TAB 2: MASTER LIST -->
+            <div id="bandView-master" style="display: none;">
+                <!-- Filter Bar -->
+                <div class="data-card" style="background: var(--card2); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px; align-items: center;">
+                        <div>
+                            <input type="text" id="bandFilterSearch" placeholder="🔍 Search Band ID, Holder, Order #..." oninput="debounceBandMasterSearch()" style="width: 100%; padding: 0.65rem 0.9rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.88rem; outline: none;">
+                        </div>
+                        <div>
+                            <select id="bandFilterStatus" onchange="loadBandItemsList()" style="width: 100%; padding: 0.65rem 0.9rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.88rem; outline: none; cursor: pointer;">
+                                <option value="all">All Statuses</option>
+                                <option value="available">🟢 Available</option>
+                                <option value="issued">🔵 Issued (In Race)</option>
+                                <option value="damaged">🟠 Damaged</option>
+                                <option value="lost">🔴 Lost</option>
+                                <option value="retired">⚪ Retired</option>
+                            </select>
+                        </div>
+                        <div>
+                            <select id="bandFilterColor" onchange="loadBandItemsList()" style="width: 100%; padding: 0.65rem 0.9rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.88rem; outline: none; cursor: pointer;">
+                                <option value="all">All Colors</option>
+                            </select>
+                        </div>
+                        <div>
+                            <select id="bandFilterCategory" onchange="loadBandItemsList()" style="width: 100%; padding: 0.65rem 0.9rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.88rem; outline: none; cursor: pointer;">
+                                <option value="all">All Categories</option>
+                                <option value="Standard">Standard</option>
+                                <option value="VIP">VIP</option>
+                                <option value="Child">Child</option>
+                                <option value="Staff / Marshal">Staff / Marshal</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button type="button" class="btn" onclick="resetBandMasterFilters()" style="background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 0.65rem 1rem; border-radius: 8px; font-size: 0.85rem; cursor: pointer;">Reset</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Master Table -->
+                <div class="table-card">
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2);">
+                                    <th style="padding: 0.85rem 1.25rem;">Band ID / Code</th>
+                                    <th style="padding: 0.85rem 1.25rem;">Color &amp; Category</th>
+                                    <th style="padding: 0.85rem 1.25rem;">Status</th>
+                                    <th style="padding: 0.85rem 1.25rem;">Current Holder / Order</th>
+                                    <th style="padding: 0.85rem 1.25rem; text-align: center;">Uses</th>
+                                    <th style="padding: 0.85rem 1.25rem;">Notes</th>
+                                    <th style="padding: 0.85rem 1.25rem; text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bandMasterTableBody">
+                                <tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 2.5rem 0;">Loading band master inventory...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUB TAB 3: MOVEMENTS LOG -->
+            <div id="bandView-movements" style="display: none;">
+                <div class="data-card" style="background: var(--card2); border: 1px solid var(--border); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; align-items: center;">
+                        <input type="text" id="bandMovementSearch" placeholder="🔍 Search movements (code, customer, staff, notes)..." oninput="debounceBandMovementSearch()" style="width: 100%; padding: 0.65rem 0.9rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.88rem; outline: none;">
+                        <select id="bandMovementTypeFilter" onchange="loadBandTransactionsList()" style="width: 100%; padding: 0.65rem 0.9rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.88rem; outline: none; cursor: pointer;">
+                            <option value="all">All Movement Types</option>
+                            <option value="STOCK_IN">📥 Stock In</option>
+                            <option value="ISSUE">⚡ Issue (Out to Player)</option>
+                            <option value="RETURN">↩️ Return (Back to Stock)</option>
+                            <option value="DAMAGED">⚠️ Damaged</option>
+                            <option value="LOST">🔴 Lost</option>
+                            <option value="STOCK_OUT">📤 Retired / Stock Out</option>
+                            <option value="STATUS_CHANGE">🔄 Status Change</option>
+                        </select>
+                        <input type="date" id="bandMovementDateFilter" onchange="loadBandTransactionsList()" style="width: 100%; padding: 0.65rem 0.9rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.88rem; outline: none; cursor: pointer;">
+                        <button type="button" class="btn" onclick="resetBandMovementFilters()" style="background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 0.65rem 1rem; border-radius: 8px; font-size: 0.85rem; cursor: pointer;">Reset</button>
+                    </div>
+                </div>
+
+                <div class="table-card">
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2);">
+                                    <th style="padding: 0.85rem 1.25rem;">Timestamp</th>
+                                    <th style="padding: 0.85rem 1.25rem;">Band</th>
+                                    <th style="padding: 0.85rem 1.25rem;">Type</th>
+                                    <th style="padding: 0.85rem 1.25rem;">Customer / Order</th>
+                                    <th style="padding: 0.85rem 1.25rem;">Handled By</th>
+                                    <th style="padding: 0.85rem 1.25rem;">Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bandMovementsTableBody">
+                                <tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 2.5rem 0;">Loading movement records...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUB TAB 4: REPORTS & CSV EXPORT -->
+            <div id="bandView-reports" style="display: none;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+                    <!-- Report 1: Master List -->
+                    <div class="data-card" style="background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 1.8rem;">
+                        <div style="font-size: 2rem; margin-bottom: 0.8rem;">🏷️</div>
+                        <h3 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 1.15rem;">Complete Master Inventory</h3>
+                        <p style="color: var(--muted); font-size: 0.88rem; line-height: 1.5; margin-bottom: 1.25rem;">
+                            Download all wristbands across both venues with serial IDs, color codes, current statuses, holder details, and total times used.
+                        </p>
+                        <a href="/api/admin/bands/export?type=master" target="_blank" class="btn" style="background: linear-gradient(135deg, var(--gold), #c9952f); color: #000; font-weight: 700; padding: 0.65rem 1.2rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 8px; text-decoration: none;">
+                            <span>📥</span> Download Master CSV
+                        </a>
+                    </div>
+
+                    <!-- Report 2: Stock Summary -->
+                    <div class="data-card" style="background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 1.8rem;">
+                        <div style="font-size: 2rem; margin-bottom: 0.8rem;">📊</div>
+                        <h3 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 1.15rem;">Stock Summary &amp; Breakdown</h3>
+                        <p style="color: var(--muted); font-size: 0.88rem; line-height: 1.5; margin-bottom: 1.25rem;">
+                            Executive breakdown of available vs issued inventory, color health metrics, percentage availability rates, and quarantine counts.
+                        </p>
+                        <a href="/api/admin/bands/export?type=summary" target="_blank" class="btn" style="background: #2563eb; color: #fff; font-weight: 700; padding: 0.65rem 1.2rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 8px; text-decoration: none;">
+                            <span>📥</span> Download Summary CSV
+                        </a>
+                    </div>
+
+                    <!-- Report 3: Movements Audit Log -->
+                    <div class="data-card" style="background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 1.8rem;">
+                        <div style="font-size: 2rem; margin-bottom: 0.8rem;">📜</div>
+                        <h3 style="margin: 0 0 0.5rem 0; color: #fff; font-size: 1.15rem;">Movement &amp; Audit Trail Log</h3>
+                        <p style="color: var(--muted); font-size: 0.88rem; line-height: 1.5; margin-bottom: 1.25rem;">
+                            Historical log of every wristband movement: stock-ins, issues to customers, returns, damaged reports, and staff signatures.
+                        </p>
+                        <a href="/api/admin/bands/export?type=movements" target="_blank" class="btn" style="background: #10B981; color: #fff; font-weight: 700; padding: 0.65rem 1.2rem; border-radius: 10px; display: inline-flex; align-items: center; gap: 8px; text-decoration: none;">
+                            <span>📥</span> Download Movements CSV
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </main>
+
+    <!-- ==============================================
+         BAND INVENTORY MODALS
+         ============================================== -->
+
+    <!-- Modal 1: Issue Wristband -->
+    <div id="bandIssueModal" class="modal-overlay" style="display:none; z-index: 10000; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);">
+        <div class="modal-box" style="max-width: 520px; width: 92%; text-align: left; padding: 2rem; border: 1px solid rgba(16,185,129,0.3); border-radius: 16px; background: #18181f;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <h2 style="margin: 0; font-size: 1.3rem; color: #fff; display: flex; align-items: center; gap: 8px;">
+                    <span style="color: #10B981;">⚡</span> Issue Wristband
+                </h2>
+                <button type="button" class="modal-close" onclick="closeBandIssueModal()">&times;</button>
+            </div>
+
+            <form id="bandIssueForm" onsubmit="submitBandIssueForm(event)">
+                <div style="margin-bottom: 1.15rem;">
+                    <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--gold); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Select or Type Wristband ID *</label>
+                    <input type="text" id="bandIssueCodeInput" placeholder="e.g. BND-CYAN-001" required autocomplete="off" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: monospace; font-size: 1rem; font-weight: 700; outline: none; text-transform: uppercase;">
+                    <div style="font-size: 0.75rem; color: var(--muted); margin-top: 0.35rem;">Or pick an available band from the quick suggestions below:</div>
+                    <div id="bandIssueQuickPicks" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 0.5rem; max-height: 85px; overflow-y: auto;"></div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.15rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Customer Name *</label>
+                        <input type="text" id="bandIssueCustomerInput" placeholder="Player / Guest name" required style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Order # / Booking ID</label>
+                        <input type="text" id="bandIssueOrderInput" placeholder="e.g. PAID_SP_01" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Notes / Session Slot (Optional)</label>
+                    <input type="text" id="bandIssueNotesInput" placeholder="e.g. Simulator 1 - 2PM to 3PM" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn" onclick="closeBandIssueModal()" style="background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 0.75rem 1.3rem; border-radius: 10px; cursor: pointer;">Cancel</button>
+                    <button type="submit" class="btn" id="bandIssueSubmitBtn" style="background: linear-gradient(135deg, #10B981, #059669); color: #fff; font-weight: 700; padding: 0.75rem 1.6rem; border-radius: 10px; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">Issue Wristband</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 2: Return Wristband -->
+    <div id="bandReturnModal" class="modal-overlay" style="display:none; z-index: 10000; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);">
+        <div class="modal-box" style="max-width: 480px; width: 92%; text-align: left; padding: 2rem; border: 1px solid rgba(229,184,105,0.3); border-radius: 16px; background: #18181f;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <h2 style="margin: 0; font-size: 1.3rem; color: #fff; display: flex; align-items: center; gap: 8px;">
+                    <span style="color: var(--gold);">↩️</span> Return Wristband
+                </h2>
+                <button type="button" class="modal-close" onclick="closeBandReturnModal()">&times;</button>
+            </div>
+
+            <form id="bandReturnForm" onsubmit="submitBandReturnForm(event)">
+                <div style="margin-bottom: 1.2rem;">
+                    <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--gold); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Wristband ID to Return *</label>
+                    <input type="text" id="bandReturnCodeInput" placeholder="e.g. BND-CYAN-001" required autocomplete="off" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: monospace; font-size: 1rem; font-weight: 700; outline: none; text-transform: uppercase;">
+                    <div style="font-size: 0.75rem; color: var(--muted); margin-top: 0.35rem;">Or pick from currently issued wristbands:</div>
+                    <div id="bandReturnQuickPicks" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 0.5rem; max-height: 85px; overflow-y: auto;"></div>
+                </div>
+
+                <div style="margin-bottom: 1.2rem;">
+                    <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Return Condition *</label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                        <label style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0.75rem; border-radius: 10px; border: 1px solid rgba(16,185,129,0.4); background: rgba(16,185,129,0.08); cursor: pointer; text-align: center;">
+                            <input type="radio" name="bandReturnCondition" value="good" checked style="accent-color: #10B981;">
+                            <span style="font-size: 0.82rem; font-weight: 700; color: #10B981;">🟢 Good</span>
+                            <span style="font-size: 0.68rem; color: var(--muted);">Reusable</span>
+                        </label>
+                        <label style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0.75rem; border-radius: 10px; border: 1px solid rgba(245,158,11,0.4); background: rgba(245,158,11,0.08); cursor: pointer; text-align: center;">
+                            <input type="radio" name="bandReturnCondition" value="damaged" style="accent-color: #F59E0B;">
+                            <span style="font-size: 0.82rem; font-weight: 700; color: #F59E0B;">🟠 Damaged</span>
+                            <span style="font-size: 0.68rem; color: var(--muted);">Needs repair</span>
+                        </label>
+                        <label style="display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0.75rem; border-radius: 10px; border: 1px solid rgba(239,68,68,0.4); background: rgba(239,68,68,0.08); cursor: pointer; text-align: center;">
+                            <input type="radio" name="bandReturnCondition" value="lost" style="accent-color: #EF4444;">
+                            <span style="font-size: 0.82rem; font-weight: 700; color: #EF4444;">🔴 Lost</span>
+                            <span style="font-size: 0.68rem; color: var(--muted);">Not returned</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Notes / Remarks (Optional)</label>
+                    <input type="text" id="bandReturnNotesInput" placeholder="e.g. Session ended normally" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn" onclick="closeBandReturnModal()" style="background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 0.75rem 1.3rem; border-radius: 10px; cursor: pointer;">Cancel</button>
+                    <button type="submit" class="btn" id="bandReturnSubmitBtn" style="background: linear-gradient(135deg, var(--gold), #c9952f); color: #000; font-weight: 700; padding: 0.75rem 1.6rem; border-radius: 10px; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(229,184,105,0.3);">Confirm Return</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 3: Stock In (Single or Sequential Bulk Generator) -->
+    <div id="bandStockInModal" class="modal-overlay" style="display:none; z-index: 10000; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);">
+        <div class="modal-box" style="max-width: 540px; width: 92%; text-align: left; padding: 2rem; border: 1px solid rgba(229,184,105,0.3); border-radius: 16px; background: #18181f;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <h2 style="margin: 0; font-size: 1.3rem; color: #fff; display: flex; align-items: center; gap: 8px;">
+                    <span style="color: var(--gold);">📥</span> Stock In / Add Bands
+                </h2>
+                <button type="button" class="modal-close" onclick="closeBandStockInModal()">&times;</button>
+            </div>
+
+            <!-- Mode Switcher: Single vs Bulk -->
+            <div style="display: flex; gap: 8px; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
+                <button type="button" id="bandStockModeSingle" class="btn" onclick="setBandStockMode('single')" style="background: rgba(229,184,105,0.15); color: var(--gold); border: 1px solid rgba(229,184,105,0.4); font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 8px; font-weight: 700;">
+                    Single Wristband
+                </button>
+                <button type="button" id="bandStockModeBulk" class="btn" onclick="setBandStockMode('bulk')" style="background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 0.85rem; padding: 0.4rem 1rem; border-radius: 8px; font-weight: 600;">
+                    Sequential Bulk Generator (Batch)
+                </button>
+            </div>
+
+            <form id="bandStockInForm" onsubmit="submitBandStockInForm(event)">
+                <!-- Color Selector Grid -->
+                <div style="margin-bottom: 1.15rem;">
+                    <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--gold); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Wristband Color *</label>
+                    <div id="bandStockColorPickerGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 6px; max-height: 120px; overflow-y: auto; padding-right: 4px;"></div>
+                </div>
+
+                <!-- Single Mode Fields -->
+                <div id="bandStockSingleFields">
+                    <div style="margin-bottom: 1.15rem;">
+                        <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Unique Band ID / Code *</label>
+                        <input type="text" id="bandStockSingleCode" placeholder="e.g. BND-CYAN-011" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: monospace; font-size: 0.95rem; font-weight: 700; outline: none; text-transform: uppercase;">
+                    </div>
+                </div>
+
+                <!-- Bulk Mode Fields -->
+                <div id="bandStockBulkFields" style="display: none;">
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; margin-bottom: 1.15rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Prefix *</label>
+                            <input type="text" id="bandStockBulkPrefix" placeholder="BND-CYAN" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: monospace; font-size: 0.9rem; font-weight: 700; outline: none; text-transform: uppercase;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Start #</label>
+                            <input type="number" id="bandStockBulkStart" value="1" min="1" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Quantity</label>
+                            <input type="number" id="bandStockBulkCount" value="10" min="1" max="200" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Common Category & Notes -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.5rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Category</label>
+                        <select id="bandStockCategory" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer;">
+                            <option value="Standard">Standard</option>
+                            <option value="VIP">VIP</option>
+                            <option value="Child">Child</option>
+                            <option value="Staff / Marshal">Staff / Marshal</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Notes</label>
+                        <input type="text" id="bandStockNotes" placeholder="e.g. New Batch Q4" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn" onclick="closeBandStockInModal()" style="background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 0.75rem 1.3rem; border-radius: 10px; cursor: pointer;">Cancel</button>
+                    <button type="submit" class="btn" id="bandStockInSubmitBtn" style="background: linear-gradient(135deg, var(--gold), #c9952f); color: #000; font-weight: 700; padding: 0.75rem 1.6rem; border-radius: 10px; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(229,184,105,0.3);">Add to Inventory</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal 4: Edit Band Details -->
+    <div id="bandEditModal" class="modal-overlay" style="display:none; z-index: 10000; align-items: center; justify-content: center; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);">
+        <div class="modal-box" style="max-width: 480px; width: 92%; text-align: left; padding: 2rem; border: 1px solid var(--border); border-radius: 16px; background: #18181f;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                <h2 style="margin: 0; font-size: 1.3rem; color: #fff; display: flex; align-items: center; gap: 8px;">
+                    <span>✏️</span> Edit Wristband
+                </h2>
+                <button type="button" class="modal-close" onclick="closeBandEditModal()">&times;</button>
+            </div>
+
+            <form id="bandEditForm" onsubmit="submitBandEditForm(event)">
+                <input type="hidden" id="bandEditId">
+                <div style="margin-bottom: 1.15rem;">
+                    <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--gold); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Band Code *</label>
+                    <input type="text" id="bandEditCode" required style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: monospace; font-size: 1rem; font-weight: 700; outline: none; text-transform: uppercase;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1.15rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Status</label>
+                        <select id="bandEditStatus" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer;">
+                            <option value="available">🟢 Available</option>
+                            <option value="issued">🔵 Issued</option>
+                            <option value="damaged">🟠 Damaged</option>
+                            <option value="lost">🔴 Lost</option>
+                            <option value="retired">⚪ Retired</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Category</label>
+                        <select id="bandEditCategory" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none; cursor: pointer;">
+                            <option value="Standard">Standard</option>
+                            <option value="VIP">VIP</option>
+                            <option value="Child">Child</option>
+                            <option value="Staff / Marshal">Staff / Marshal</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1.5rem;">
+                    <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Notes / Remarks</label>
+                    <input type="text" id="bandEditNotes" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                </div>
+
+                <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                    <button type="button" class="btn" onclick="closeBandEditModal()" style="background: transparent; color: var(--muted); border: 1px solid var(--border); padding: 0.75rem 1.3rem; border-radius: 10px; cursor: pointer;">Cancel</button>
+                    <button type="submit" class="btn" style="background: linear-gradient(135deg, var(--gold), #c9952f); color: #000; font-weight: 700; padding: 0.75rem 1.6rem; border-radius: 10px; border: none; cursor: pointer;">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <!-- Product Modal -->
     <div id="productModal" class="product-modal">

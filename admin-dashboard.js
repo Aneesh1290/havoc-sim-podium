@@ -1906,6 +1906,7 @@ const PERMISSION_CONFIG = [
     { key: 'export_reports', label: '📊 Export Excel Reports', category: 'action' },
     { key: 'payment_links', label: '🔗 Payment Links', navId: 'tab-payment-links' },
     { key: 'inventory_matrix', label: '📦 Inventory', navId: 'tab-inventory-matrix' },
+    { key: 'bands', label: '🎗️ Band Inventory', navId: 'tab-band-inventory' },
     { key: 'availability', label: '📅 Availability', navId: 'tab-availability' },
     { key: 'block_slots', label: '🛡️ Block Slots', navId: 'nav-block-slots' },
     { key: 'coupons', label: '🎟️ Coupons', navId: 'nav-coupons' },
@@ -2127,6 +2128,7 @@ async function checkRole() {
             'bookings': document.querySelector('.nav-btn[data-target="tab-bookings"]'),
             'payment_links': document.getElementById('nav-payment-links'),
             'inventory_matrix': document.querySelector('.nav-btn[data-target="tab-inventory-matrix"]'),
+            'bands': document.getElementById('nav-band-inventory'),
             'availability': document.querySelector('.nav-btn[data-target="tab-availability"]'),
             'block_slots': document.getElementById('nav-block-slots'),
             'coupons': document.getElementById('nav-coupons'),
@@ -5073,6 +5075,18 @@ window.verifyDeskOtp = async () => {
                             <span><strong>Players:</strong> ${b.players || 1} ${b.player_two_name ? `(${b.player_two_name})` : ''}</span>
                             <span style="font-size: 0.95rem; font-weight: 700; color: #fff;">Amount: ₹${parseFloat(b.price || 0).toFixed(2)}</span>
                         </div>
+
+                        <!-- Wristband Handout Section -->
+                        <div style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px dashed rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 1rem;">🎗️</span>
+                                <span style="font-size: 0.8rem; color: var(--muted);">Track Band:</span>
+                                <span style="font-size: 0.82rem; font-weight: 700; color: var(--gold);">Wristband Handout</span>
+                            </div>
+                            <button type="button" class="btn" onclick="openBandIssueForBooking('${escapeHtml(b.name || data.customer_name || 'Guest')}', '${escapeHtml(b.order_id || '')}', '${escapeHtml(b.item_name || '')} (${escapeHtml(b.booking_time || '')})')" style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #10B981; font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                                <span>⚡</span> Handout Band
+                            </button>
+                        </div>
                     </div>
                 `;
             });
@@ -5306,5 +5320,749 @@ window.resendDeskReviewRequest = async function() {
         btn.innerHTML = origHtml;
     }
 };
+
+// =========================================================================
+// BAND INVENTORY MANAGEMENT (Common shared pool with Havoc RC Fun Zone)
+// =========================================================================
+
+let bandInventorySummary = null;
+let bandAvailableItems = [];
+let bandIssuedItems = [];
+let currentBandSubTab = 'summary';
+let selectedStockColor = { hex: "#06B6D4", name: "Cyan / Neon Blue" };
+let bandMasterSearchTimer = null;
+let bandMovementSearchTimer = null;
+
+// Tab switcher for Band Inventory subviews
+window.switchBandSubTab = (tab) => {
+    currentBandSubTab = tab;
+    ['summary', 'master', 'movements', 'reports'].forEach(t => {
+        const viewEl = document.getElementById(`bandView-${t}`);
+        const btnEl = document.getElementById(`bandSubTab-${t}`);
+        if (viewEl) viewEl.style.display = (t === tab) ? 'block' : 'none';
+        if (btnEl) {
+            if (t === tab) {
+                btnEl.style.background = 'rgba(229,184,105,0.15)';
+                btnEl.style.color = 'var(--gold)';
+                btnEl.style.borderColor = 'rgba(229,184,105,0.4)';
+                btnEl.style.fontWeight = '700';
+            } else {
+                btnEl.style.background = 'transparent';
+                btnEl.style.color = 'var(--muted)';
+                btnEl.style.borderColor = 'var(--border)';
+                btnEl.style.fontWeight = '600';
+            }
+        }
+    });
+
+    if (tab === 'summary') loadBandSummary();
+    if (tab === 'master') loadBandItemsList();
+    if (tab === 'movements') loadBandTransactionsList();
+};
+
+window.refreshBandInventoryData = async () => {
+    await loadBandSummary();
+    if (currentBandSubTab === 'master') await loadBandItemsList();
+    if (currentBandSubTab === 'movements') await loadBandTransactionsList();
+};
+
+// Load Summary & KPI Cards
+async function loadBandSummary() {
+    try {
+        const res = await fetchAuth('/api/admin/bands/summary');
+        if (!res.ok) {
+            console.error('Failed to load band summary');
+            return;
+        }
+        const data = await res.json();
+        bandInventorySummary = data;
+
+        // Populate KPI Cards
+        const elAvail = document.getElementById('bandStatAvailable');
+        const elIssued = document.getElementById('bandStatIssued');
+        const elActive = document.getElementById('bandStatActivePool');
+        const elRate = document.getElementById('bandStatRate');
+        const elDamaged = document.getElementById('bandStatDamagedLost');
+        const elToday = document.getElementById('bandStatTodayMoves');
+        const elBadge = document.getElementById('bandMasterCountBadge');
+
+        if (elAvail) elAvail.textContent = data.available || 0;
+        if (elIssued) elIssued.textContent = data.issued || 0;
+        if (elActive) elActive.textContent = data.activeInventory || 0;
+        if (elRate) elRate.textContent = `${data.availabilityRate || 0}%`;
+        if (elDamaged) elDamaged.textContent = (data.damaged || 0) + (data.lost || 0);
+        if (elToday) elToday.textContent = `${data.issuedToday || 0} / ${data.returnedToday || 0}`;
+        if (elBadge) elBadge.textContent = data.totalBands || 0;
+
+        // Low stock banner
+        const lowBanner = document.getElementById('bandLowStockBanner');
+        const lowList = document.getElementById('bandLowStockList');
+        if (lowBanner && lowList) {
+            if (data.lowStockColors && data.lowStockColors.length > 0) {
+                lowBanner.style.display = 'block';
+                lowList.innerHTML = data.lowStockColors.map(c => `
+                    <span style="display:inline-flex; align-items:center; gap:6px; background:rgba(0,0,0,0.3); border:1px solid rgba(239,68,68,0.4); padding:4px 10px; border-radius:20px; font-size:0.78rem; color:#fff;">
+                        <span style="width:10px; height:10px; border-radius:50%; background:${c.color_hex};"></span>
+                        <strong>${escapeHtml(c.color_name)}</strong>: ${c.available} left
+                    </span>
+                `).join('');
+            } else {
+                lowBanner.style.display = 'none';
+            }
+        }
+
+        // Color breakdown cards
+        const colorGrid = document.getElementById('bandColorCardsGrid');
+        if (colorGrid) {
+            if (!data.colorBreakdown || data.colorBreakdown.length === 0) {
+                colorGrid.innerHTML = `<div style="color:var(--muted); padding:2rem; text-align:center; grid-column:1/-1;">No wristbands registered yet. Click '+ Stock In' to add starter bands.</div>`;
+            } else {
+                colorGrid.innerHTML = data.colorBreakdown.map(c => {
+                    const availPct = c.total > 0 ? Math.round((c.available / c.total) * 100) : 0;
+                    return `
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-left: 4px solid ${c.color_hex}; border-radius: 12px; padding: 1.15rem; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.8rem;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="width: 14px; height: 14px; border-radius: 50%; background: ${c.color_hex}; box-shadow: 0 0 10px ${c.color_hex}88;"></span>
+                                    <span style="font-weight: 700; color: #fff; font-size: 0.95rem;">${escapeHtml(c.color_name)}</span>
+                                </div>
+                                <span style="font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.08); color: var(--gold);">${c.total} total</span>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0.8rem; font-size: 0.82rem;">
+                                <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); padding: 6px 10px; border-radius: 8px;">
+                                    <div style="font-size: 0.68rem; color: #10B981; font-weight: 700; text-transform: uppercase;">In Stock</div>
+                                    <div style="font-size: 1.2rem; font-weight: 800; color: #fff;">${c.available}</div>
+                                </div>
+                                <div style="background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); padding: 6px 10px; border-radius: 8px;">
+                                    <div style="font-size: 0.68rem; color: #60a5fa; font-weight: 700; text-transform: uppercase;">Issued</div>
+                                    <div style="font-size: 1.2rem; font-weight: 800; color: #fff;">${c.issued}</div>
+                                </div>
+                            </div>
+
+                            <!-- Progress Bar -->
+                            <div style="background: rgba(255,255,255,0.06); height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 0.5rem;">
+                                <div style="background: ${c.color_hex}; height: 100%; width: ${availPct}%;"></div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted);">
+                                <span>${availPct}% available</span>
+                                <span>${(c.damaged || 0) + (c.lost || 0)} quarantined</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Populate Color dropdown in filter
+        const colorFilter = document.getElementById('bandFilterColor');
+        if (colorFilter && data.colorBreakdown) {
+            const curVal = colorFilter.value;
+            colorFilter.innerHTML = '<option value="all">All Colors</option>' + data.colorBreakdown.map(c => `
+                <option value="${escapeHtml(c.color_name)}" ${c.color_name === curVal ? 'selected' : ''}>${escapeHtml(c.color_name)} (${c.total})</option>
+            `).join('');
+        }
+
+        // Render Color Picker Grid for Stock In
+        const pickerGrid = document.getElementById('bandStockColorPickerGrid');
+        if (pickerGrid && data.palette) {
+            pickerGrid.innerHTML = data.palette.map((p, idx) => `
+                <label style="display:flex; align-items:center; gap:6px; padding:6px 8px; border:1px solid ${selectedStockColor.hex === p.hex ? 'var(--gold)' : 'rgba(255,255,255,0.1)'}; background:${selectedStockColor.hex === p.hex ? 'rgba(229,184,105,0.15)' : 'rgba(255,255,255,0.03)'}; border-radius:8px; cursor:pointer; font-size:0.75rem; color:#fff;" onclick="selectStockInColor('${p.hex}', '${escapeHtml(p.name)}')">
+                    <span style="width:12px; height:12px; border-radius:50%; background:${p.hex}; flex-shrink:0;"></span>
+                    <span style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.name)}</span>
+                </label>
+            `).join('');
+        }
+
+        // Cache available & issued items for quick issue/return modals
+        fetchAuth('/api/admin/bands/items?status=available&limit=100').then(r => r.json()).then(d => {
+            bandAvailableItems = d.items || [];
+        }).catch(() => {});
+
+        fetchAuth('/api/admin/bands/items?status=issued&limit=100').then(r => r.json()).then(d => {
+            bandIssuedItems = d.items || [];
+        }).catch(() => {});
+
+    } catch (e) {
+        console.error('Error in loadBandSummary:', e);
+    }
+}
+
+// Load Master Band List with Filters
+async function loadBandItemsList() {
+    const tbody = document.getElementById('bandMasterTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 2rem 0;">Searching master inventory...</td></tr>';
+
+    const search = document.getElementById('bandFilterSearch')?.value || '';
+    const status = document.getElementById('bandFilterStatus')?.value || 'all';
+    const color = document.getElementById('bandFilterColor')?.value || 'all';
+    const category = document.getElementById('bandFilterCategory')?.value || 'all';
+
+    const params = new URLSearchParams({
+        search,
+        status,
+        color_name: color,
+        category,
+        limit: '200'
+    });
+
+    try {
+        const res = await fetchAuth(`/api/admin/bands/items?${params.toString()}`);
+        if (!res.ok) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--red); padding: 2rem 0;">Failed to load bands.</td></tr>';
+            return;
+        }
+
+        const data = await res.json();
+        const items = data.items || [];
+
+        if (items.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--muted); padding: 2.5rem 0;">No matching wristbands found.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = items.map(b => {
+            let statusBadge = '';
+            if (b.status === 'available') {
+                statusBadge = `<span style="background: rgba(16,185,129,0.15); color: #10B981; border: 1px solid rgba(16,185,129,0.3); font-weight: 700; font-size: 0.75rem; padding: 3px 10px; border-radius: 20px;">🟢 Available</span>`;
+            } else if (b.status === 'issued') {
+                statusBadge = `<span style="background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); font-weight: 700; font-size: 0.75rem; padding: 3px 10px; border-radius: 20px;">🔵 Issued (Active)</span>`;
+            } else if (b.status === 'damaged') {
+                statusBadge = `<span style="background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); font-weight: 700; font-size: 0.75rem; padding: 3px 10px; border-radius: 20px;">🟠 Damaged</span>`;
+            } else if (b.status === 'lost') {
+                statusBadge = `<span style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); font-weight: 700; font-size: 0.75rem; padding: 3px 10px; border-radius: 20px;">🔴 Lost</span>`;
+            } else {
+                statusBadge = `<span style="background: rgba(255,255,255,0.08); color: var(--muted); border: 1px solid var(--border); font-weight: 700; font-size: 0.75rem; padding: 3px 10px; border-radius: 20px;">⚪ Retired</span>`;
+            }
+
+            return `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    <td style="padding: 0.85rem 1.25rem;">
+                        <span style="font-family: monospace; font-weight: 800; color: #fff; font-size: 0.95rem; background: rgba(255,255,255,0.05); padding: 3px 8px; border-radius: 6px; border: 1px solid var(--border);">${escapeHtml(b.band_code)}</span>
+                    </td>
+                    <td style="padding: 0.85rem 1.25rem;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 12px; height: 12px; border-radius: 50%; background: ${b.color_hex};"></span>
+                            <div>
+                                <div style="font-weight: 600; color: #fff; font-size: 0.85rem;">${escapeHtml(b.color_name)}</div>
+                                <div style="font-size: 0.72rem; color: var(--muted);">${escapeHtml(b.category || 'Standard')}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td style="padding: 0.85rem 1.25rem;">${statusBadge}</td>
+                    <td style="padding: 0.85rem 1.25rem;">
+                        ${b.current_holder_name ? `
+                            <div style="font-weight: 700; color: var(--gold); font-size: 0.88rem;">${escapeHtml(b.current_holder_name)}</div>
+                            <div style="font-size: 0.75rem; color: var(--muted); font-family: monospace;">${escapeHtml(b.current_order_number || '')}</div>
+                        ` : `<span style="color: var(--muted); font-size: 0.82rem;">—</span>`}
+                    </td>
+                    <td style="padding: 0.85rem 1.25rem; text-align: center;">
+                        <span style="font-weight: 700; color: #fff; font-size: 0.88rem;">${b.total_uses || 0}</span>
+                    </td>
+                    <td style="padding: 0.85rem 1.25rem;">
+                        <span style="color: #bbb; font-size: 0.8rem;">${escapeHtml(b.notes || '—')}</span>
+                    </td>
+                    <td style="padding: 0.85rem 1.25rem; text-align: right;">
+                        <div style="display: inline-flex; gap: 6px; align-items: center;">
+                            ${b.status === 'available' ? `
+                                <button type="button" class="btn" onclick="openBandIssueModalForCode('${escapeHtml(b.band_code)}')" style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #10B981; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">Issue</button>
+                            ` : ''}
+                            ${b.status === 'issued' ? `
+                                <button type="button" class="btn" onclick="openBandReturnModalForCode('${escapeHtml(b.band_code)}')" style="background: rgba(229,184,105,0.15); border: 1px solid rgba(229,184,105,0.4); color: var(--gold); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">Return</button>
+                            ` : ''}
+                            ${b.status === 'damaged' || b.status === 'lost' || b.status === 'retired' ? `
+                                <button type="button" class="btn" onclick="restoreBandItem(${b.id})" style="background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.4); color: #60a5fa; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer;">Restore</button>
+                            ` : ''}
+                            <button type="button" class="btn" onclick='openBandEditModal(${JSON.stringify(b)})' style="background: transparent; border: 1px solid var(--border); color: var(--muted); padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; cursor: pointer;" title="Edit details">✏️</button>
+                            ${b.status !== 'retired' ? `
+                                <button type="button" class="btn" onclick="retireBandItem(${b.id}, '${escapeHtml(b.band_code)}')" style="background: transparent; border: 1px solid rgba(239,68,68,0.25); color: #f87171; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; cursor: pointer;" title="Stock Out / Retire">📤</button>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        console.error('Error in loadBandItemsList:', e);
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--red); padding: 2rem 0;">Error fetching wristband items.</td></tr>';
+    }
+}
+
+// Load Movement Audit Trail
+async function loadBandTransactionsList() {
+    const tbody = document.getElementById('bandMovementsTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 2rem 0;">Loading transactions...</td></tr>';
+
+    const search = document.getElementById('bandMovementSearch')?.value || '';
+    const type = document.getElementById('bandMovementTypeFilter')?.value || 'all';
+    const date = document.getElementById('bandMovementDateFilter')?.value || '';
+
+    const params = new URLSearchParams({
+        search,
+        type,
+        startDate: date,
+        endDate: date,
+        limit: '150'
+    });
+
+    try {
+        const res = await fetchAuth(`/api/admin/bands/transactions?${params.toString()}`);
+        if (!res.ok) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--red); padding: 2rem 0;">Failed to load transactions.</td></tr>';
+            return;
+        }
+
+        const data = await res.json();
+        const txs = data.transactions || [];
+
+        if (txs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 2.5rem 0;">No movement records found.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = txs.map(t => {
+            let typeBadge = '';
+            if (t.transaction_type === 'STOCK_IN') {
+                typeBadge = `<span style="background: rgba(16,185,129,0.15); color: #10B981; border: 1px solid rgba(16,185,129,0.3); font-weight: 700; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px;">📥 Stock In</span>`;
+            } else if (t.transaction_type === 'ISSUE') {
+                typeBadge = `<span style="background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); font-weight: 700; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px;">⚡ Issued</span>`;
+            } else if (t.transaction_type === 'RETURN') {
+                typeBadge = `<span style="background: rgba(229,184,105,0.15); color: var(--gold); border: 1px solid rgba(229,184,105,0.3); font-weight: 700; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px;">↩️ Returned</span>`;
+            } else if (t.transaction_type === 'DAMAGED') {
+                typeBadge = `<span style="background: rgba(245,158,11,0.15); color: #fbbf24; border: 1px solid rgba(245,158,11,0.3); font-weight: 700; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px;">⚠️ Damaged</span>`;
+            } else if (t.transaction_type === 'LOST') {
+                typeBadge = `<span style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); font-weight: 700; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px;">🔴 Lost</span>`;
+            } else if (t.transaction_type === 'STOCK_OUT') {
+                typeBadge = `<span style="background: rgba(255,255,255,0.08); color: var(--muted); border: 1px solid var(--border); font-weight: 700; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px;">📤 Stock Out</span>`;
+            } else {
+                typeBadge = `<span style="background: rgba(139,92,246,0.15); color: #c084fc; border: 1px solid rgba(139,92,246,0.3); font-weight: 700; font-size: 0.75rem; padding: 2px 8px; border-radius: 12px;">🔄 Status Change</span>`;
+            }
+
+            return `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
+                    <td style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--muted); white-space: nowrap;">
+                        ${escapeHtml(t.created_at || '—')}
+                    </td>
+                    <td style="padding: 0.85rem 1.25rem;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="width: 10px; height: 10px; border-radius: 50%; background: ${t.color_hex};"></span>
+                            <span style="font-family: monospace; font-weight: 800; color: #fff;">${escapeHtml(t.band_code)}</span>
+                        </div>
+                    </td>
+                    <td style="padding: 0.85rem 1.25rem;">${typeBadge}</td>
+                    <td style="padding: 0.85rem 1.25rem;">
+                        ${t.customer_name ? `
+                            <div style="font-weight: 600; color: #fff; font-size: 0.85rem;">${escapeHtml(t.customer_name)}</div>
+                            <div style="font-size: 0.72rem; color: var(--gold); font-family: monospace;">${escapeHtml(t.order_number || (t.booking_id ? '#' + t.booking_id : ''))}</div>
+                        ` : `<span style="color: var(--muted); font-size: 0.8rem;">—</span>`}
+                    </td>
+                    <td style="padding: 0.85rem 1.25rem; font-size: 0.82rem; color: #bbb;">
+                        ${escapeHtml(t.staff_name || 'System')}
+                    </td>
+                    <td style="padding: 0.85rem 1.25rem; font-size: 0.8rem; color: var(--muted);">
+                        ${escapeHtml(t.notes || '—')}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        console.error('Error in loadBandTransactionsList:', e);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--red); padding: 2rem 0;">Error fetching movement records.</td></tr>';
+    }
+}
+
+// Search Debouncers
+window.debounceBandMasterSearch = () => {
+    clearTimeout(bandMasterSearchTimer);
+    bandMasterSearchTimer = setTimeout(() => {
+        loadBandItemsList();
+    }, 300);
+};
+
+window.resetBandMasterFilters = () => {
+    const s = document.getElementById('bandFilterSearch');
+    const st = document.getElementById('bandFilterStatus');
+    const c = document.getElementById('bandFilterColor');
+    const cat = document.getElementById('bandFilterCategory');
+    if (s) s.value = '';
+    if (st) st.value = 'all';
+    if (c) c.value = 'all';
+    if (cat) cat.value = 'all';
+    loadBandItemsList();
+};
+
+window.debounceBandMovementSearch = () => {
+    clearTimeout(bandMovementSearchTimer);
+    bandMovementSearchTimer = setTimeout(() => {
+        loadBandTransactionsList();
+    }, 300);
+};
+
+window.resetBandMovementFilters = () => {
+    const s = document.getElementById('bandMovementSearch');
+    const t = document.getElementById('bandMovementTypeFilter');
+    const d = document.getElementById('bandMovementDateFilter');
+    if (s) s.value = '';
+    if (t) t.value = 'all';
+    if (d) d.value = '';
+    loadBandTransactionsList();
+};
+
+// Modal Operations: ISSUE
+window.openBandIssueModal = () => {
+    const modal = document.getElementById('bandIssueModal');
+    if (modal) modal.style.display = 'flex';
+
+    // Populate quick pick chips
+    const picks = document.getElementById('bandIssueQuickPicks');
+    if (picks) {
+        picks.innerHTML = (bandAvailableItems || []).slice(0, 15).map(b => `
+            <button type="button" onclick="selectQuickIssueBand('${escapeHtml(b.band_code)}')" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: #fff; font-family: monospace; font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; cursor: pointer;">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${b.color_hex}; margin-right:4px;"></span>
+                ${escapeHtml(b.band_code)}
+            </button>
+        `).join('') || '<span style="color:var(--muted); font-size:0.75rem;">No available wristbands in stock.</span>';
+    }
+};
+
+window.openBandIssueModalForCode = (code) => {
+    window.openBandIssueModal();
+    const input = document.getElementById('bandIssueCodeInput');
+    if (input) input.value = code;
+};
+
+window.selectQuickIssueBand = (code) => {
+    const input = document.getElementById('bandIssueCodeInput');
+    if (input) input.value = code;
+};
+
+window.openBandIssueForBooking = (customerName, orderId, slotInfo) => {
+    window.openBandIssueModal();
+    const custInput = document.getElementById('bandIssueCustomerInput');
+    const ordInput = document.getElementById('bandIssueOrderInput');
+    const notesInput = document.getElementById('bandIssueNotesInput');
+    if (custInput) custInput.value = customerName;
+    if (ordInput) ordInput.value = orderId;
+    if (notesInput) notesInput.value = slotInfo;
+};
+
+window.closeBandIssueModal = () => {
+    const modal = document.getElementById('bandIssueModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.submitBandIssueForm = async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('bandIssueSubmitBtn');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Issuing...';
+
+    const band_code = document.getElementById('bandIssueCodeInput')?.value.trim();
+    const customer_name = document.getElementById('bandIssueCustomerInput')?.value.trim();
+    const order_number = document.getElementById('bandIssueOrderInput')?.value.trim();
+    const notes = document.getElementById('bandIssueNotesInput')?.value.trim();
+
+    try {
+        const res = await fetchAuth('/api/admin/bands/issue', {
+            method: 'POST',
+            body: JSON.stringify({ band_code, customer_name, order_number, notes })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.error || 'Failed to issue wristband');
+            return;
+        }
+
+        alert(`Wristband ${data.band_code} issued successfully to ${data.holder}!`);
+        closeBandIssueModal();
+        document.getElementById('bandIssueForm')?.reset();
+        refreshBandInventoryData();
+    } catch (err) {
+        console.error('Issue band error:', err);
+        alert('Server error while issuing wristband.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = origText;
+    }
+};
+
+// Modal Operations: RETURN
+window.openBandReturnModal = () => {
+    const modal = document.getElementById('bandReturnModal');
+    if (modal) modal.style.display = 'flex';
+
+    const picks = document.getElementById('bandReturnQuickPicks');
+    if (picks) {
+        picks.innerHTML = (bandIssuedItems || []).slice(0, 15).map(b => `
+            <button type="button" onclick="selectQuickReturnBand('${escapeHtml(b.band_code)}')" style="background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.3); color: #60a5fa; font-family: monospace; font-size: 0.75rem; padding: 3px 8px; border-radius: 6px; cursor: pointer;">
+                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${b.color_hex}; margin-right:4px;"></span>
+                ${escapeHtml(b.band_code)} (${escapeHtml(b.current_holder_name || 'Active')})
+            </button>
+        `).join('') || '<span style="color:var(--muted); font-size:0.75rem;">No wristbands currently issued.</span>';
+    }
+};
+
+window.openBandReturnModalForCode = (code) => {
+    window.openBandReturnModal();
+    const input = document.getElementById('bandReturnCodeInput');
+    if (input) input.value = code;
+};
+
+window.selectQuickReturnBand = (code) => {
+    const input = document.getElementById('bandReturnCodeInput');
+    if (input) input.value = code;
+};
+
+window.closeBandReturnModal = () => {
+    const modal = document.getElementById('bandReturnModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.submitBandReturnForm = async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('bandReturnSubmitBtn');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Returning...';
+
+    const band_code = document.getElementById('bandReturnCodeInput')?.value.trim();
+    const conditionRadio = document.querySelector('input[name="bandReturnCondition"]:checked');
+    const condition = conditionRadio ? conditionRadio.value : 'good';
+    const notes = document.getElementById('bandReturnNotesInput')?.value.trim();
+
+    try {
+        const res = await fetchAuth('/api/admin/bands/return', {
+            method: 'POST',
+            body: JSON.stringify({ band_code, condition, notes })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.error || 'Failed to return wristband');
+            return;
+        }
+
+        alert(`Wristband ${data.band_code} returned (Status: ${data.status.toUpperCase()})!`);
+        closeBandReturnModal();
+        document.getElementById('bandReturnForm')?.reset();
+        refreshBandInventoryData();
+    } catch (err) {
+        console.error('Return band error:', err);
+        alert('Server error while returning wristband.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = origText;
+    }
+};
+
+// Modal Operations: STOCK IN (Single / Bulk)
+window.openBandStockInModal = () => {
+    const modal = document.getElementById('bandStockInModal');
+    if (modal) modal.style.display = 'flex';
+};
+
+window.closeBandStockInModal = () => {
+    const modal = document.getElementById('bandStockInModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.setBandStockMode = (mode) => {
+    const singleFields = document.getElementById('bandStockSingleFields');
+    const bulkFields = document.getElementById('bandStockBulkFields');
+    const btnSingle = document.getElementById('bandStockModeSingle');
+    const btnBulk = document.getElementById('bandStockModeBulk');
+
+    if (mode === 'single') {
+        if (singleFields) singleFields.style.display = 'block';
+        if (bulkFields) bulkFields.style.display = 'none';
+        btnSingle.style.background = 'rgba(229,184,105,0.15)';
+        btnSingle.style.color = 'var(--gold)';
+        btnBulk.style.background = 'transparent';
+        btnBulk.style.color = 'var(--muted)';
+    } else {
+        if (singleFields) singleFields.style.display = 'none';
+        if (bulkFields) bulkFields.style.display = 'block';
+        btnBulk.style.background = 'rgba(229,184,105,0.15)';
+        btnBulk.style.color = 'var(--gold)';
+        btnSingle.style.background = 'transparent';
+        btnSingle.style.color = 'var(--muted)';
+    }
+};
+
+window.selectStockInColor = (hex, name) => {
+    selectedStockColor = { hex, name };
+    // update prefix suggestion in bulk mode
+    const prefixInput = document.getElementById('bandStockBulkPrefix');
+    if (prefixInput) {
+        const shortCode = name.split('/')[0].trim().toUpperCase().substring(0, 4);
+        prefixInput.value = `BND-${shortCode}`;
+    }
+    loadBandSummary(); // re-highlights color picker chip
+};
+
+window.submitBandStockInForm = async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('bandStockInSubmitBtn');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Processing...';
+
+    const isBulk = (document.getElementById('bandStockBulkFields')?.style.display !== 'none');
+    const category = document.getElementById('bandStockCategory')?.value || 'Standard';
+
+    try {
+        if (isBulk) {
+            const prefix = document.getElementById('bandStockBulkPrefix')?.value.trim();
+            const startingNumber = parseInt(document.getElementById('bandStockBulkStart')?.value, 10) || 1;
+            const count = parseInt(document.getElementById('bandStockBulkCount')?.value, 10) || 10;
+            const notes = document.getElementById('bandStockNotes')?.value.trim();
+
+            const res = await fetchAuth('/api/admin/bands/bulk-create', {
+                method: 'POST',
+                body: JSON.stringify({
+                    prefix,
+                    startingNumber,
+                    count,
+                    color_name: selectedStockColor.name,
+                    color_hex: selectedStockColor.hex,
+                    category,
+                    notes
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                alert(data.error || 'Failed to bulk generate wristbands');
+                return;
+            }
+            alert(`Batch complete! Successfully generated and stocked in ${data.createdCount} wristbands.`);
+        } else {
+            const band_code = document.getElementById('bandStockSingleCode')?.value.trim();
+            const notes = document.getElementById('bandStockNotes')?.value.trim();
+
+            const res = await fetchAuth('/api/admin/bands/create', {
+                method: 'POST',
+                body: JSON.stringify({
+                    band_code,
+                    color_name: selectedStockColor.name,
+                    color_hex: selectedStockColor.hex,
+                    category,
+                    notes
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                alert(data.error || 'Failed to create band');
+                return;
+            }
+            alert(`Wristband '${data.band_code}' stocked in successfully!`);
+        }
+
+        closeBandStockInModal();
+        document.getElementById('bandStockInForm')?.reset();
+        refreshBandInventoryData();
+    } catch (err) {
+        console.error('Stock in error:', err);
+        alert('Server error while stocking in wristbands.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = origText;
+    }
+};
+
+// Modal Operations: EDIT
+window.openBandEditModal = (band) => {
+    const modal = document.getElementById('bandEditModal');
+    if (!modal) return;
+    document.getElementById('bandEditId').value = band.id;
+    document.getElementById('bandEditCode').value = band.band_code;
+    document.getElementById('bandEditStatus').value = band.status;
+    document.getElementById('bandEditCategory').value = band.category || 'Standard';
+    document.getElementById('bandEditNotes').value = band.notes || '';
+    modal.style.display = 'flex';
+};
+
+window.closeBandEditModal = () => {
+    const modal = document.getElementById('bandEditModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.submitBandEditForm = async (e) => {
+    e.preventDefault();
+    const id = document.getElementById('bandEditId')?.value;
+    const band_code = document.getElementById('bandEditCode')?.value.trim();
+    const status = document.getElementById('bandEditStatus')?.value;
+    const category = document.getElementById('bandEditCategory')?.value;
+    const notes = document.getElementById('bandEditNotes')?.value.trim();
+
+    try {
+        const res = await fetchAuth(`/api/admin/bands/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ band_code, status, category, notes })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.error || 'Failed to update band');
+            return;
+        }
+        alert('Wristband details updated.');
+        closeBandEditModal();
+        refreshBandInventoryData();
+    } catch (err) {
+        console.error('Update band error:', err);
+        alert('Server error updating wristband.');
+    }
+};
+
+window.retireBandItem = async (id, code) => {
+    if (!confirm(`Are you sure you want to retire / stock-out wristband '${code}' from active inventory?`)) return;
+    const reason = prompt('Reason for retirement / write-off:', 'Worn out / Discarded');
+    if (reason === null) return;
+
+    try {
+        const res = await fetchAuth('/api/admin/bands/retire', {
+            method: 'POST',
+            body: JSON.stringify({ band_id: id, reason })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.error || 'Failed to retire band');
+            return;
+        }
+        alert(`Wristband '${code}' retired from active inventory.`);
+        refreshBandInventoryData();
+    } catch (e) {
+        console.error(e);
+        alert('Failed to retire band.');
+    }
+};
+
+window.restoreBandItem = async (id) => {
+    if (!confirm('Restore this wristband back to available in-stock inventory?')) return;
+    try {
+        const res = await fetchAuth('/api/admin/bands/restore', {
+            method: 'POST',
+            body: JSON.stringify({ band_id: id })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.error || 'Failed to restore band');
+            return;
+        }
+        alert('Wristband restored to available inventory.');
+        refreshBandInventoryData();
+    } catch (e) {
+        console.error(e);
+        alert('Failed to restore band.');
+    }
+};
+
+// Initial listener for Band Inventory sidebar tab
+document.getElementById('nav-band-inventory')?.addEventListener('click', () => {
+    loadBandSummary();
+});
 
 
