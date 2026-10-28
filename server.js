@@ -3159,7 +3159,98 @@ app.post('/api/admin/verify/collect-and-fulfill', verifyToken, (req, res) => {
     });
 });
 
-// 5. Explicit route to send / re-send Google Review request via WhatsApp
+// 5. Desk Check-In: Cancel / Walkout / Stepper adjust player quantities
+app.post('/api/admin/verify/cancel-walkout', verifyToken, (req, res) => {
+    const { booking_id, order_id, reduce_quantity, target_quantity, reason } = req.body;
+
+    if (!booking_id && !order_id) {
+        return res.status(400).json({ error: 'booking_id or order_id is required' });
+    }
+
+    const findQuery = booking_id ? "SELECT * FROM bookings WHERE id = ?" : "SELECT * FROM bookings WHERE order_id = ?";
+    const findParam = booking_id || order_id;
+
+    db.get(findQuery, [findParam], (err, booking) => {
+        if (err || !booking) {
+            return res.status(404).json({ error: 'Booking record not found' });
+        }
+
+        const currentPlayers = parseInt(booking.players, 10) || 1;
+        const currentPrice = parseFloat(booking.price) || 0;
+        const unitPrice = currentPlayers > 0 ? (currentPrice / currentPlayers) : currentPrice;
+
+        let newPlayers = currentPlayers;
+        if (target_quantity !== undefined && target_quantity !== null) {
+            newPlayers = parseInt(target_quantity, 10);
+            if (isNaN(newPlayers) || newPlayers < 0) newPlayers = 0;
+        } else if (reduce_quantity !== undefined && reduce_quantity !== null) {
+            const dec = parseInt(reduce_quantity, 10) || 1;
+            newPlayers = Math.max(0, currentPlayers - dec);
+        } else {
+            // No quantity specified: treat as full walkout (0 players)
+            newPlayers = 0;
+        }
+
+        const cleanReason = (reason || 'Customer walkout / changed mind at desk').trim();
+
+        if (newPlayers === 0) {
+            // Full cancellation: release slot lock and mark status as CANCELLED
+            const newPrice = 0;
+            db.run(
+                "UPDATE bookings SET status = 'CANCELLED', players = 0, price = ?, payment_ref = COALESCE(payment_ref || ' | ', '') || ? WHERE id = ?",
+                [newPrice, `Walkout: ${cleanReason}`, booking.id],
+                function(upErr) {
+                    if (upErr) {
+                        return res.status(500).json({ error: 'Failed to cancel booking' });
+                    }
+                    // Free slot lock for cross-platform simulator calendar
+                    db.run("DELETE FROM simulator_slot_locks WHERE source_order_id LIKE ?", [`${booking.order_id}%`], () => {});
+
+                    console.log(`[Desk Check-In] Booking #${booking.id} (${booking.order_id}) marked CANCELLED/WALKOUT. Slot freed.`);
+                    res.json({
+                        success: true,
+                        action: 'CANCELLED',
+                        booking_id: booking.id,
+                        order_id: booking.order_id,
+                        players: 0,
+                        price: 0,
+                        status: 'CANCELLED',
+                        message: 'Session cancelled and simulator slot released.'
+                    });
+                }
+            );
+        } else {
+            // Partial reduction or increment: recalculate proportional amount
+            const newPrice = Math.max(0, Math.round(unitPrice * newPlayers * 100) / 100);
+            const statusToSet = booking.status === 'CANCELLED' ? 'PENDING' : booking.status;
+
+            db.run(
+                "UPDATE bookings SET players = ?, price = ?, status = ? WHERE id = ?",
+                [newPlayers, newPrice, statusToSet, booking.id],
+                function(upErr) {
+                    if (upErr) {
+                        return res.status(500).json({ error: 'Failed to update player count' });
+                    }
+
+                    console.log(`[Desk Check-In] Booking #${booking.id} (${booking.order_id}) players adjusted: ${currentPlayers} -> ${newPlayers}, Price: ₹${currentPrice} -> ₹${newPrice}`);
+                    res.json({
+                        success: true,
+                        action: 'UPDATED',
+                        booking_id: booking.id,
+                        order_id: booking.order_id,
+                        players: newPlayers,
+                        price: newPrice,
+                        unit_price: unitPrice,
+                        status: statusToSet,
+                        message: `Player count adjusted to ${newPlayers} (₹${newPrice.toFixed(2)}).`
+                    });
+                }
+            );
+        }
+    });
+});
+
+// 6. Explicit route to send / re-send Google Review request via WhatsApp
 app.post('/api/admin/verify/send-review-link', verifyToken, async (req, res) => {
     try {
         const { phone, country_code, name } = req.body;

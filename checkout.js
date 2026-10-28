@@ -1,3 +1,75 @@
+
+// --- STRICT COUNTRY PHONE FORMAT ENFORCEMENT ---
+const COUNTRY_PHONE_CONFIG = {
+    '+91': { min: 10, max: 10, placeholder: '9876543210', pattern: /^[6-9]\d{9}$/, desc: '10 digits starting with 6-9' },
+    '+1':  { min: 10, max: 10, placeholder: '2025550123', pattern: /^\d{10}$/, desc: '10 digits' },
+    '+44': { min: 10, max: 10, placeholder: '7911123456', pattern: /^\d{10}$/, desc: '10 digits' },
+    '+971':{ min: 9,  max: 9,  placeholder: '501234567',  pattern: /^\d{9}$/, desc: '9 digits' },
+    '+65': { min: 8,  max: 8,  placeholder: '81234567',   pattern: /^\d{8}$/, desc: '8 digits' },
+    '+61': { min: 9,  max: 9,  placeholder: '412345678',  pattern: /^\d{9}$/, desc: '9 digits' }
+};
+
+function getSelectedCountryConfig() {
+    const codeSelect = document.getElementById('co-country-code');
+    const dial = codeSelect ? codeSelect.value.trim() : '+91';
+    return COUNTRY_PHONE_CONFIG[dial] || { min: 7, max: 15, placeholder: 'Phone Number', pattern: /^\d{7,15}$/, desc: 'valid phone digits' };
+}
+
+function initPhoneValidation() {
+    const phoneInput = document.getElementById('co-phone');
+    const codeSelect = document.getElementById('co-country-code');
+    if (!phoneInput) return;
+
+    function applyConfig() {
+        const conf = getSelectedCountryConfig();
+        phoneInput.maxLength = conf.max;
+        if (conf.placeholder) phoneInput.placeholder = 'e.g. ' + conf.placeholder;
+        // Trim if already longer
+        let digits = phoneInput.value.replace(/\D/g, '');
+        if (digits.length > conf.max) {
+            digits = digits.slice(0, conf.max);
+        }
+        phoneInput.value = digits;
+    }
+
+    phoneInput.addEventListener('input', function(e) {
+        const conf = getSelectedCountryConfig();
+        let digits = this.value.replace(/\D/g, '');
+        if (digits.length > conf.max) {
+            digits = digits.slice(0, conf.max);
+        }
+        this.value = digits;
+    });
+
+    phoneInput.addEventListener('keydown', function(e) {
+        const conf = getSelectedCountryConfig();
+        const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'];
+        if (allowedKeys.includes(e.key) || e.ctrlKey || e.metaKey) return;
+        if (!/^\d$/.test(e.key)) {
+            e.preventDefault();
+            return;
+        }
+        const selStart = this.selectionStart;
+        const selEnd = this.selectionEnd;
+        const currentLength = this.value.length;
+        if (currentLength >= conf.max && selStart === selEnd) {
+            e.preventDefault();
+        }
+    });
+
+    if (codeSelect) {
+        codeSelect.addEventListener('change', applyConfig);
+    }
+    applyConfig();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPhoneValidation);
+} else {
+    initPhoneValidation();
+}
+// --- END STRICT COUNTRY PHONE FORMAT ENFORCEMENT ---
+
 // =============================================
 // CHECKOUT PAGE LOGIC
 // =============================================
@@ -254,7 +326,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         const name  = document.getElementById("co-name")?.value.trim();
         const email = document.getElementById("co-email")?.value.trim();
         const countryCode = document.getElementById("co-country-code")?.value.trim() || '+91';
-        const rawPhone = document.getElementById("co-phone")?.value.trim();
+        const rawPhone = document.getElementById('co-phone')?.value.trim();
+        const cleanPhone = (rawPhone || '').replace(/\D/g, '');
+        const phoneConf = getSelectedCountryConfig();
+        if (!cleanPhone || cleanPhone.length !== phoneConf.max || !phoneConf.pattern.test(cleanPhone)) {
+            alert('Please enter a valid ' + (document.getElementById('co-country-code')?.value || '+91') + ' mobile number (' + phoneConf.desc + ').');
+            document.getElementById('co-phone')?.focus();
+            return;
+        }
         const phone = rawPhone ? `${countryCode} ${rawPhone}` : '';
 
         const termsCheckbox = document.getElementById("co-terms-checkbox");

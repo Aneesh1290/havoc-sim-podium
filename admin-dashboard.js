@@ -5085,128 +5085,9 @@ window.verifyDeskOtp = async () => {
             autoFulfillBanner.style.color = '#fbbf24';
         }
 
-        // Render full session breakdown with ULTRA CLEAR child-proof visuals
-        const listContainer = document.getElementById('deskVerifiedBookingsList');
-        let html = '';
-
-        if (!data.bookings || data.bookings.length === 0) {
-            html = `<div style="text-align: center; color: var(--muted); padding: 1.5rem 0;">No active sessions for today.</div>`;
-        } else {
-            data.bookings.forEach((b, idx) => {
-                const isFulfilled = (b.status === 'ATTENDED');
-                const isPaid = (b.status === 'PAID' || b.status === 'CASH');
-
-                // Big clear colors
-                const cardBorder = isPaid ? 'rgba(16,185,129,0.5)' : 'rgba(239,68,68,0.5)';
-                const cardBg = isPaid ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)';
-                
-                // Clear big badge
-                let statusHeader = '';
-                if (isFulfilled) {
-                    statusHeader = `
-                        <div style="background: #10B981; color: #000; font-weight: 800; font-size: 0.85rem; padding: 6px 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.5px;">
-                            <span>✓</span> READY & CHECKED IN
-                        </div>
-                    `;
-                } else if (isPaid) {
-                    statusHeader = `
-                        <div style="background: #10B981; color: #000; font-weight: 800; font-size: 0.85rem; padding: 6px 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.5px;">
-                            <span>✓</span> PAID — ADMIT TO SIMULATOR
-                        </div>
-                    `;
-                } else {
-                    statusHeader = `
-                        <div style="background: #EF4444; color: #fff; font-weight: 800; font-size: 0.85rem; padding: 6px 14px; border-radius: 8px; display: inline-flex; align-items: center; gap: 6px; letter-spacing: 0.5px;">
-                            <span>⚠️</span> UNPAID — COLLECT ₹${parseFloat(b.price || 0).toFixed(0)} AT DESK
-                        </div>
-                    `;
-                }
-
-                html += `
-                    <div style="background: ${cardBg}; border: 2px solid ${cardBorder}; border-radius: 14px; padding: 1.25rem; margin-bottom: 0.4rem;">
-                        
-                        <!-- Status Banner -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.9rem; flex-wrap: wrap; gap: 8px;">
-                            ${statusHeader}
-                            <span style="font-size: 0.75rem; color: var(--muted); font-family: monospace;">Order #${b.order_id}</span>
-                        </div>
-
-                        <!-- Big Simulator Name -->
-                        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 0.8rem;">
-                            <span style="font-size: 1.4rem;">🎮</span>
-                            <div>
-                                <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); font-weight: 700;">SIMULATOR</div>
-                                <div style="font-size: 1.25rem; font-weight: 800; color: #fff; line-height: 1.2;">${b.item_name}</div>
-                            </div>
-                        </div>
-
-                        <!-- Big Slot & Date Block -->
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: rgba(0,0,0,0.3); padding: 0.85rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.05);">
-                            <div>
-                                <div style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px;">📅 DATE</div>
-                                <div style="font-size: 1rem; font-weight: 700; color: var(--gold); margin-top: 2px;">${b.booking_date}</div>
-                            </div>
-                            <div>
-                                <div style="font-size: 0.68rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px;">⏰ TIME SLOT</div>
-                                <div style="font-size: 1rem; font-weight: 700; color: #fff; margin-top: 2px;">${b.booking_time}</div>
-                            </div>
-                        </div>
-
-                        <!-- Extra details if any -->
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.75rem; font-size: 0.8rem; color: #bbb;">
-                            <span><strong>Players:</strong> ${b.players || 1} ${b.player_two_name ? `(${b.player_two_name})` : ''}</span>
-                            <span style="font-size: 0.95rem; font-weight: 700; color: #fff;">Amount: ₹${parseFloat(b.price || 0).toFixed(2)}</span>
-                        </div>
-
-                        <!-- Wristband Handout Section -->
-                        <div class="band-handout-section" style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px dashed rgba(255,255,255,0.1); display: ${document.getElementById('nav-band-inventory')?.style.display === 'none' ? 'none' : 'flex'}; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="font-size: 1rem;">🎗️</span>
-                                <span style="font-size: 0.8rem; color: var(--muted);">Track Band:</span>
-                                <span style="font-size: 0.82rem; font-weight: 700; color: var(--gold);">Wristband Handout</span>
-                            </div>
-                            <button type="button" class="btn" onclick="openBandIssueForBooking('${escapeHtml(b.name || data.customer_name || 'Guest')}', '${escapeHtml(b.order_id || '')}', '${escapeHtml(b.item_name || '')} (${escapeHtml(b.booking_time || '')})')" style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #10B981; font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-                                <span>⚡</span> Handout Band
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-
-        listContainer.innerHTML = html;
-
-        // Check for unpaid / pending orders
-        const unpaidBookings = (data.bookings || []).filter(b => b.status !== 'PAID' && b.status !== 'CASH' && b.status !== 'ATTENDED');
-        const totalDue = unpaidBookings.reduce((sum, b) => sum + (parseFloat(b.price) || 0), 0);
-
-        window._deskUnpaidDue = totalDue;
-        window._deskUnpaidOrderIds = unpaidBookings.map(b => b.order_id);
-
-        const paymentBox = document.getElementById('deskPaymentCollectionBox');
-        const doneCloseBtn = document.getElementById('deskDoneCloseBtn');
-        const dueDisplay = document.getElementById('deskTotalDueDisplay');
-        const txnInput = document.getElementById('deskTxnRefInput');
-        const amtInput = document.getElementById('deskAmountCollectedInput');
-
-        if (totalDue > 0) {
-            if (paymentBox) paymentBox.style.display = 'block';
-            if (dueDisplay) dueDisplay.textContent = `₹${totalDue.toFixed(2)}`;
-            if (txnInput) txnInput.value = '';
-            if (amtInput) amtInput.value = '';
-            window.updateDeskPaymentValidation();
-        } else {
-            if (paymentBox) paymentBox.style.display = 'none';
-            if (doneCloseBtn) {
-                doneCloseBtn.disabled = false;
-                doneCloseBtn.style.opacity = '1';
-                doneCloseBtn.style.cursor = 'pointer';
-                doneCloseBtn.style.background = 'linear-gradient(135deg, #e5b869, #c9952f)';
-                doneCloseBtn.style.color = '#000';
-                doneCloseBtn.style.boxShadow = 'none';
-                doneCloseBtn.innerHTML = 'Done / Close';
-            }
-        }
+        // Store active session records in memory for real-time stepper updates
+        window._deskVerifiedBookings = (data.bookings || []).slice();
+        renderDeskVerifiedBookings();
 
     } catch (err) {
         errorDiv.textContent = 'Server error during verification.';
@@ -5216,6 +5097,293 @@ window.verifyDeskOtp = async () => {
         verifyBtn.disabled = false;
     }
 };
+
+// =========================================================================
+// DESK CHECK-IN: SEGREGATED ORDER CARDS & PLAYER STEPPER CONTROLS
+// =========================================================================
+
+window.renderDeskVerifiedBookings = function() {
+    const listContainer = document.getElementById('deskVerifiedBookingsList');
+    if (!listContainer) return;
+
+    const bookings = window._deskVerifiedBookings || [];
+    const cust = window._lastVerifiedCustomer || {};
+
+    if (bookings.length === 0) {
+        listContainer.innerHTML = `<div style="text-align: center; color: var(--muted); padding: 1.5rem 0;">No active sessions for today.</div>`;
+        window._deskUnpaidDue = 0;
+        window._deskUnpaidOrderIds = [];
+        updateDeskPaymentUI(0);
+        return;
+    }
+
+    // Group bookings by root order_id (e.g. SP_123 or PAYDUE_123)
+    const ordersMap = new Map();
+    bookings.forEach(b => {
+        const orderKey = String(b.order_id || 'GENERAL');
+        if (!ordersMap.has(orderKey)) {
+            ordersMap.set(orderKey, []);
+        }
+        ordersMap.get(orderKey).push(b);
+    });
+
+    let html = '';
+
+    ordersMap.forEach((items, orderId) => {
+        // Compute order aggregates
+        const totalOrderPlayers = items.reduce((sum, b) => sum + (parseInt(b.players, 10) || 0), 0);
+        const totalOrderAmount = items.reduce((sum, b) => sum + (parseFloat(b.price) || 0), 0);
+        const isAllPaid = items.every(b => b.status === 'PAID' || b.status === 'CASH' || b.status === 'ATTENDED');
+        const isAllCancelled = items.every(b => b.status === 'CANCELLED');
+        const isAttended = items.every(b => b.status === 'ATTENDED');
+
+        // Order card header styles
+        let orderBadgeHtml = '';
+        if (isAllCancelled) {
+            orderBadgeHtml = `<span style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); font-weight: 800; font-size: 0.72rem; padding: 4px 10px; border-radius: 6px;">CANCELLED / WALKOUT</span>`;
+        } else if (isAttended) {
+            orderBadgeHtml = `<span style="background: rgba(16,185,129,0.15); color: #10B981; border: 1px solid rgba(16,185,129,0.3); font-weight: 800; font-size: 0.72rem; padding: 4px 10px; border-radius: 6px;">✓ ATTENDED / READY</span>`;
+        } else if (isAllPaid) {
+            orderBadgeHtml = `<span style="background: rgba(16,185,129,0.15); color: #10B981; border: 1px solid rgba(16,185,129,0.3); font-weight: 800; font-size: 0.72rem; padding: 4px 10px; border-radius: 6px;">✓ PAID ONLINE</span>`;
+        } else {
+            orderBadgeHtml = `<span style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); font-weight: 800; font-size: 0.72rem; padding: 4px 10px; border-radius: 6px;">⚠️ PAY AT DESK</span>`;
+        }
+
+        html += `
+            <div class="desk-order-card" style="background: rgba(255,255,255,0.02); border: 1.5px solid ${isAllPaid ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.35)'}; border-radius: 14px; padding: 1.15rem; margin-bottom: 0.9rem;">
+                
+                <!-- Order Card Header -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.75rem; margin-bottom: 0.9rem; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.1rem;">🧾</span>
+                        <div>
+                            <span style="background: rgba(229,184,105,0.15); border: 1px solid rgba(229,184,105,0.3); color: var(--gold); font-family: monospace; font-weight: 800; font-size: 0.85rem; padding: 2px 8px; border-radius: 6px;">
+                                Order #${escapeHtml(orderId)}
+                            </span>
+                            <span style="color: var(--muted); font-size: 0.75rem; margin-left: 8px;">
+                                👥 ${totalOrderPlayers} Player(s) &bull; Total: <strong style="color: #fff;">₹${totalOrderAmount.toFixed(2)}</strong>
+                            </span>
+                        </div>
+                    </div>
+                    <div>
+                        ${orderBadgeHtml}
+                    </div>
+                </div>
+
+                <!-- Session / Ticket Items Inside Order -->
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+        `;
+
+        items.forEach(b => {
+            const playersCount = parseInt(b.players, 10) || 0;
+            const priceNum = parseFloat(b.price) || 0;
+            const isCancelled = (b.status === 'CANCELLED' || playersCount === 0);
+
+            // Resolve wristband badge for slot
+            let wristbandBadgeHtml = '';
+            if (typeof getSlotWristbandColor === 'function' && typeof getWristbandBadgeStyle === 'function') {
+                const colorInfo = getSlotWristbandColor(b.booking_time);
+                const badgeStyle = getWristbandBadgeStyle(colorInfo.hex);
+                wristbandBadgeHtml = `
+                    <div style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 12px; font-weight: 700; font-size: 0.72rem; background: ${badgeStyle.backgroundColor}; border: 1px solid ${badgeStyle.borderColor}; color: ${badgeStyle.color};">
+                        <span style="width: 8px; height: 8px; border-radius: 50%; background: ${colorInfo.hex};"></span>
+                        <span>${escapeHtml(colorInfo.name)}</span>
+                    </div>
+                `;
+            }
+
+            html += `
+                <div id="desk-booking-row-${b.id}" style="background: ${isCancelled ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.25)'}; border: 1px solid ${isCancelled ? 'rgba(239,68,68,0.2)' : 'rgba(255,255,255,0.06)'}; border-radius: 10px; padding: 0.9rem; ${isCancelled ? 'opacity: 0.6;' : ''}">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                        
+                        <!-- Left: Simulator & Timing -->
+                        <div style="flex: 1; min-width: 220px;">
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="font-size: 1.15rem;">🎮</span>
+                                <span style="font-weight: 800; color: #fff; font-size: 1rem;">${escapeHtml(b.item_name)}</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap;">
+                                <span style="color: var(--gold); font-size: 0.78rem; font-weight: 700;">📅 ${escapeHtml(b.booking_date)}</span>
+                                <span style="color: #fff; font-size: 0.78rem; font-weight: 700;">⏰ ${escapeHtml(b.booking_time)}</span>
+                                ${wristbandBadgeHtml}
+                            </div>
+                        </div>
+
+                        <!-- Right: Stepper Controls & Release Slot -->
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            
+                            <!-- Player Stepper Pill -->
+                            <div style="display: inline-flex; align-items: center; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 2px;">
+                                <button type="button" onclick="adjustDeskPlayerCount(${b.id}, -1)" title="Reduce 1 Player" style="background: transparent; border: none; color: #f87171; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='transparent'">
+                                    &minus;
+                                </button>
+                                
+                                <button type="button" onclick="promptDeskPlayerCount(${b.id}, ${playersCount})" title="Click to edit player count" style="background: transparent; border: none; color: #fff; font-weight: 800; font-size: 0.85rem; padding: 0 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                                    <span>${playersCount} Player${playersCount === 1 ? '' : 's'}</span>
+                                    <span style="font-size: 0.7rem; color: var(--gold);">✎</span>
+                                </button>
+
+                                <button type="button" onclick="adjustDeskPlayerCount(${b.id}, 1)" title="Add 1 Player" style="background: transparent; border: none; color: #10B981; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.background='rgba(16,185,129,0.2)'" onmouseout="this.style.background='transparent'">
+                                    &#43;
+                                </button>
+                            </div>
+
+                            <!-- Price Pill -->
+                            <div style="min-width: 85px; text-align: right;">
+                                <div style="font-size: 0.95rem; font-weight: 800; color: #fff;">₹${priceNum.toFixed(2)}</div>
+                                <div style="font-size: 0.68rem; color: var(--muted);">${playersCount > 0 ? `(₹${(priceNum / playersCount).toFixed(0)}/ea)` : 'Cancelled'}</div>
+                            </div>
+
+                            <!-- Release / Walkout Button -->
+                            <button type="button" onclick="cancelDeskBookingSlot(${b.id})" title="Release Simulator Slot (Walkout / Not Interested)" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">
+                                <span>🚫</span> Release Slot
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Wristband Handout Button -->
+                    ${!isCancelled ? `
+                        <div class="band-handout-section" style="margin-top: 0.75rem; padding-top: 0.65rem; border-top: 1px dashed rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-size: 0.75rem; color: var(--muted);">Track Wristband Assignment:</span>
+                            <button type="button" class="btn" onclick="openBandIssueForBooking('${escapeHtml(b.name || cust.name || 'Guest')}', '${escapeHtml(b.order_id || '')}', '${escapeHtml(b.item_name || '')} (${escapeHtml(b.booking_time || '')})')" style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #10B981; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                                <span>⚡</span> Handout Band
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+        `;
+    });
+
+    listContainer.innerHTML = html;
+
+    // Recalculate unpaid balance dynamically based only on attending participants
+    const unpaidBookings = bookings.filter(b => b.status !== 'PAID' && b.status !== 'CASH' && b.status !== 'ATTENDED' && b.status !== 'CANCELLED');
+    const totalDue = unpaidBookings.reduce((sum, b) => sum + (parseFloat(b.price) || 0), 0);
+
+    window._deskUnpaidDue = totalDue;
+    window._deskUnpaidOrderIds = Array.from(new Set(unpaidBookings.map(b => b.order_id)));
+
+    updateDeskPaymentUI(totalDue);
+};
+
+// Adjust player count via stepper [ - ] or [ + ]
+window.adjustDeskPlayerCount = async function(bookingId, delta) {
+    const booking = (window._deskVerifiedBookings || []).find(b => b.id === bookingId);
+    if (!booking) return;
+
+    const current = parseInt(booking.players, 10) || 0;
+    const nextCount = Math.max(0, current + delta);
+
+    if (nextCount === current) return;
+
+    if (nextCount === 0) {
+        if (!confirm(`Are you sure you want to reduce player count to 0 for ${booking.item_name}?\nThis will cancel the session and release the simulator slot.`)) {
+            return;
+        }
+    }
+
+    await callCancelWalkoutApi({ booking_id: bookingId, target_quantity: nextCount });
+};
+
+// Clickable prompt [ count ✎ ] allowing exact manual input
+window.promptDeskPlayerCount = async function(bookingId, currentCount) {
+    const input = prompt(`Enter new player count for this session:`, currentCount);
+    if (input === null) return;
+
+    const newCount = parseInt(input.trim(), 10);
+    if (isNaN(newCount) || newCount < 0) {
+        alert('Please enter a valid positive number.');
+        return;
+    }
+
+    if (newCount === currentCount) return;
+
+    if (newCount === 0) {
+        if (!confirm(`Setting player count to 0 will cancel this session and release the simulator slot. Proceed?`)) {
+            return;
+        }
+    }
+
+    await callCancelWalkoutApi({ booking_id: bookingId, target_quantity: newCount });
+};
+
+// Release slot button (mark walkout & free simulator slot)
+window.cancelDeskBookingSlot = async function(bookingId) {
+    const booking = (window._deskVerifiedBookings || []).find(b => b.id === bookingId);
+    if (!booking) return;
+
+    if (!confirm(`Are you sure you want to release the simulator slot for ${booking.item_name} (${booking.booking_time})?\nThis session will be marked as CANCELLED/WALKOUT.`)) {
+        return;
+    }
+
+    await callCancelWalkoutApi({ booking_id: bookingId, target_quantity: 0, reason: 'Staff released slot at desk' });
+};
+
+// API caller for adjusting players / cancelling walkouts
+async function callCancelWalkoutApi(payload) {
+    try {
+        const res = await fetchAuth('/api/admin/verify/cancel-walkout', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            alert(data.error || 'Failed to update player count.');
+            return;
+        }
+
+        // Update in-memory session record
+        const booking = (window._deskVerifiedBookings || []).find(b => b.id === payload.booking_id);
+        if (booking) {
+            booking.players = data.players;
+            booking.price = data.price;
+            booking.status = data.status;
+        }
+
+        // Re-render UI and recalculate desk payment due immediately
+        renderDeskVerifiedBookings();
+
+        // Refresh underlying admin bookings table in background
+        if (typeof loadBookings === 'function') loadBookings();
+
+    } catch (err) {
+        console.error('Error in callCancelWalkoutApi:', err);
+        alert('Server error updating player count.');
+    }
+}
+
+// Update Desk Payment Collection box and Done/Close button
+function updateDeskPaymentUI(totalDue) {
+    const paymentBox = document.getElementById('deskPaymentCollectionBox');
+    const doneCloseBtn = document.getElementById('deskDoneCloseBtn');
+    const dueDisplay = document.getElementById('deskTotalDueDisplay');
+    const amtInput = document.getElementById('deskAmountCollectedInput');
+
+    if (totalDue > 0) {
+        if (paymentBox) paymentBox.style.display = 'block';
+        if (dueDisplay) dueDisplay.textContent = `₹${totalDue.toFixed(2)}`;
+        if (amtInput && !amtInput.value) amtInput.placeholder = `Enter ₹${totalDue.toFixed(2)}`;
+        window.updateDeskPaymentValidation();
+    } else {
+        if (paymentBox) paymentBox.style.display = 'none';
+        if (doneCloseBtn) {
+            doneCloseBtn.disabled = false;
+            doneCloseBtn.style.opacity = '1';
+            doneCloseBtn.style.cursor = 'pointer';
+            doneCloseBtn.style.background = 'linear-gradient(135deg, #e5b869, #c9952f)';
+            doneCloseBtn.style.color = '#000';
+            doneCloseBtn.style.boxShadow = 'none';
+            doneCloseBtn.innerHTML = 'Done / Close';
+        }
+    }
+}
 
 window.updateDeskPaymentValidation = function() {
     const expected = window._deskUnpaidDue || 0;
