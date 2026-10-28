@@ -4463,7 +4463,7 @@ document.querySelector('.nav-btn[data-target="tab-newsletter"]')?.addEventListen
 });
 
 // ==========================================
-// SETTINGS
+// SETTINGS & FEATURE SWITCHES
 // ==========================================
 async function loadSettings() {
     try {
@@ -4476,9 +4476,80 @@ async function loadSettings() {
             document.getElementById("toggle-payment-upi").checked = data.upi;
         }
     } catch (e) {
-        console.error("Failed to load settings", e);
+        console.error("Failed to load payment settings", e);
+    }
+
+    try {
+        const res = await fetch(BACKEND_URL + "/api/settings/features");
+        if (res.ok) {
+            const data = await res.json();
+            const isEnabled = data.band_inventory_enabled !== false;
+            const toggle = document.getElementById("toggle-feature-bands");
+            if (toggle) toggle.checked = isEnabled;
+            applyBandInventoryFeatureVisibility(isEnabled);
+        }
+    } catch (e) {
+        console.error("Failed to load feature settings", e);
     }
 }
+
+function applyBandInventoryFeatureVisibility(isEnabled) {
+    const navBtn = document.getElementById('nav-band-inventory');
+    if (navBtn) {
+        navBtn.style.display = isEnabled ? 'flex' : 'none';
+    }
+
+    // Handout buttons in desk check-in
+    document.querySelectorAll('.band-handout-section').forEach(el => {
+        el.style.display = isEnabled ? 'flex' : 'none';
+    });
+}
+
+// Check feature flag on initial admin dashboard load
+(async function initFeatureSwitches() {
+    try {
+        const res = await fetch(BACKEND_URL + "/api/settings/features");
+        if (res.ok) {
+            const data = await res.json();
+            applyBandInventoryFeatureVisibility(data.band_inventory_enabled !== false);
+        }
+    } catch (e) {}
+})();
+
+window.saveFeatureSettings = async () => {
+    const btn = document.getElementById("saveFeatureSettingsBtn");
+    const origText = btn ? btn.textContent : "Save Feature Switch";
+    if (btn) {
+        btn.textContent = "Saving...";
+        btn.disabled = true;
+    }
+
+    const band_inventory_enabled = document.getElementById("toggle-feature-bands")?.checked;
+
+    try {
+        const res = await fetchAuth('/api/admin/settings/features', {
+            method: 'POST',
+            body: JSON.stringify({ band_inventory_enabled })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            applyBandInventoryFeatureVisibility(band_inventory_enabled);
+            alert(band_inventory_enabled 
+                ? "Wristband Inventory module is now ENABLED on this website." 
+                : "Wristband Inventory module is now DISABLED and hidden from navigation.");
+        } else {
+            alert(data.error || "Failed to update feature settings.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Server error saving feature settings.");
+    } finally {
+        if (btn) {
+            btn.textContent = origText;
+            btn.disabled = false;
+        }
+    }
+};
 
 document.getElementById('nav-block-slots')?.addEventListener('click', () => {
     if (typeof initBlockSlotForm === 'function') initBlockSlotForm();
@@ -4518,7 +4589,8 @@ document.getElementById("savePaymentSettingsBtn")?.addEventListener("click", asy
             alert("Error: " + (data.error || "Failed to save settings"));
         }
     } catch (err) {
-        alert("Network error while saving settings.");
+        console.error(err);
+        alert("Failed to save settings.");
     } finally {
         btn.textContent = "Save Settings";
         btn.disabled = false;
@@ -5087,7 +5159,7 @@ window.verifyDeskOtp = async () => {
                         </div>
 
                         <!-- Wristband Handout Section -->
-                        <div style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px dashed rgba(255,255,255,0.1); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <div class="band-handout-section" style="margin-top: 0.85rem; padding-top: 0.75rem; border-top: 1px dashed rgba(255,255,255,0.1); display: ${document.getElementById('nav-band-inventory')?.style.display === 'none' ? 'none' : 'flex'}; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                             <div style="display: flex; align-items: center; gap: 8px;">
                                 <span style="font-size: 1rem;">🎗️</span>
                                 <span style="font-size: 0.8rem; color: var(--muted);">Track Band:</span>

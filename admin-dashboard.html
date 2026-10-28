@@ -2582,6 +2582,35 @@
                     <button class="btn btn-gold" id="savePaymentSettingsBtn">Save Settings</button>
                 </div>
             </div>
+
+            <!-- Feature Modules / Future Addons Switch -->
+            <div class="data-card" style="max-width: 600px; margin-top: 1.5rem;">
+                <h3 style="margin-top: 0; margin-bottom: 0.5rem; color: #fff; display: flex; align-items: center; gap: 8px;">
+                    <span>⚡</span> Feature Modules &amp; Future Add-ons
+                </h3>
+                <p style="color: var(--muted); font-size: 0.88rem; margin-bottom: 1.5rem;">
+                    Control which operational modules are active on this website. If wristband tracking is not needed yet or planned for a future phase, toggle it off to keep your staff workflow clean.
+                </p>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-top: 1px solid rgba(255,255,255,0.08);">
+                    <div>
+                        <strong style="color: #fff; font-size: 1.05rem; display: flex; align-items: center; gap: 6px;">
+                            <span>🎗️</span> Wristband Inventory System
+                        </strong>
+                        <div style="color: var(--muted); font-size: 0.83rem; margin-top: 0.3rem;">
+                            Enables the Band Inventory navigation tab, stock counters, handout &amp; return modals, and check-in badges.
+                        </div>
+                    </div>
+                    <label class="switch" style="position: relative; display: inline-block; width: 50px; height: 26px; flex-shrink: 0; margin-left: 1rem;">
+                        <input type="checkbox" id="toggle-feature-bands" checked style="opacity: 0; width: 0; height: 0;">
+                        <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px;"></span>
+                    </label>
+                </div>
+
+                <div style="margin-top: 1.5rem; text-align: right;">
+                    <button class="btn btn-gold" id="saveFeatureSettingsBtn" onclick="saveFeatureSettings()">Save Feature Switch</button>
+                </div>
+            </div>
             
             <style>
                 .switch input:checked + .slider { background-color: var(--gold); }

@@ -511,6 +511,35 @@ app.post('/api/admin/settings/payment', verifyToken, verifySuperAdmin, (req, res
     });
 });
 
+// Feature switches (e.g. Band Inventory ON/OFF toggle per website)
+app.get('/api/settings/features', (req, res) => {
+    db.get("SELECT value FROM settings WHERE key = 'feature_switches'", (err, row) => {
+        if (err || !row) return res.json({ band_inventory_enabled: true });
+        try {
+            res.json(JSON.parse(row.value));
+        } catch (e) {
+            res.json({ band_inventory_enabled: true });
+        }
+    });
+});
+
+app.post('/api/admin/settings/features', verifyToken, (req, res) => {
+    const { band_inventory_enabled } = req.body;
+    const value = JSON.stringify({ band_inventory_enabled: !!band_inventory_enabled });
+
+    db.run("UPDATE settings SET value = ? WHERE key = 'feature_switches'", [value], function(err) {
+        if (err) return res.status(500).json({ error: 'Failed to update feature settings.' });
+        if (this.changes === 0) {
+            db.run("INSERT INTO settings (key, value) VALUES ('feature_switches', ?)", [value], (insertErr) => {
+                if (insertErr) return res.status(500).json({ error: 'Failed to insert feature settings.' });
+                res.json({ success: true, band_inventory_enabled: !!band_inventory_enabled });
+            });
+        } else {
+            res.json({ success: true, band_inventory_enabled: !!band_inventory_enabled });
+        }
+    });
+});
+
 // 1. Admin Login (Username + Password + TOTP)
 app.post('/api/admin/login', (req, res) => {
     const { username, password, token } = req.body;
