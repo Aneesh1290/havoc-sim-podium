@@ -2049,7 +2049,11 @@
                             Each time slot is linked to an official wristband color code. Colors are automatically recognized across Band Inventory.
                         </p>
                     </div>
-                    <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <!-- Bulk Delete Action Button (Visible when rows are selected) -->
+                        <button type="button" id="btnBulkDeleteSlots" onclick="bulkDeleteSelectedSlots()" class="btn" style="display: none; background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.4); color: #f87171; border-radius: 10px; padding: 0.55rem 1rem; font-size: 0.85rem; font-weight: 700; cursor: pointer; align-items: center; gap: 6px;">
+                            <span>🗑️</span> Delete Selected (<span id="selectedSlotsCountDisplay">0</span>)
+                        </button>
                         <button type="button" onclick="loadAdminTimeSlots()" class="btn" style="background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 10px; padding: 0.55rem 0.9rem; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
                             <span>↻</span> Refresh
                         </button>
@@ -2065,7 +2069,10 @@
                         <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
                             <thead>
                                 <tr style="border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.3);">
-                                    <th style="padding: 1rem 1.25rem; color: var(--muted); font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">#</th>
+                                    <th style="padding: 1rem 0.75rem 1rem 1.25rem; width: 44px; text-align: center;">
+                                        <input type="checkbox" id="selectAllSlotsCheckbox" onchange="toggleSelectAllSlots(this.checked)" title="Select All" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--gold);">
+                                    </th>
+                                    <th style="padding: 1rem 1rem; color: var(--muted); font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">#</th>
                                     <th style="padding: 1rem 1.25rem; color: var(--muted); font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">Slot Display Name</th>
                                     <th style="padding: 1rem 1.25rem; color: var(--muted); font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">Wristband Color Code</th>
                                     <th style="padding: 1rem 1.25rem; color: var(--muted); font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">Type / Remark</th>
@@ -2076,7 +2083,7 @@
                             </thead>
                             <tbody id="adminTimeSlotsTableBody">
                                 <tr>
-                                    <td colspan="7" style="text-align: center; color: var(--muted); padding: 3rem 0;">Loading time slots...</td>
+                                    <td colspan="8" style="text-align: center; color: var(--muted); padding: 3rem 0;">Loading time slots...</td>
                                 </tr>
                             </tbody>
                         </table>

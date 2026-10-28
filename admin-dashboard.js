@@ -6419,14 +6419,58 @@ window.switchSlotSubTab = (tab) => {
     }
 };
 
+// Selection set for bulk operations
+let selectedSlotIds = new Set();
+
+function updateBulkDeleteToolbar() {
+    const btn = document.getElementById('btnBulkDeleteSlots');
+    const countDisplay = document.getElementById('selectedSlotsCountDisplay');
+    const masterCheckbox = document.getElementById('selectAllSlotsCheckbox');
+
+    const count = selectedSlotIds.size;
+    if (countDisplay) countDisplay.textContent = count;
+
+    if (btn) {
+        btn.style.display = count > 0 ? 'inline-flex' : 'none';
+    }
+
+    if (masterCheckbox && cachedAdminSlots.length > 0) {
+        masterCheckbox.checked = count === cachedAdminSlots.length;
+        masterCheckbox.indeterminate = count > 0 && count < cachedAdminSlots.length;
+    }
+}
+
+window.toggleSelectAllSlots = (isChecked) => {
+    selectedSlotIds.clear();
+    if (isChecked) {
+        cachedAdminSlots.forEach(s => selectedSlotIds.add(s.id));
+    }
+    document.querySelectorAll('.slot-row-checkbox').forEach(cb => {
+        cb.checked = isChecked;
+    });
+    updateBulkDeleteToolbar();
+};
+
+window.toggleSlotRowSelect = (id, isChecked) => {
+    if (isChecked) {
+        selectedSlotIds.add(id);
+    } else {
+        selectedSlotIds.delete(id);
+    }
+    updateBulkDeleteToolbar();
+};
+
 // Load and render all time slots with active color code badges
 window.loadAdminTimeSlots = async () => {
     const tbody = document.getElementById('adminTimeSlotsTableBody');
     if (!tbody) return;
 
+    selectedSlotIds.clear();
+    updateBulkDeleteToolbar();
+
     tbody.innerHTML = `
         <tr>
-            <td colspan="7" style="text-align: center; color: var(--muted); padding: 2.5rem 0;">
+            <td colspan="8" style="text-align: center; color: var(--muted); padding: 2.5rem 0;">
                 Loading time slots &amp; wristband palette...
             </td>
         </tr>
@@ -6437,7 +6481,7 @@ window.loadAdminTimeSlots = async () => {
         if (!res.ok) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" style="text-align: center; color: var(--red); padding: 2rem 0;">
+                    <td colspan="8" style="text-align: center; color: var(--red); padding: 2rem 0;">
                         Failed to load time slots.
                     </td>
                 </tr>
@@ -6451,7 +6495,7 @@ window.loadAdminTimeSlots = async () => {
         if (slots.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="7" style="text-align: center; color: var(--muted); padding: 2.5rem 0;">
+                    <td colspan="8" style="text-align: center; color: var(--muted); padding: 2.5rem 0;">
                         No time slots configured. Click "Add New Time Slot" to create one.
                     </td>
                 </tr>
@@ -6477,7 +6521,11 @@ window.loadAdminTimeSlots = async () => {
 
             return `
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
-                    <td style="padding: 1rem 1.25rem; font-weight: 700; color: var(--muted); font-size: 0.8rem;">
+                    <td style="padding: 1rem 0.75rem 1rem 1.25rem; text-align: center;">
+                        <input type="checkbox" class="slot-row-checkbox" value="${s.id}" onchange="toggleSlotRowSelect(${s.id}, this.checked)" style="cursor: pointer; width: 16px; height: 16px; accent-color: var(--gold);">
+                    </td>
+
+                    <td style="padding: 1rem 1rem; font-weight: 700; color: var(--muted); font-size: 0.8rem;">
                         #${idx + 1}
                     </td>
 
@@ -6530,7 +6578,7 @@ window.loadAdminTimeSlots = async () => {
         console.error('Error loading time slots:', e);
         tbody.innerHTML = `
             <tr>
-                <td colspan="7" style="text-align: center; color: var(--red); padding: 2rem 0;">
+                <td colspan="8" style="text-align: center; color: var(--red); padding: 2rem 0;">
                     Error connecting to slots API.
                 </td>
             </tr>
@@ -6758,6 +6806,50 @@ window.deleteTimeSlotItem = async (id, label) => {
     } catch (e) {
         console.error(e);
         alert('Failed to delete time slot.');
+    }
+};
+
+window.bulkDeleteSelectedSlots = async () => {
+    const ids = Array.from(selectedSlotIds);
+    if (ids.length === 0) {
+        alert('Please select at least one time slot to delete.');
+        return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${ids.length} selected time slot(s)?\nExisting customer bookings will remain preserved.`)) {
+        return;
+    }
+
+    const btn = document.getElementById('btnBulkDeleteSlots');
+    const origText = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span> Deleting...';
+    }
+
+    try {
+        const res = await fetchAuth('/api/admin/slots/bulk-delete', {
+            method: 'POST',
+            body: JSON.stringify({ ids })
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            alert(data.error || 'Failed to bulk delete time slots');
+            return;
+        }
+
+        alert(data.message || `Successfully deleted ${ids.length} time slot(s).`);
+        selectedSlotIds.clear();
+        loadAdminTimeSlots();
+    } catch (err) {
+        console.error('Error bulk deleting slots:', err);
+        alert('Server error while deleting selected slots.');
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origText;
+        }
     }
 };
 

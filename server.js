@@ -2216,7 +2216,7 @@ app.patch('/api/admin/slots/:id/toggle', verifyToken, checkPermission('block_slo
     });
 });
 
-// 5. Delete a time slot
+// 5. Delete a single time slot
 app.delete('/api/admin/slots/:id', verifyToken, checkPermission('block_slots'), (req, res) => {
     const slotId = parseInt(req.params.id, 10);
     if (!slotId) return res.status(400).json({ error: 'Valid slot ID is required' });
@@ -2224,6 +2224,34 @@ app.delete('/api/admin/slots/:id', verifyToken, checkPermission('block_slots'), 
     db.run("DELETE FROM time_slots WHERE id = ?", [slotId], function(delErr) {
         if (delErr) return res.status(500).json({ error: 'Failed to delete time slot' });
         res.json({ success: true, deleted: this ? this.changes : 1 });
+    });
+});
+
+// 6. Delete multiple time slots at once (Bulk Delete)
+app.post('/api/admin/slots/bulk-delete', verifyToken, checkPermission('block_slots'), (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ error: 'Please provide an array of slot IDs to delete.' });
+    }
+
+    const cleanIds = ids.map(id => parseInt(id, 10)).filter(id => !isNaN(id) && id > 0);
+    if (cleanIds.length === 0) {
+        return res.status(400).json({ error: 'No valid slot IDs provided.' });
+    }
+
+    const placeholders = cleanIds.map(() => '?').join(',');
+    const sql = `DELETE FROM time_slots WHERE id IN (${placeholders})`;
+
+    db.run(sql, cleanIds, function(delErr) {
+        if (delErr) {
+            console.error('Error bulk deleting time slots:', delErr);
+            return res.status(500).json({ error: 'Failed to delete selected time slots' });
+        }
+        res.json({
+            success: true,
+            deletedCount: this ? this.changes : cleanIds.length,
+            message: `Successfully deleted ${this ? this.changes : cleanIds.length} time slot(s).`
+        });
     });
 });
 
