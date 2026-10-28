@@ -378,37 +378,45 @@ db.run(`
 });
 
 function seedDefaultTimeSlots() {
-    const defaultSlots = [
-        { label: "11AM-12PM", start: 11.0, end: 12.0, sort: 1,  color: "#FFF0B3", name: "Yellow", remark: "Morning Slot" },
-        { label: "12PM-1PM",  start: 12.0, end: 13.0, sort: 2,  color: "#10B981", name: "Green",  remark: "Regular" },
-        { label: "1PM-2PM",   start: 13.0, end: 14.0, sort: 3,  color: "#EF4444", name: "Red",    remark: "Lunch Slot" },
-        { label: "2PM-3PM",   start: 14.0, end: 15.0, sort: 4,  color: "#3B82F6", name: "Blue",   remark: "Regular" },
-        { label: "3PM-4PM",   start: 15.0, end: 16.0, sort: 5,  color: "#F97316", name: "Orange", remark: "Regular" },
-        { label: "4PM-5PM",   start: 16.0, end: 17.0, sort: 6,  color: "#8B5CF6", name: "Purple", remark: "Regular" },
-        { label: "5PM-6PM",   start: 17.0, end: 18.0, sort: 7,  color: "#18181B", name: "Black",  remark: "Evening Rush" },
-        { label: "6PM-7PM",   start: 18.0, end: 19.0, sort: 8,  color: "#1AF9F9", name: "Aqua",   remark: "Peak Slot" },
-        { label: "7PM-8PM",   start: 19.0, end: 20.0, sort: 9,  color: "#F4F4F5", name: "White",  remark: "Peak Slot" },
-        { label: "8PM-9PM",   start: 20.0, end: 21.0, sort: 10, color: "#FFD700", name: "Gold",   remark: "VIP / Prime" },
-        { label: "9PM-10PM",  start: 21.0, end: 22.0, sort: 11, color: "#06B6D4", name: "Cyan / Neon Blue", remark: "Night Rush" },
-        { label: "10PM-11PM", start: 22.0, end: 23.0, sort: 12, color: "#EC4899", name: "Neon Pink", remark: "Late Night" },
-        { label: "11PM-12AM", start: 23.0, end: 24.0, sort: 13, color: "#64748B", name: "Slate Silver", remark: "Late Night" }
-    ];
+    db.get("SELECT COUNT(*) as count FROM time_slots", [], (err, row) => {
+        if (err || !row || Number(row.count) > 0) {
+            // Already initialized or customized by admin; DO NOT re-insert deleted slots!
+            return;
+        }
 
-    defaultSlots.forEach(s => {
-        db.run(
-            `INSERT INTO time_slots (label, start_hour, end_hour, sort_order, color, color_name, remark, active)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-             ON CONFLICT (label) DO NOTHING`,
-            [s.label, s.start, s.end, s.sort, s.color, s.name, s.remark],
-            () => {
-                db.run(
-                    `INSERT OR IGNORE INTO time_slots (label, start_hour, end_hour, sort_order, color, color_name, remark, active)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-                    [s.label, s.start, s.end, s.sort, s.color, s.name, s.remark],
-                    () => {}
-                );
-            }
-        );
+        console.log("[Slots Init] Initializing standard default time slots...");
+        const defaultSlots = [
+            { label: "11AM-12PM", start: 11.0, end: 12.0, sort: 1,  color: "#FFF0B3", name: "Yellow", remark: "Morning Slot" },
+            { label: "12PM-1PM",  start: 12.0, end: 13.0, sort: 2,  color: "#10B981", name: "Green",  remark: "Regular" },
+            { label: "1PM-2PM",   start: 13.0, end: 14.0, sort: 3,  color: "#EF4444", name: "Red",    remark: "Lunch Slot" },
+            { label: "2PM-3PM",   start: 14.0, end: 15.0, sort: 4,  color: "#3B82F6", name: "Blue",   remark: "Regular" },
+            { label: "3PM-4PM",   start: 15.0, end: 16.0, sort: 5,  color: "#F97316", name: "Orange", remark: "Regular" },
+            { label: "4PM-5PM",   start: 16.0, end: 17.0, sort: 6,  color: "#8B5CF6", name: "Purple", remark: "Regular" },
+            { label: "5PM-6PM",   start: 17.0, end: 18.0, sort: 7,  color: "#18181B", name: "Black",  remark: "Evening Rush" },
+            { label: "6PM-7PM",   start: 18.0, end: 19.0, sort: 8,  color: "#1AF9F9", name: "Aqua",   remark: "Peak Slot" },
+            { label: "7PM-8PM",   start: 19.0, end: 20.0, sort: 9,  color: "#F4F4F5", name: "White",  remark: "Peak Slot" },
+            { label: "8PM-9PM",   start: 20.0, end: 21.0, sort: 10, color: "#FFD700", name: "Gold",   remark: "VIP / Prime" },
+            { label: "9PM-10PM",  start: 21.0, end: 22.0, sort: 11, color: "#06B6D4", name: "Cyan / Neon Blue", remark: "Night Rush" },
+            { label: "10PM-11PM", start: 22.0, end: 23.0, sort: 12, color: "#EC4899", name: "Neon Pink", remark: "Late Night" },
+            { label: "11PM-12AM", start: 23.0, end: 24.0, sort: 13, color: "#64748B", name: "Slate Silver", remark: "Late Night" }
+        ];
+
+        defaultSlots.forEach(s => {
+            db.run(
+                `INSERT INTO time_slots (label, start_hour, end_hour, sort_order, color, color_name, remark, active)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                 ON CONFLICT (label) DO NOTHING`,
+                [s.label, s.start, s.end, s.sort, s.color, s.name, s.remark],
+                () => {
+                    db.run(
+                        `INSERT OR IGNORE INTO time_slots (label, start_hour, end_hour, sort_order, color, color_name, remark, active)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+                        [s.label, s.start, s.end, s.sort, s.color, s.name, s.remark],
+                        () => {}
+                    );
+                }
+            );
+        });
     });
 }
 
@@ -1598,47 +1606,25 @@ app.post('/api/admin/products/:id/duplicate', verifyToken, verifySuperAdmin, (re
     });
 });
 
-// Slots API
+// Slots API (Public listing for booking interface)
 app.get('/api/slots', (req, res) => {
-    db.all("SELECT * FROM slots WHERE active=1 ORDER BY sort_order ASC", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: 'Database error' });
-        res.json(rows);
-    });
-});
-
-app.get('/api/admin/slots', verifyToken, verifySuperAdmin, (req, res) => {
-    db.all("SELECT * FROM slots ORDER BY sort_order ASC", [], (err, rows) => {
-        if (err) return res.status(500).json({ error: 'Database error' });
-        res.json(rows);
-    });
-});
-
-app.post('/api/admin/slots', verifyToken, verifySuperAdmin, (req, res) => {
-    const { time_range, active, sort_order } = req.body;
-    db.run("INSERT INTO slots (time_range, active, sort_order) VALUES (?, ?, ?)",
-        [time_range, active, sort_order || 0],
-        function(err) {
-            if (err) return res.status(500).json({ error: 'Failed to add slot' });
-            res.json({ success: true, id: this.lastID });
+    db.all("SELECT * FROM time_slots WHERE active = 1 ORDER BY sort_order ASC, start_hour ASC", [], (err, rows) => {
+        if (!err && rows && rows.length > 0) {
+            // Map to compatible time_range property so existing booking scripts work seamlessly
+            return res.json(rows.map(r => ({
+                id: r.id,
+                time_range: r.label,
+                active: r.active,
+                sort_order: r.sort_order,
+                color: r.color,
+                color_name: r.color_name
+            })));
         }
-    );
-});
-
-app.put('/api/admin/slots/:id', verifyToken, verifySuperAdmin, (req, res) => {
-    const { time_range, active, sort_order } = req.body;
-    db.run("UPDATE slots SET time_range=?, active=?, sort_order=? WHERE id=?",
-        [time_range, active, sort_order || 0, req.params.id],
-        (err) => {
-            if (err) return res.status(500).json({ error: 'Failed to update slot' });
-            res.json({ success: true });
-        }
-    );
-});
-
-app.delete('/api/admin/slots/:id', verifyToken, verifySuperAdmin, (req, res) => {
-    db.run("DELETE FROM slots WHERE id=?", [req.params.id], (err) => {
-        if (err) return res.status(500).json({ error: 'Error deleting slot' });
-        res.json({ success: true });
+        // Fallback to legacy slots table if time_slots is empty
+        db.all("SELECT * FROM slots WHERE active = 1 ORDER BY sort_order ASC", [], (sErr, sRows) => {
+            if (sErr) return res.status(500).json({ error: 'Database error' });
+            res.json(sRows || []);
+        });
     });
 });
 
