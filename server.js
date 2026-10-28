@@ -17,6 +17,14 @@ const fs = require('fs');
 const path = require('path');
 const { SdkClient } = require('@icici/http-core');
 const { CollectPayRequestDTO } = require('@icici/eazypay');
+const {
+    WRISTBAND_PALETTE,
+    DEFAULT_SLOT_COLORS,
+    COLOR_NAME_TO_HEX,
+    resolveColorNameToHex,
+    getSlotWristbandColor,
+    getWristbandBadgeStyle
+} = require('./slotColors');
 
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, 'assets', 'uploads');
@@ -327,6 +335,76 @@ function seedDefaultBandCategories() {
                     `INSERT OR IGNORE INTO band_categories (name, description, badge_color, sort_order, active)
                      VALUES (?, ?, ?, ?, 1)`,
                     [d.name, d.desc, d.color, d.order],
+                    () => {}
+                );
+            }
+        );
+    });
+}
+
+// Ensure time_slots table exists for Time Slot & Wristband Color Code Management
+db.run(`
+    CREATE TABLE IF NOT EXISTS time_slots (
+        id SERIAL PRIMARY KEY,
+        label VARCHAR(100) NOT NULL UNIQUE,
+        start_hour NUMERIC,
+        end_hour NUMERIC,
+        active INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 0,
+        color VARCHAR(50),
+        color_name VARCHAR(100),
+        remark TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`, [], (tsErr) => {
+    if (tsErr) {
+        db.run(`
+            CREATE TABLE IF NOT EXISTS time_slots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                label TEXT NOT NULL UNIQUE,
+                start_hour REAL,
+                end_hour REAL,
+                active INTEGER DEFAULT 1,
+                sort_order INTEGER DEFAULT 0,
+                color TEXT,
+                color_name TEXT,
+                remark TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `, [], () => seedDefaultTimeSlots());
+    } else {
+        seedDefaultTimeSlots();
+    }
+});
+
+function seedDefaultTimeSlots() {
+    const defaultSlots = [
+        { label: "11AM-12PM", start: 11.0, end: 12.0, sort: 1,  color: "#FFF0B3", name: "Yellow", remark: "Morning Slot" },
+        { label: "12PM-1PM",  start: 12.0, end: 13.0, sort: 2,  color: "#10B981", name: "Green",  remark: "Regular" },
+        { label: "1PM-2PM",   start: 13.0, end: 14.0, sort: 3,  color: "#EF4444", name: "Red",    remark: "Lunch Slot" },
+        { label: "2PM-3PM",   start: 14.0, end: 15.0, sort: 4,  color: "#3B82F6", name: "Blue",   remark: "Regular" },
+        { label: "3PM-4PM",   start: 15.0, end: 16.0, sort: 5,  color: "#F97316", name: "Orange", remark: "Regular" },
+        { label: "4PM-5PM",   start: 16.0, end: 17.0, sort: 6,  color: "#8B5CF6", name: "Purple", remark: "Regular" },
+        { label: "5PM-6PM",   start: 17.0, end: 18.0, sort: 7,  color: "#18181B", name: "Black",  remark: "Evening Rush" },
+        { label: "6PM-7PM",   start: 18.0, end: 19.0, sort: 8,  color: "#1AF9F9", name: "Aqua",   remark: "Peak Slot" },
+        { label: "7PM-8PM",   start: 19.0, end: 20.0, sort: 9,  color: "#F4F4F5", name: "White",  remark: "Peak Slot" },
+        { label: "8PM-9PM",   start: 20.0, end: 21.0, sort: 10, color: "#FFD700", name: "Gold",   remark: "VIP / Prime" },
+        { label: "9PM-10PM",  start: 21.0, end: 22.0, sort: 11, color: "#06B6D4", name: "Cyan / Neon Blue", remark: "Night Rush" },
+        { label: "10PM-11PM", start: 22.0, end: 23.0, sort: 12, color: "#EC4899", name: "Neon Pink", remark: "Late Night" },
+        { label: "11PM-12AM", start: 23.0, end: 24.0, sort: 13, color: "#64748B", name: "Slate Silver", remark: "Late Night" }
+    ];
+
+    defaultSlots.forEach(s => {
+        db.run(
+            `INSERT INTO time_slots (label, start_hour, end_hour, sort_order, color, color_name, remark, active)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+             ON CONFLICT (label) DO NOTHING`,
+            [s.label, s.start, s.end, s.sort, s.color, s.name, s.remark],
+            () => {
+                db.run(
+                    `INSERT OR IGNORE INTO time_slots (label, start_hour, end_hour, sort_order, color, color_name, remark, active)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+                    [s.label, s.start, s.end, s.sort, s.color, s.name, s.remark],
                     () => {}
                 );
             }
@@ -1993,6 +2071,162 @@ app.delete('/api/admin/blocked-slots/:id', verifyToken, checkPermission('block_s
     });
 });
 
+// ==========================================
+// TIME SLOTS & WRISTBAND COLOR CODE ROUTES
+// ==========================================
+
+// 1. Get all time slots
+app.get('/api/admin/slots', verifyToken, (req, res) => {
+    db.all("SELECT * FROM time_slots ORDER BY sort_order ASC, start_hour ASC, id ASC", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error fetching slots' });
+        // Augment with computed wristband styles and defaults
+        const slotsWithColor = (rows || []).map(slot => {
+            const resolved = getSlotWristbandColor(slot.label, slot.color, slot.color_name);
+            const badgeStyle = getWristbandBadgeStyle(resolved.hex);
+            return {
+                ...slot,
+                resolved_hex: resolved.hex,
+                resolved_color_name: resolved.name,
+                badge_style: badgeStyle
+            };
+        });
+        res.json(slotsWithColor);
+    });
+});
+
+// 2. Create a new time slot
+app.post('/api/admin/slots', verifyToken, checkPermission('block_slots'), (req, res) => {
+    const { label, start_hour, end_hour, color, color_name, remark, sort_order, active } = req.body;
+    const cleanLabel = (label || '').trim();
+
+    if (!cleanLabel) {
+        return res.status(400).json({ error: 'Slot label is required (e.g. 11AM-12PM).' });
+    }
+
+    const startNum = parseFloat(start_hour) || 0;
+    const endNum = parseFloat(end_hour) || (startNum + 1.0);
+    const sortNum = parseInt(sort_order, 10) || 0;
+    const activeVal = active === 0 || active === false ? 0 : 1;
+    
+    // Auto-resolve hex and name using slotColors helper
+    let hex = (color || '').trim();
+    let name = (color_name || '').trim();
+    if (!hex && name) {
+        const foundHex = resolveColorNameToHex(name);
+        if (foundHex) hex = foundHex;
+    }
+    const resolved = getSlotWristbandColor(cleanLabel, hex, name);
+
+    db.get("SELECT id FROM time_slots WHERE UPPER(label) = UPPER(?)", [cleanLabel], (chkErr, existing) => {
+        if (existing) {
+            return res.status(400).json({ error: `A time slot with label '${cleanLabel}' already exists.` });
+        }
+
+        db.run(
+            `INSERT INTO time_slots (label, start_hour, end_hour, sort_order, color, color_name, remark, active)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [cleanLabel, startNum, endNum, sortNum, resolved.hex, resolved.name, (remark || '').trim() || null, activeVal],
+            function(insErr) {
+                if (insErr) {
+                    console.error('Error creating time slot:', insErr);
+                    return res.status(500).json({ error: insErr.message || 'Failed to create time slot' });
+                }
+                res.json({
+                    success: true,
+                    id: this ? this.lastID : null,
+                    label: cleanLabel,
+                    start_hour: startNum,
+                    end_hour: endNum,
+                    color: resolved.hex,
+                    color_name: resolved.name,
+                    remark: (remark || '').trim() || null,
+                    active: activeVal
+                });
+            }
+        );
+    });
+});
+
+// 3. Update an existing time slot
+app.put('/api/admin/slots/:id', verifyToken, checkPermission('block_slots'), (req, res) => {
+    const slotId = parseInt(req.params.id, 10);
+    if (!slotId) return res.status(400).json({ error: 'Valid slot ID is required' });
+
+    const { label, start_hour, end_hour, color, color_name, remark, sort_order, active } = req.body;
+    const cleanLabel = (label || '').trim();
+
+    if (!cleanLabel) {
+        return res.status(400).json({ error: 'Slot label is required.' });
+    }
+
+    const startNum = parseFloat(start_hour) || 0;
+    const endNum = parseFloat(end_hour) || (startNum + 1.0);
+    const sortNum = parseInt(sort_order, 10) || 0;
+    const activeVal = active === 0 || active === false ? 0 : 1;
+
+    let hex = (color || '').trim();
+    let name = (color_name || '').trim();
+    if (!hex && name) {
+        const foundHex = resolveColorNameToHex(name);
+        if (foundHex) hex = foundHex;
+    }
+    const resolved = getSlotWristbandColor(cleanLabel, hex, name);
+
+    db.get("SELECT id FROM time_slots WHERE UPPER(label) = UPPER(?) AND id != ?", [cleanLabel, slotId], (chkErr, existing) => {
+        if (existing) {
+            return res.status(400).json({ error: `Slot label '${cleanLabel}' is already in use by another slot.` });
+        }
+
+        db.run(
+            `UPDATE time_slots
+             SET label = ?,
+                 start_hour = ?,
+                 end_hour = ?,
+                 sort_order = ?,
+                 color = ?,
+                 color_name = ?,
+                 remark = ?,
+                 active = ?
+             WHERE id = ?`,
+            [cleanLabel, startNum, endNum, sortNum, resolved.hex, resolved.name, (remark || '').trim() || null, activeVal, slotId],
+            function(upErr) {
+                if (upErr) {
+                    console.error('Error updating time slot:', upErr);
+                    return res.status(500).json({ error: 'Failed to update time slot' });
+                }
+                res.json({ success: true, updated: this ? this.changes : 1 });
+            }
+        );
+    });
+});
+
+// 4. Toggle active status of a time slot
+app.patch('/api/admin/slots/:id/toggle', verifyToken, checkPermission('block_slots'), (req, res) => {
+    const slotId = parseInt(req.params.id, 10);
+    if (!slotId) return res.status(400).json({ error: 'Valid slot ID is required' });
+
+    db.get("SELECT active FROM time_slots WHERE id = ?", [slotId], (err, row) => {
+        if (err || !row) return res.status(404).json({ error: 'Slot not found' });
+        
+        const newStatus = row.active === 1 ? 0 : 1;
+        db.run("UPDATE time_slots SET active = ? WHERE id = ?", [newStatus, slotId], function(upErr) {
+            if (upErr) return res.status(500).json({ error: 'Failed to toggle slot status' });
+            res.json({ success: true, active: newStatus });
+        });
+    });
+});
+
+// 5. Delete a time slot
+app.delete('/api/admin/slots/:id', verifyToken, checkPermission('block_slots'), (req, res) => {
+    const slotId = parseInt(req.params.id, 10);
+    if (!slotId) return res.status(400).json({ error: 'Valid slot ID is required' });
+
+    db.run("DELETE FROM time_slots WHERE id = ?", [slotId], function(delErr) {
+        if (delErr) return res.status(500).json({ error: 'Failed to delete time slot' });
+        res.json({ success: true, deleted: this ? this.changes : 1 });
+    });
+});
+
 // Delete a booking or slot lock (Protected - requires 'delete_orders' permission or Super Admin)
 app.delete('/api/admin/bookings/:order_id', verifyToken, checkPermission('delete_orders'), (req, res) => {
     let { order_id } = req.params;
@@ -2989,22 +3223,6 @@ app.post('/api/admin/bookings', verifyToken, (req, res) => {
 // BAND / WRISTBAND INVENTORY MANAGEMENT (Common shared pool with Havoc RC Fun Zone)
 // ==========================================
 
-const WRISTBAND_PALETTE = [
-    { hex: "#06B6D4", name: "Cyan / Neon Blue", bgClass: "bg-cyan-100", textClass: "text-cyan-800" },
-    { hex: "#10B981", name: "Emerald Green",    bgClass: "bg-emerald-100", textClass: "text-emerald-800" },
-    { hex: "#F59E0B", name: "Amber Yellow",     bgClass: "bg-amber-100", textClass: "text-amber-800" },
-    { hex: "#F97316", name: "Vibrant Orange",   bgClass: "bg-orange-100", textClass: "text-orange-800" },
-    { hex: "#EF4444", name: "Ruby Red",         bgClass: "bg-rose-100", textClass: "text-rose-800" },
-    { hex: "#8B5CF6", name: "Electric Purple",  bgClass: "bg-purple-100", textClass: "text-purple-800" },
-    { hex: "#EC4899", name: "Neon Pink",        bgClass: "bg-pink-100", textClass: "text-pink-800" },
-    { hex: "#3B82F6", name: "Royal Blue",       bgClass: "bg-blue-100", textClass: "text-blue-800" },
-    { hex: "#14B8A6", name: "Mint Teal",        bgClass: "bg-teal-100", textClass: "text-teal-800" },
-    { hex: "#84CC16", name: "Lime Green",       bgClass: "bg-lime-100", textClass: "text-lime-800" },
-    { hex: "#EAB308", name: "Golden Yellow",    bgClass: "bg-yellow-100", textClass: "text-yellow-800" },
-    { hex: "#6366F1", name: "Indigo Night",     bgClass: "bg-indigo-100", textClass: "text-indigo-800" },
-    { hex: "#64748B", name: "Slate Silver",     bgClass: "bg-slate-100", textClass: "text-slate-800" }
-];
-
 function ensureBandInventorySeeded(cb) {
     db.get("SELECT COUNT(*) as count FROM band_items", [], (err, row) => {
         if (!err && row && Number(row.count) === 0) {
@@ -3147,21 +3365,37 @@ app.get('/api/admin/bands/summary', verifyToken, (req, res) => {
                             issued: Number(r.issued || 0)
                         }));
 
-                        res.json({
-                            totalBands,
-                            available,
-                            issued,
-                            damaged,
-                            lost,
-                            retired,
-                            activeInventory,
-                            issuedToday,
-                            returnedToday,
-                            availabilityRate,
-                            colorBreakdown,
-                            categoryBreakdown,
-                            lowStockColors,
-                            palette: WRISTBAND_PALETTE
+                        // Auto-discover unique colors configured on time slots to include in palette
+                        db.all("SELECT DISTINCT color, color_name FROM time_slots WHERE color IS NOT NULL AND color != ''", [], (tsErr, slotColorRows) => {
+                            const combinedPalette = [...WRISTBAND_PALETTE];
+                            (slotColorRows || []).forEach(sc => {
+                                const hexUpper = sc.color.toUpperCase();
+                                if (!combinedPalette.some(p => p.hex.toUpperCase() === hexUpper)) {
+                                    combinedPalette.push({
+                                        hex: sc.color,
+                                        name: sc.color_name || sc.color,
+                                        bgClass: "bg-gray-100",
+                                        textClass: "text-gray-800"
+                                    });
+                                }
+                            });
+
+                            res.json({
+                                totalBands,
+                                available,
+                                issued,
+                                damaged,
+                                lost,
+                                retired,
+                                activeInventory,
+                                issuedToday,
+                                returnedToday,
+                                availabilityRate,
+                                colorBreakdown,
+                                categoryBreakdown,
+                                lowStockColors,
+                                palette: combinedPalette
+                            });
                         });
                     });
                 });

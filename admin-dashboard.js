@@ -6373,4 +6373,398 @@ window.deleteBandCategory = async (id, name) => {
     }
 };
 
+// =========================================================================
+// TIME SLOTS & WRISTBAND COLOR CODE MANAGEMENT
+// =========================================================================
+
+let cachedAdminSlots = [];
+
+window.switchSlotSubTab = (tab) => {
+    const manageView = document.getElementById('slotView-manage');
+    const blockView = document.getElementById('slotView-block');
+    const manageBtn = document.getElementById('slotSubTab-manage');
+    const blockBtn = document.getElementById('slotSubTab-block');
+
+    if (tab === 'manage') {
+        if (manageView) manageView.style.display = 'block';
+        if (blockView) blockView.style.display = 'none';
+
+        if (manageBtn) {
+            manageBtn.style.background = 'rgba(229,184,105,0.15)';
+            manageBtn.style.color = 'var(--gold)';
+            manageBtn.style.borderColor = 'rgba(229,184,105,0.4)';
+        }
+        if (blockBtn) {
+            blockBtn.style.background = 'transparent';
+            blockBtn.style.color = 'var(--muted)';
+            blockBtn.style.borderColor = 'transparent';
+        }
+        loadAdminTimeSlots();
+    } else {
+        if (manageView) manageView.style.display = 'none';
+        if (blockView) blockView.style.display = 'block';
+
+        if (blockBtn) {
+            blockBtn.style.background = 'rgba(239,68,68,0.15)';
+            blockBtn.style.color = '#f87171';
+            blockBtn.style.borderColor = 'rgba(239,68,68,0.4)';
+        }
+        if (manageBtn) {
+            manageBtn.style.background = 'transparent';
+            manageBtn.style.color = 'var(--muted)';
+            manageBtn.style.borderColor = 'transparent';
+        }
+        if (typeof initBlockSlotForm === 'function') initBlockSlotForm();
+        if (typeof loadBlockedSlotsList === 'function') loadBlockedSlotsList();
+    }
+};
+
+// Load and render all time slots with active color code badges
+window.loadAdminTimeSlots = async () => {
+    const tbody = document.getElementById('adminTimeSlotsTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = `
+        <tr>
+            <td colspan="7" style="text-align: center; color: var(--muted); padding: 2.5rem 0;">
+                Loading time slots &amp; wristband palette...
+            </td>
+        </tr>
+    `;
+
+    try {
+        const res = await fetchAuth('/api/admin/slots');
+        if (!res.ok) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--red); padding: 2rem 0;">
+                        Failed to load time slots.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        const slots = await res.json();
+        cachedAdminSlots = slots || [];
+
+        if (slots.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="7" style="text-align: center; color: var(--muted); padding: 2.5rem 0;">
+                        No time slots configured. Click "Add New Time Slot" to create one.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tbody.innerHTML = slots.map((s, idx) => {
+            const hex = s.resolved_hex || s.color || '#06B6D4';
+            const colorName = s.resolved_color_name || s.color_name || 'Standard Band';
+            
+            // Badge style calculation (handles light colors like white/yellow)
+            const style = (typeof getWristbandBadgeStyle === 'function') 
+                ? getWristbandBadgeStyle(hex)
+                : {
+                    backgroundColor: `${hex}18`,
+                    borderColor: `${hex}40`,
+                    color: hex,
+                    dotBorderColor: 'rgba(0,0,0,0.2)'
+                };
+
+            const isActive = s.active === 1;
+
+            return `
+                <tr style="border-bottom: 1px solid rgba(255,255,255,0.05); transition: background 0.15s;" onmouseover="this.style.background='rgba(255,255,255,0.02)'" onmouseout="this.style.background='transparent'">
+                    <td style="padding: 1rem 1.25rem; font-weight: 700; color: var(--muted); font-size: 0.8rem;">
+                        #${idx + 1}
+                    </td>
+
+                    <td style="padding: 1rem 1.25rem;">
+                        <span style="font-weight: 700; color: #fff; font-size: 0.95rem;">${escapeHtml(s.label)}</span>
+                        ${s.sort_order ? `<span style="font-size: 0.72rem; color: var(--muted); margin-left: 6px;">(order: ${s.sort_order})</span>` : ''}
+                    </td>
+
+                    <td style="padding: 1rem 1.25rem;">
+                        <div style="display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 20px; font-weight: 700; font-size: 0.78rem; background: ${style.backgroundColor}; border: 1px solid ${style.borderColor}; color: ${style.color};">
+                            <span style="width: 10px; height: 10px; border-radius: 50%; background: ${hex}; border: 1px solid ${style.dotBorderColor};"></span>
+                            <span>${escapeHtml(colorName)}</span>
+                            <span style="font-family: monospace; font-size: 0.7rem; opacity: 0.85;">(${hex})</span>
+                        </div>
+                    </td>
+
+                    <td style="padding: 1rem 1.25rem;">
+                        ${s.remark ? `
+                            <span style="background: rgba(229,184,105,0.1); border: 1px solid rgba(229,184,105,0.25); color: var(--gold); font-size: 0.75rem; font-weight: 600; padding: 2px 8px; border-radius: 6px;">
+                                ${escapeHtml(s.remark)}
+                            </span>
+                        ` : `<span style="color: var(--muted); font-size: 0.78rem;">Regular</span>`}
+                    </td>
+
+                    <td style="padding: 1rem 1.25rem; color: var(--muted); font-size: 0.82rem;">
+                        ${s.start_hour ?? '-'}h &rarr; ${s.end_hour ?? '-'}h
+                    </td>
+
+                    <td style="padding: 1rem 1.25rem;">
+                        <button type="button" onclick="toggleSlotStatus(${s.id}, ${s.active})" style="background: ${isActive ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}; color: ${isActive ? '#10B981' : '#f87171'}; border: 1px solid ${isActive ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}; font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 20px; cursor: pointer;">
+                            ${isActive ? '● Active' : '○ Disabled'}
+                        </button>
+                    </td>
+
+                    <td style="padding: 1rem 1.25rem; text-align: right;">
+                        <div style="display: flex; gap: 6px; justify-content: flex-end;">
+                            <button type="button" class="btn" onclick="openSlotEditorModal(${s.id})" style="background: rgba(255,255,255,0.06); border: 1px solid var(--border); color: #fff; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; cursor: pointer;">
+                                Edit
+                            </button>
+                            <button type="button" class="btn" onclick="deleteTimeSlotItem(${s.id}, '${escapeHtml(s.label)}')" style="background: transparent; border: 1px solid rgba(239,68,68,0.3); color: #f87171; padding: 4px 10px; border-radius: 6px; font-size: 0.78rem; cursor: pointer;">
+                                Delete
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+    } catch (e) {
+        console.error('Error loading time slots:', e);
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="7" style="text-align: center; color: var(--red); padding: 2rem 0;">
+                    Error connecting to slots API.
+                </td>
+            </tr>
+        `;
+    }
+};
+
+// Render quick preset palette chips inside the editor modal
+function renderSlotEditorPaletteChips() {
+    const container = document.getElementById('slotEditorPaletteChips');
+    if (!container) return;
+
+    const palette = (typeof WRISTBAND_PALETTE !== 'undefined') ? WRISTBAND_PALETTE : [];
+    container.innerHTML = palette.map(p => {
+        const hex = p.hex;
+        const name = p.name;
+        return `
+            <button type="button" onclick="applySlotPalettePreset('${hex}', '${escapeHtml(name)}')" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 4px 8px; font-size: 0.72rem; color: #fff; cursor: pointer; transition: all 0.15s;" onmouseover="this.style.borderColor='${hex}'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'">
+                <span style="width: 10px; height: 10px; border-radius: 50%; background: ${hex}; border: 1px solid rgba(0,0,0,0.3);"></span>
+                <span>${escapeHtml(name)}</span>
+            </button>
+        `;
+    }).join('');
+}
+
+window.applySlotPalettePreset = (hex, name) => {
+    const picker = document.getElementById('slotEditorColorPicker');
+    const hexInput = document.getElementById('slotEditorColorHex');
+    const nameInput = document.getElementById('slotEditorColorName');
+
+    if (picker) picker.value = hex;
+    if (hexInput) hexInput.value = hex;
+    if (nameInput) nameInput.value = name;
+
+    updateSlotEditorLivePreview(hex, name);
+};
+
+window.handleSlotColorPickerChange = (val) => {
+    const hexInput = document.getElementById('slotEditorColorHex');
+    if (hexInput) hexInput.value = val.toUpperCase();
+    const nameInput = document.getElementById('slotEditorColorName');
+    const curName = nameInput ? nameInput.value : 'Custom Band';
+    updateSlotEditorLivePreview(val, curName);
+};
+
+window.handleSlotColorHexInput = (val) => {
+    const clean = val.trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(clean)) {
+        const picker = document.getElementById('slotEditorColorPicker');
+        if (picker) picker.value = clean;
+    }
+    const nameInput = document.getElementById('slotEditorColorName');
+    updateSlotEditorLivePreview(clean, nameInput ? nameInput.value : 'Custom Band');
+};
+
+window.handleSlotColorNameInput = (val) => {
+    const hexInput = document.getElementById('slotEditorColorHex');
+    // Check if typed name resolves to a known color
+    if (typeof resolveColorNameToHex === 'function') {
+        const found = resolveColorNameToHex(val);
+        if (found) {
+            if (hexInput) hexInput.value = found;
+            const picker = document.getElementById('slotEditorColorPicker');
+            if (picker) picker.value = found;
+        }
+    }
+    updateSlotEditorLivePreview(hexInput ? hexInput.value : '#06B6D4', val);
+};
+
+function updateSlotEditorLivePreview(hex, name) {
+    const badge = document.getElementById('slotEditorLiveBadge');
+    const dot = document.getElementById('slotEditorBadgeDot');
+    const text = document.getElementById('slotEditorBadgeText');
+    if (!badge || !text) return;
+
+    const validHex = (hex && hex.startsWith('#') && hex.length >= 4) ? hex : '#06B6D4';
+    const style = (typeof getWristbandBadgeStyle === 'function')
+        ? getWristbandBadgeStyle(validHex)
+        : { backgroundColor: `${validHex}18`, borderColor: `${validHex}40`, color: validHex };
+
+    badge.style.backgroundColor = style.backgroundColor;
+    badge.style.borderColor = style.borderColor;
+    badge.style.color = style.color;
+    if (dot) {
+        dot.style.background = validHex;
+        dot.style.borderColor = style.dotBorderColor || 'transparent';
+    }
+    text.textContent = `${name || 'Band'} (${validHex})`;
+}
+
+window.openSlotEditorModal = (id) => {
+    const modal = document.getElementById('slotEditorModal');
+    const title = document.getElementById('slotEditorModalTitle');
+    const form = document.getElementById('slotEditorForm');
+    if (!modal) return;
+
+    renderSlotEditorPaletteChips();
+
+    if (id) {
+        const slot = cachedAdminSlots.find(s => s.id === id);
+        if (!slot) return;
+
+        title.textContent = `Edit Time Slot (${slot.label})`;
+        document.getElementById('editSlotId').value = slot.id;
+        document.getElementById('slotEditorLabel').value = slot.label || '';
+        document.getElementById('slotEditorStartHour').value = slot.start_hour ?? 11;
+        document.getElementById('slotEditorEndHour').value = slot.end_hour ?? 12;
+        document.getElementById('slotEditorSortOrder').value = slot.sort_order ?? 0;
+        document.getElementById('slotEditorRemark').value = slot.remark || '';
+
+        const hex = slot.resolved_hex || slot.color || '#06B6D4';
+        const name = slot.resolved_color_name || slot.color_name || 'Cyan / Neon Blue';
+
+        document.getElementById('slotEditorColorPicker').value = hex;
+        document.getElementById('slotEditorColorHex').value = hex;
+        document.getElementById('slotEditorColorName').value = name;
+        document.getElementById('slotEditorActive').checked = slot.active === 1;
+
+        updateSlotEditorLivePreview(hex, name);
+    } else {
+        title.textContent = 'Add New Time Slot';
+        form.reset();
+        document.getElementById('editSlotId').value = '';
+        document.getElementById('slotEditorColorPicker').value = '#06B6D4';
+        document.getElementById('slotEditorColorHex').value = '#06B6D4';
+        document.getElementById('slotEditorColorName').value = 'Cyan / Neon Blue';
+        document.getElementById('slotEditorActive').checked = true;
+        document.getElementById('slotEditorStartHour').value = 11;
+        document.getElementById('slotEditorEndHour').value = 12;
+        document.getElementById('slotEditorSortOrder').value = (cachedAdminSlots.length + 1);
+
+        updateSlotEditorLivePreview('#06B6D4', 'Cyan / Neon Blue');
+    }
+
+    modal.style.display = 'flex';
+};
+
+window.closeSlotEditorModal = () => {
+    const modal = document.getElementById('slotEditorModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.submitSlotEditorForm = async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('slotEditorSubmitBtn');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const id = document.getElementById('editSlotId').value;
+    const label = document.getElementById('slotEditorLabel').value.trim();
+    const start_hour = parseFloat(document.getElementById('slotEditorStartHour').value) || 0;
+    const end_hour = parseFloat(document.getElementById('slotEditorEndHour').value) || 0;
+    const sort_order = parseInt(document.getElementById('slotEditorSortOrder').value, 10) || 0;
+    const remark = document.getElementById('slotEditorRemark').value.trim();
+    const color = document.getElementById('slotEditorColorHex').value.trim().toUpperCase();
+    const color_name = document.getElementById('slotEditorColorName').value.trim();
+    const active = document.getElementById('slotEditorActive').checked ? 1 : 0;
+
+    const payload = {
+        label,
+        start_hour,
+        end_hour,
+        sort_order,
+        remark,
+        color,
+        color_name,
+        active
+    };
+
+    try {
+        const url = id ? `/api/admin/slots/${id}` : '/api/admin/slots';
+        const method = id ? 'PUT' : 'POST';
+
+        const res = await fetchAuth(url, {
+            method,
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+
+        if (!res.ok || (!data.success && !data.id)) {
+            alert(data.error || 'Failed to save time slot');
+            return;
+        }
+
+        alert(id ? `Time slot '${label}' updated successfully!` : `Time slot '${label}' created successfully!`);
+        closeSlotEditorModal();
+        loadAdminTimeSlots();
+    } catch (err) {
+        console.error('Error saving slot:', err);
+        alert('Server error saving time slot.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = origText;
+    }
+};
+
+window.toggleSlotStatus = async (id, currentActive) => {
+    try {
+        const res = await fetchAuth(`/api/admin/slots/${id}/toggle`, { method: 'PATCH' });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.error || 'Failed to toggle slot status');
+            return;
+        }
+        loadAdminTimeSlots();
+    } catch (e) {
+        console.error(e);
+        alert('Failed to toggle status.');
+    }
+};
+
+window.deleteTimeSlotItem = async (id, label) => {
+    if (!confirm(`Are you sure you want to delete the time slot '${label}'? Existing bookings will remain preserved.`)) return;
+
+    try {
+        const res = await fetchAuth(`/api/admin/slots/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.error || 'Failed to delete time slot');
+            return;
+        }
+        alert(`Time slot '${label}' deleted.`);
+        loadAdminTimeSlots();
+    } catch (e) {
+        console.error(e);
+        alert('Failed to delete time slot.');
+    }
+};
+
+// Initial listener for nav-block-slots to auto load slots
+document.getElementById('nav-block-slots')?.addEventListener('click', () => {
+    switchSlotSubTab('manage');
+});
+
+
 

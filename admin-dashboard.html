@@ -2018,12 +2018,74 @@
 
                 <!-- BLOCK / DISABLE SLOTS TAB -->
         <div id="tab-block-slots" class="tab-content">
-            <div class="page-header" style="margin-bottom: 1.5rem;">
-                <h1 class="page-title">Block / Disable <span>Slots</span></h1>
-                <p style="color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem;">Lock specific simulator time slots, close entire dates, or configure recurring blocked hours.</p>
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h1 class="page-title" style="display: flex; align-items: center; gap: 0.6rem;">
+                        <span>⏱️</span> Slots &amp; <span>Wristband Colors</span>
+                    </h1>
+                    <p style="color: var(--muted); font-size: 0.85rem; margin-top: 0.2rem;">
+                        Manage simulator session time slots, wristband color codes, and temporary blockout dates/times.
+                    </p>
+                </div>
+                <!-- Sub Tab Switchers -->
+                <div style="display: flex; gap: 8px; background: rgba(255,255,255,0.04); padding: 4px; border-radius: 12px; border: 1px solid var(--border);">
+                    <button type="button" id="slotSubTab-manage" class="btn" onclick="switchSlotSubTab('manage')" style="background: rgba(229,184,105,0.15); color: var(--gold); border: 1px solid rgba(229,184,105,0.4); padding: 0.5rem 1.1rem; border-radius: 8px; font-weight: 700; font-size: 0.85rem; cursor: pointer;">
+                        🎨 Time Slots &amp; Colors
+                    </button>
+                    <button type="button" id="slotSubTab-block" class="btn" onclick="switchSlotSubTab('block')" style="background: transparent; color: var(--muted); border: 1px solid transparent; padding: 0.5rem 1.1rem; border-radius: 8px; font-weight: 600; font-size: 0.85rem; cursor: pointer;">
+                        🛡️ Block / Disable Slots
+                    </button>
+                </div>
             </div>
 
-            <div id="availViewBlock">
+            <!-- SUB VIEW 1: TIME SLOTS & WRISTBAND COLOR CODE MANAGEMENT -->
+            <div id="slotView-manage">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <h2 style="margin: 0; color: #fff; font-size: 1.2rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+                            <span>🏷️</span> Active Time Slots &amp; Wristband Palette
+                        </h2>
+                        <p style="margin: 0.25rem 0 0 0; color: var(--muted); font-size: 0.82rem;">
+                            Each time slot is linked to an official wristband color code. Colors are automatically recognized across Band Inventory.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <button type="button" onclick="loadAdminTimeSlots()" class="btn" style="background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 10px; padding: 0.55rem 0.9rem; font-size: 0.85rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                            <span>↻</span> Refresh
+                        </button>
+                        <button type="button" onclick="openSlotEditorModal()" class="btn" style="background: linear-gradient(135deg, var(--gold), #c9952f); color: #000; border: none; font-weight: 700; padding: 0.55rem 1.25rem; border-radius: 10px; font-size: 0.88rem; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 4px 15px rgba(229,184,105,0.25);">
+                            <span>+</span> Add New Time Slot
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Time Slots Data Table -->
+                <div class="table-card" style="background: var(--card2); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 1.5rem;">
+                    <div style="overflow-x: auto;">
+                        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem;">
+                            <thead>
+                                <tr style="border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.3);">
+                                    <th style="padding: 1rem 1.25rem; color: var(--muted); font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">#</th>
+                                    <th style="padding: 1rem 1.25rem; color: var(--muted); font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">Slot Display Name</th>
+                                    <th style="padding: 1rem 1.25rem; color: var(--muted); font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">Wristband Color Code</th>
+                                    <th style="padding: 1rem 1.25rem; color: var(--muted); font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">Type / Remark</th>
+                                    <th style="padding: 1rem 1.25rem; color: var(--muted); font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">Hours Range</th>
+                                    <th style="padding: 1rem 1.25rem; color: var(--muted); font-weight: 700; font-size: 0.75rem; text-transform: uppercase;">Status</th>
+                                    <th style="padding: 1rem 1.25rem; color: var(--muted); font-weight: 700; font-size: 0.75rem; text-transform: uppercase; text-align: right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminTimeSlotsTableBody">
+                                <tr>
+                                    <td colspan="7" style="text-align: center; color: var(--muted); padding: 3rem 0;">Loading time slots...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SUB VIEW 2: BLOCK / DISABLE SLOTS -->
+            <div id="slotView-block" style="display: none;">
                 <div style="display: grid; grid-template-columns: 460px 1fr; gap: 2rem; align-items: start;">
                     
                     <!-- Left: Block Form -->
@@ -2153,6 +2215,129 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- ==============================================
+             MODAL: TIME SLOT & WRISTBAND COLOR CODE EDITOR
+             ============================================== -->
+        <div id="slotEditorModal" class="modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 10000; align-items: center; justify-content: center; backdrop-filter: blur(8px);">
+            <div class="data-card" style="background: #15161E; border: 1px solid var(--border); border-radius: 18px; width: 95%; max-width: 580px; max-height: 92vh; overflow-y: auto; padding: 1.8rem; box-shadow: 0 25px 60px rgba(0,0,0,0.8);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; padding-bottom: 0.85rem; border-bottom: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.3rem;">🎨</span>
+                        <h2 id="slotEditorModalTitle" style="margin: 0; font-size: 1.25rem; font-weight: 700; color: #fff;">
+                            Add Time Slot
+                        </h2>
+                    </div>
+                    <button type="button" onclick="closeSlotEditorModal()" style="background: transparent; border: none; color: var(--muted); font-size: 1.4rem; cursor: pointer; padding: 4px 8px;">✕</button>
+                </div>
+
+                <form id="slotEditorForm" onsubmit="submitSlotEditorForm(event)">
+                    <input type="hidden" id="editSlotId" value="">
+
+                    <!-- Slot Display Label -->
+                    <div style="margin-bottom: 1.15rem;">
+                        <label style="display: block; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); margin-bottom: 0.4rem;">
+                            Slot Display Label *
+                        </label>
+                        <input type="text" id="slotEditorLabel" required placeholder="e.g. 11AM-12PM" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: inherit; font-size: 0.95rem; outline: none;">
+                        <span style="font-size: 0.75rem; color: var(--muted); margin-top: 3px; display: block;">Format: 11AM-12PM, 12PM-1PM, etc.</span>
+                    </div>
+
+                    <!-- Hours Range & Sort Order -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 1.15rem;">
+                        <div>
+                            <label style="display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem;">
+                                Start Hour (24h)
+                            </label>
+                            <input type="number" id="slotEditorStartHour" step="0.5" min="0" max="24" value="11" required style="width: 100%; padding: 0.7rem 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem;">
+                                End Hour (24h)
+                            </label>
+                            <input type="number" id="slotEditorEndHour" step="0.5" min="0" max="24" value="12" required style="width: 100%; padding: 0.7rem 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 0.35rem;">
+                                Sort Order
+                            </label>
+                            <input type="number" id="slotEditorSortOrder" min="0" value="1" style="width: 100%; padding: 0.7rem 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                        </div>
+                    </div>
+
+                    <!-- Type / Remark Tag -->
+                    <div style="margin-bottom: 1.25rem;">
+                        <label style="display: block; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 0.4rem;">
+                            Type / Remark Tag
+                        </label>
+                        <input type="text" id="slotEditorRemark" placeholder="e.g. VIP, Regular, Rush Hour, Morning Special" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                    </div>
+
+                    <!-- Wristband Color Code Configuration -->
+                    <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 1.15rem; margin-bottom: 1.5rem;">
+                        <label style="display: block; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); margin-bottom: 0.8rem; display: flex; align-items: center; gap: 6px;">
+                            <span>🎗️</span> Wristband Color &amp; Badge Style
+                        </label>
+
+                        <!-- Live Preview Badge -->
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;">
+                            <span style="font-size: 0.78rem; color: var(--muted);">Live Badge:</span>
+                            <div id="slotEditorLiveBadge" style="display: inline-flex; align-items: center; gap: 8px; padding: 5px 12px; border-radius: 20px; font-weight: 700; font-size: 0.82rem; background: rgba(6,182,212,0.15); border: 1px solid rgba(6,182,212,0.4); color: #06B6D4;">
+                                <span id="slotEditorBadgeDot" style="width: 10px; height: 10px; border-radius: 50%; background: #06B6D4;"></span>
+                                <span id="slotEditorBadgeText">Cyan / Neon Blue (#06B6D4)</span>
+                            </div>
+                        </div>
+
+                        <!-- Color Inputs (Picker + Hex + Name) -->
+                        <div style="display: grid; grid-template-columns: auto 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 1rem;">
+                            <div>
+                                <label style="display: block; font-size: 0.7rem; color: var(--muted); margin-bottom: 0.25rem;">Picker</label>
+                                <input type="color" id="slotEditorColorPicker" value="#06B6D4" oninput="handleSlotColorPickerChange(this.value)" style="width: 48px; height: 40px; border: none; border-radius: 8px; cursor: pointer; background: transparent;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.7rem; color: var(--muted); margin-bottom: 0.25rem;">Color HEX Code *</label>
+                                <input type="text" id="slotEditorColorHex" value="#06B6D4" required oninput="handleSlotColorHexInput(this.value)" placeholder="#06B6D4" style="width: 100%; padding: 0.7rem 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: monospace; font-size: 0.9rem; outline: none;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 0.7rem; color: var(--muted); margin-bottom: 0.25rem;">Color Display Label *</label>
+                                <input type="text" id="slotEditorColorName" value="Cyan / Neon Blue" required oninput="handleSlotColorNameInput(this.value)" placeholder="e.g. Emerald Green" style="width: 100%; padding: 0.7rem 0.8rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                            </div>
+                        </div>
+
+                        <!-- Quick Palette Preset Chips -->
+                        <div>
+                            <span style="font-size: 0.72rem; color: var(--muted); display: block; margin-bottom: 0.5rem; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px;">
+                                Quick Palette Presets (Click to apply)
+                            </span>
+                            <div id="slotEditorPaletteChips" style="display: flex; flex-wrap: wrap; gap: 6px;">
+                                <!-- Injected by JS from WRISTBAND_PALETTE -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Toggle -->
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; padding: 0.8rem 1rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 10px;">
+                        <div>
+                            <div style="font-size: 0.9rem; font-weight: 700; color: #fff;">Slot Active Status</div>
+                            <div style="font-size: 0.75rem; color: var(--muted);">Disabled slots cannot be booked by customers online</div>
+                        </div>
+                        <label class="switch" style="position: relative; display: inline-block; width: 48px; height: 26px;">
+                            <input type="checkbox" id="slotEditorActive" checked style="opacity: 0; width: 0; height: 0;">
+                            <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px;"></span>
+                        </label>
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                        <button type="button" class="btn" onclick="closeSlotEditorModal()" style="background: transparent; border: 1px solid var(--border); color: #fff; padding: 0.75rem 1.4rem; border-radius: 10px; font-size: 0.9rem; cursor: pointer;">
+                            Cancel
+                        </button>
+                        <button type="submit" id="slotEditorSubmitBtn" class="btn" style="background: linear-gradient(135deg, var(--gold), #c9952f); color: #000; font-weight: 700; padding: 0.75rem 1.8rem; border-radius: 10px; border: none; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 15px rgba(229,184,105,0.3);">
+                            Save Time Slot
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
 
@@ -3722,6 +3907,7 @@
         </div>
     </div>
     <script src="exceljs.min.js"></script>
-    <script src="admin-dashboard.js?v=32"></script>
+    <script src="slotColors.js"></script>
+    <script src="admin-dashboard.js?v=33"></script>
 </body>
 </html>
