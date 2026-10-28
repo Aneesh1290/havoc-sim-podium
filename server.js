@@ -274,7 +274,65 @@ db.run(`
     db.run("CREATE INDEX IF NOT EXISTS idx_band_tx_band_id ON band_transactions(band_id)", [], () => {});
     db.run("CREATE INDEX IF NOT EXISTS idx_band_tx_type ON band_transactions(transaction_type)", [], () => {});
     db.run("CREATE INDEX IF NOT EXISTS idx_band_tx_created ON band_transactions(created_at)", [], () => {});
+
+    // Ensure custom band categories & offers table exists (Shared pool)
+    db.run(`
+        CREATE TABLE IF NOT EXISTS band_categories (
+            id SERIAL PRIMARY KEY,
+            name TEXT NOT NULL UNIQUE,
+            description TEXT,
+            badge_color TEXT DEFAULT '#E5B869',
+            sort_order INTEGER DEFAULT 0,
+            active INTEGER DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `, [], (catErr) => {
+        if (catErr) {
+            db.run(`
+                CREATE TABLE IF NOT EXISTS band_categories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    description TEXT,
+                    badge_color TEXT DEFAULT '#E5B869',
+                    sort_order INTEGER DEFAULT 0,
+                    active INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `, [], () => seedDefaultBandCategories());
+        } else {
+            seedDefaultBandCategories();
+        }
+    });
 });
+
+function seedDefaultBandCategories() {
+    const defaults = [
+        { name: "Standard", desc: "Regular session admission", color: "#94A3B8", order: 1 },
+        { name: "Student Offer", desc: "College / School discount deal", color: "#38BDF8", order: 2 },
+        { name: "Happy Hour", desc: "Afternoon / Off-peak promo pass", color: "#F59E0B", order: 3 },
+        { name: "Weekend Pass", desc: "Weekend special tier", color: "#EC4899", order: 4 },
+        { name: "VIP Racer", desc: "Premium simulator / unlimited lap tier", color: "#E5B869", order: 5 },
+        { name: "Child / Junior", desc: "Junior track pass", color: "#10B981", order: 6 },
+        { name: "Staff / Marshal", desc: "Internal crew & track marshals", color: "#8B5CF6", order: 7 }
+    ];
+    defaults.forEach(d => {
+        db.run(
+            `INSERT INTO band_categories (name, description, badge_color, sort_order, active)
+             VALUES (?, ?, ?, ?, 1)
+             ON CONFLICT (name) DO NOTHING`,
+            [d.name, d.desc, d.color, d.order],
+            () => {
+                // SQLite fallback syntax if ON CONFLICT syntax differs
+                db.run(
+                    `INSERT OR IGNORE INTO band_categories (name, description, badge_color, sort_order, active)
+                     VALUES (?, ?, ?, ?, 1)`,
+                    [d.name, d.desc, d.color, d.order],
+                    () => {}
+                );
+            }
+        );
+    });
+}
 
 // Redirect all secondary domains to canonical https://www.havocsim.in
 app.use((req, res, next) => {
@@ -3662,6 +3720,58 @@ app.get('/api/admin/bands/export', verifyToken, (req, res) => {
         res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="Havoc_Band_Master_Inventory_${nowStr}.csv"`);
         res.send(lines.join("\r\n"));
+    });
+});
+
+// 13. Category / Offer Tier Management APIs (Get, Create, Delete)
+app.get('/api/admin/bands/categories', verifyToken, (req, res) => {
+    db.all("SELECT id, name, description, badge_color, sort_order, active FROM band_categories WHERE active = 1 ORDER BY sort_order ASC, name ASC", [], (err, rows) => {
+        if (err || !rows || rows.length === 0) {
+            return res.json([
+                { name: "Standard", description: "Regular session admission", badge_color: "#94A3B8" },
+                { name: "Student Offer", description: "College / School discount deal", badge_color: "#38BDF8" },
+                { name: "Happy Hour", description: "Afternoon / Off-peak promo pass", badge_color: "#F59E0B" },
+                { name: "Weekend Pass", description: "Weekend special tier", badge_color: "#EC4899" },
+                { name: "VIP Racer", description: "Premium simulator / unlimited lap tier", badge_color: "#E5B869" },
+                { name: "Child / Junior", description: "Junior track pass", badge_color: "#10B981" },
+                { name: "Staff / Marshal", description: "Internal crew & track marshals", badge_color: "#8B5CF6" }
+            ]);
+        }
+        res.json(rows);
+    });
+});
+
+app.post('/api/admin/bands/categories', verifyToken, (req, res) => {
+    const name = (req.body.name || '').trim();
+    const description = (req.body.description || '').trim();
+    const badge_color = (req.body.badge_color || '#E5B869').trim();
+
+    if (!name) return res.status(400).json({ error: 'Category / Offer Name is required.' });
+
+    db.get("SELECT id FROM band_categories WHERE UPPER(name) = UPPER(?) AND active = 1", [name], (err, exists) => {
+        if (exists) {
+            return res.status(400).json({ error: `Category / Offer '${name}' already exists.` });
+        }
+
+        db.run(
+            `INSERT INTO band_categories (name, description, badge_color, sort_order, active)
+             VALUES (?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM band_categories), 1)`,
+            [name, description || null, badge_color],
+            function(insErr) {
+                if (insErr) return res.status(500).json({ error: insErr.message || 'Failed to create category' });
+                res.json({ success: true, id: this ? this.lastID : null, name, description, badge_color });
+            }
+        );
+    });
+});
+
+app.delete('/api/admin/bands/categories/:id', verifyToken, verifySuperAdmin, (req, res) => {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return res.status(400).json({ error: 'Valid category ID required' });
+
+    db.run("DELETE FROM band_categories WHERE id = ?", [id], function(delErr) {
+        if (delErr) return res.status(500).json({ error: 'Failed to delete category' });
+        res.json({ success: true });
     });
 });
 

@@ -5346,7 +5346,7 @@ let bandMovementSearchTimer = null;
 // Tab switcher for Band Inventory subviews
 window.switchBandSubTab = (tab) => {
     currentBandSubTab = tab;
-    ['summary', 'master', 'movements', 'reports'].forEach(t => {
+    ['summary', 'master', 'categories', 'movements', 'reports'].forEach(t => {
         const viewEl = document.getElementById(`bandView-${t}`);
         const btnEl = document.getElementById(`bandSubTab-${t}`);
         if (viewEl) viewEl.style.display = (t === tab) ? 'block' : 'none';
@@ -5367,12 +5367,14 @@ window.switchBandSubTab = (tab) => {
 
     if (tab === 'summary') loadBandSummary();
     if (tab === 'master') loadBandItemsList();
+    if (tab === 'categories') loadBandCategoriesList();
     if (tab === 'movements') loadBandTransactionsList();
 };
 
 window.refreshBandInventoryData = async () => {
     await loadBandSummary();
     if (currentBandSubTab === 'master') await loadBandItemsList();
+    if (currentBandSubTab === 'categories') await loadBandCategoriesList();
     if (currentBandSubTab === 'movements') await loadBandTransactionsList();
 };
 
@@ -5463,6 +5465,50 @@ async function loadBandSummary() {
                 }).join('');
             }
         }
+
+        // Render Category / Offer Breakdown Cards Grid
+        const catGrid = document.getElementById('bandCategoryCardsGrid');
+        if (catGrid) {
+            if (!data.categoryBreakdown || data.categoryBreakdown.length === 0) {
+                catGrid.innerHTML = `<div style="color:var(--muted); padding:2rem; text-align:center; grid-column:1/-1;">No offer tiers created yet.</div>`;
+            } else {
+                catGrid.innerHTML = data.categoryBreakdown.map(cat => {
+                    const catAvailPct = cat.total > 0 ? Math.round((cat.available / cat.total) * 100) : 0;
+                    return `
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-top: 3px solid var(--gold); border-radius: 12px; padding: 1.15rem; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.8rem;">
+                                <div>
+                                    <div style="font-weight: 700; color: #fff; font-size: 0.95rem;">${escapeHtml(cat.category)}</div>
+                                    <div style="font-size: 0.72rem; color: var(--muted); margin-top: 2px;">Offer / Tier</div>
+                                </div>
+                                <span style="font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: rgba(229,184,105,0.12); color: var(--gold);">${cat.total} bands</span>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0.8rem; font-size: 0.82rem;">
+                                <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); padding: 6px 10px; border-radius: 8px;">
+                                    <div style="font-size: 0.68rem; color: #10B981; font-weight: 700; text-transform: uppercase;">In Stock</div>
+                                    <div style="font-size: 1.15rem; font-weight: 800; color: #fff;">${cat.available}</div>
+                                </div>
+                                <div style="background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); padding: 6px 10px; border-radius: 8px;">
+                                    <div style="font-size: 0.68rem; color: #60a5fa; font-weight: 700; text-transform: uppercase;">Issued</div>
+                                    <div style="font-size: 1.15rem; font-weight: 800; color: #fff;">${cat.issued}</div>
+                                </div>
+                            </div>
+
+                            <div style="background: rgba(255,255,255,0.06); height: 5px; border-radius: 3px; overflow: hidden; margin-bottom: 0.4rem;">
+                                <div style="background: var(--gold); height: 100%; width: ${catAvailPct}%;"></div>
+                            </div>
+                            <div style="font-size: 0.72rem; color: var(--muted); text-align: right;">
+                                ${catAvailPct}% available
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        // Sync Category Dropdowns across modals and filters
+        loadBandCategoryDropdowns(data.categoryBreakdown);
 
         // Populate Color dropdown in filter
         const colorFilter = document.getElementById('bandFilterColor');
@@ -6074,5 +6120,185 @@ window.restoreBandItem = async (id) => {
 document.getElementById('nav-band-inventory')?.addEventListener('click', () => {
     loadBandSummary();
 });
+
+// =========================================================================
+// BAND OFFER / CATEGORY MANAGEMENT
+// =========================================================================
+
+let cachedBandCategories = [];
+
+async function loadBandCategoriesList() {
+    const container = document.getElementById('bandCategoriesListContainer');
+    if (!container) return;
+
+    container.innerHTML = '<div style="text-align: center; color: var(--muted); padding: 2rem 0;">Loading offer tiers...</div>';
+
+    try {
+        const res = await fetchAuth('/api/admin/bands/categories');
+        if (!res.ok) {
+            container.innerHTML = '<div style="color: var(--red); text-align: center; padding: 1.5rem 0;">Failed to load offer tiers.</div>';
+            return;
+        }
+
+        const list = await res.json();
+        cachedBandCategories = list || [];
+
+        // Also fetch breakdown from summary to display live band counts on each tier
+        const sumRes = await fetchAuth('/api/admin/bands/summary');
+        const sumData = sumRes.ok ? await sumRes.json() : {};
+        const breakdownMap = {};
+        (sumData.categoryBreakdown || []).forEach(b => {
+            breakdownMap[b.category] = b;
+        });
+
+        if (list.length === 0) {
+            container.innerHTML = '<div style="color: var(--muted); text-align: center; padding: 2rem 0;">No offer tiers created. Add one on the left!</div>';
+            return;
+        }
+
+        container.innerHTML = `
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+                ${list.map(cat => {
+                    const stats = breakdownMap[cat.name] || { total: 0, available: 0, issued: 0 };
+                    const isProtected = ['Standard'].includes(cat.name);
+                    const badgeColor = cat.badge_color || '#E5B869';
+
+                    return `
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-left: 4px solid ${badgeColor}; border-radius: 10px; padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+                            <div style="flex: 1; min-width: 200px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-weight: 700; color: #fff; font-size: 1rem;">${escapeHtml(cat.name)}</span>
+                                    <span style="background: ${badgeColor}22; color: ${badgeColor}; border: 1px solid ${badgeColor}44; font-size: 0.7rem; font-weight: 700; padding: 2px 7px; border-radius: 6px;">Offer Tier</span>
+                                </div>
+                                <div style="color: var(--muted); font-size: 0.8rem; margin-top: 3px;">
+                                    ${escapeHtml(cat.description || 'Active wristband tier')}
+                                </div>
+                            </div>
+
+                            <div style="display: flex; align-items: center; gap: 16px;">
+                                <div style="display: flex; gap: 12px; font-size: 0.82rem; text-align: right;">
+                                    <div>
+                                        <div style="font-size: 0.68rem; color: var(--muted); text-transform: uppercase;">Total</div>
+                                        <div style="font-weight: 700; color: #fff;">${stats.total}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 0.68rem; color: #10B981; text-transform: uppercase;">Stock</div>
+                                        <div style="font-weight: 700; color: #10B981;">${stats.available}</div>
+                                    </div>
+                                    <div>
+                                        <div style="font-size: 0.68rem; color: #60a5fa; text-transform: uppercase;">Issued</div>
+                                        <div style="font-weight: 700; color: #60a5fa;">${stats.issued}</div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    ${!isProtected && cat.id ? `
+                                        <button type="button" class="btn" onclick="deleteBandCategory(${cat.id}, '${escapeHtml(cat.name)}')" style="background: transparent; border: 1px solid rgba(239,68,68,0.3); color: #f87171; padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; cursor: pointer;">
+                                            Delete
+                                        </button>
+                                    ` : `<span style="font-size: 0.72rem; color: var(--muted); font-style: italic;">Default</span>`}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
+        loadBandCategoryDropdowns(list);
+
+    } catch (e) {
+        console.error('Error loading band categories:', e);
+        container.innerHTML = '<div style="color: var(--red); text-align: center; padding: 1.5rem 0;">Error loading offer categories.</div>';
+    }
+}
+
+// Update all Category dropdowns in Stock In modal, Edit modal, and Filter bar
+function loadBandCategoryDropdowns(categories) {
+    const list = categories || cachedBandCategories || [];
+    const catNames = list.map(c => typeof c === 'string' ? c : (c.name || c.category)).filter(Boolean);
+    const uniqueNames = Array.from(new Set(['Standard', ...catNames]));
+
+    // 1. Filter dropdown
+    const filterSelect = document.getElementById('bandFilterCategory');
+    if (filterSelect) {
+        const curVal = filterSelect.value || 'all';
+        filterSelect.innerHTML = '<option value="all">All Categories</option>' + uniqueNames.map(name => `
+            <option value="${escapeHtml(name)}" ${name === curVal ? 'selected' : ''}>${escapeHtml(name)}</option>
+        `).join('');
+    }
+
+    // 2. Stock In modal dropdown
+    const stockSelect = document.getElementById('bandStockCategory');
+    if (stockSelect) {
+        const curStockVal = stockSelect.value || 'Standard';
+        stockSelect.innerHTML = uniqueNames.map(name => `
+            <option value="${escapeHtml(name)}" ${name === curStockVal ? 'selected' : ''}>${escapeHtml(name)}</option>
+        `).join('');
+    }
+
+    // 3. Edit modal dropdown
+    const editSelect = document.getElementById('bandEditCategory');
+    if (editSelect) {
+        const curEditVal = editSelect.value || 'Standard';
+        editSelect.innerHTML = uniqueNames.map(name => `
+            <option value="${escapeHtml(name)}" ${name === curEditVal ? 'selected' : ''}>${escapeHtml(name)}</option>
+        `).join('');
+    }
+}
+
+window.submitAddBandCategoryForm = async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('addBandCatSubmitBtn');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    const name = document.getElementById('newBandCatName')?.value.trim();
+    const description = document.getElementById('newBandCatDesc')?.value.trim();
+    const badge_color = document.getElementById('newBandCatColor')?.value || '#E5B869';
+
+    try {
+        const res = await fetchAuth('/api/admin/bands/categories', {
+            method: 'POST',
+            body: JSON.stringify({ name, description, badge_color })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.error || 'Failed to create category');
+            return;
+        }
+
+        alert(`Offer / Category '${name}' created successfully!`);
+        document.getElementById('addBandCategoryForm').reset();
+        loadBandCategoriesList();
+        loadBandSummary();
+    } catch (err) {
+        console.error(err);
+        alert('Server error creating category.');
+    } finally {
+        btn.disabled = false;
+        btn.textContent = origText;
+    }
+};
+
+window.deleteBandCategory = async (id, name) => {
+    if (!confirm(`Are you sure you want to delete the offer tier '${name}'? Existing wristbands with this category will remain unchanged.`)) return;
+
+    try {
+        const res = await fetchAuth(`/api/admin/bands/categories/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.error || 'Failed to delete category');
+            return;
+        }
+        alert(`Offer tier '${name}' deleted.`);
+        loadBandCategoriesList();
+        loadBandSummary();
+    } catch (e) {
+        console.error(e);
+        alert('Failed to delete category.');
+    }
+};
 
 

@@ -2762,6 +2762,9 @@
                 <button type="button" id="bandSubTab-master" class="btn" onclick="switchBandSubTab('master')" style="background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 0.85rem; padding: 0.45rem 1.1rem; border-radius: 10px; font-weight: 600;">
                     🏷️ Master Inventory (<span id="bandMasterCountBadge">0</span>)
                 </button>
+                <button type="button" id="bandSubTab-categories" class="btn" onclick="switchBandSubTab('categories')" style="background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 0.85rem; padding: 0.45rem 1.1rem; border-radius: 10px; font-weight: 600;">
+                    🏷️ Categories &amp; Offers
+                </button>
                 <button type="button" id="bandSubTab-movements" class="btn" onclick="switchBandSubTab('movements')" style="background: transparent; color: var(--muted); border: 1px solid var(--border); font-size: 0.85rem; padding: 0.45rem 1.1rem; border-radius: 10px; font-weight: 600;">
                     📜 Movement Logs
                 </button>
@@ -2825,6 +2828,22 @@
 
                     <div id="bandColorCardsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;">
                         <div style="color: var(--muted); padding: 2rem 0; text-align: center; grid-column: 1 / -1;">Loading color breakdown...</div>
+                    </div>
+                </div>
+
+                <!-- Category / Offer Breakdown Cards Grid -->
+                <div class="table-card" style="margin-bottom: 1.5rem; padding: 1.25rem 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h3 style="margin: 0; color: #fff; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                            <span>🏷️</span> Stock Breakdown by Offer / Tier Category
+                        </h3>
+                        <button type="button" class="btn" onclick="switchBandSubTab('categories')" style="background: rgba(229,184,105,0.12); color: var(--gold); border: 1px solid rgba(229,184,105,0.3); font-size: 0.78rem; font-weight: 700; padding: 4px 10px; border-radius: 8px; cursor: pointer;">
+                            ⚙️ Manage Offers &amp; Tiers
+                        </button>
+                    </div>
+
+                    <div id="bandCategoryCardsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1rem;">
+                        <div style="color: var(--muted); padding: 2rem 0; text-align: center; grid-column: 1 / -1;">Loading offer tier breakdown...</div>
                     </div>
                 </div>
             </div>
@@ -2927,6 +2946,53 @@
                                 <tr><td colspan="6" style="text-align: center; color: var(--muted); padding: 2.5rem 0;">Loading movement records...</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                </div>
+            <!-- SUB TAB: CATEGORIES & OFFERS MANAGEMENT -->
+            <div id="bandView-categories" style="display: none;">
+                <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; align-items: flex-start;">
+                    <!-- Left: Create Category / Offer -->
+                    <div class="data-card" style="background: var(--card2); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem;">
+                        <h3 style="margin: 0 0 1rem 0; color: #fff; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                            <span>➕</span> Add Offer / Tier Category
+                        </h3>
+                        <form id="addBandCategoryForm" onsubmit="submitAddBandCategoryForm(event)">
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--gold); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Category / Offer Name *</label>
+                                <input type="text" id="newBandCatName" required placeholder="e.g. Student Offer, Happy Hour" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                            </div>
+                            <div style="margin-bottom: 1rem;">
+                                <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Description / Eligibility</label>
+                                <input type="text" id="newBandCatDesc" placeholder="e.g. Valid College ID required / 2PM-5PM" style="width: 100%; padding: 0.75rem 0.95rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.9rem; outline: none;">
+                            </div>
+                            <div style="margin-bottom: 1.5rem;">
+                                <label style="display: block; font-size: 0.78rem; text-transform: uppercase; color: var(--muted); font-weight: 700; letter-spacing: 1px; margin-bottom: 0.4rem;">Badge Accent Color</label>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <input type="color" id="newBandCatColor" value="#E5B869" style="width: 44px; height: 38px; border: none; border-radius: 8px; cursor: pointer; background: transparent;">
+                                    <span style="font-size: 0.8rem; color: var(--muted);">Click to choose tag color</span>
+                                </div>
+                            </div>
+                            <button type="submit" id="addBandCatSubmitBtn" class="btn" style="width: 100%; background: linear-gradient(135deg, var(--gold), #c9952f); color: #000; font-weight: 700; padding: 0.8rem; border-radius: 10px; border: none; cursor: pointer; box-shadow: 0 4px 15px rgba(229,184,105,0.3);">
+                                Save Category / Offer Tier
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Right: Active Categories & Live Stock Tags -->
+                    <div class="table-card" style="padding: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem;">
+                            <div>
+                                <h3 style="margin: 0; color: #fff; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                                    <span>🏷️</span> Active Offer Tiers &amp; Segregation
+                                </h3>
+                                <p style="margin: 0.25rem 0 0 0; font-size: 0.8rem; color: var(--muted);">
+                                    Use these tags when stocking in or editing bands to categorize inventory for specific deals.
+                                </p>
+                            </div>
+                        </div>
+                        <div id="bandCategoriesListContainer">
+                            <div style="text-align: center; color: var(--muted); padding: 2rem 0;">Loading categories...</div>
+                        </div>
                     </div>
                 </div>
             </div>
