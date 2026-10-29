@@ -5384,20 +5384,17 @@ window.renderDeskVerifiedBookings = function() {
                         <!-- Right: Stepper Controls & Release Slot -->
                         <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                             
-                            <!-- Player Stepper Pill -->
-                            <div style="display: inline-flex; align-items: center; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 2px;">
-                                <button type="button" onclick="adjustDeskPlayerCount(${b.id}, -1)" title="Reduce 1 Player" style="background: transparent; border: none; color: #f87171; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='transparent'">
-                                    &minus;
-                                </button>
+                            <!-- Player Count / Opt Out Pill (Only Opt-Out [-] allowed, no extras) -->
+                            <div style="display: inline-flex; align-items: center; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 20px; padding: 2px 6px;">
+                                ${playersCount > 0 ? `
+                                    <button type="button" onclick="adjustDeskPlayerCount(${b.id}, -1)" title="Opt Out 1 Player (-1)" style="background: transparent; border: none; color: #f87171; width: 26px; height: 26px; border-radius: 50%; cursor: pointer; font-weight: 800; font-size: 1.1rem; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='transparent'">
+                                        &minus;
+                                    </button>
+                                ` : ''}
                                 
-                                <button type="button" onclick="promptDeskPlayerCount(${b.id}, ${playersCount})" title="Click to edit player count" style="background: transparent; border: none; color: #fff; font-weight: 800; font-size: 0.85rem; padding: 0 10px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-                                    <span>${playersCount} Player${playersCount === 1 ? '' : 's'}</span>
-                                    <span style="font-size: 0.7rem; color: var(--gold);">✎</span>
-                                </button>
-
-                                <button type="button" onclick="adjustDeskPlayerCount(${b.id}, 1)" title="Add 1 Player" style="background: transparent; border: none; color: #10B981; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-weight: 800; font-size: 1rem; display: flex; align-items: center; justify-content: center;" onmouseover="this.style.background='rgba(16,185,129,0.2)'" onmouseout="this.style.background='transparent'">
-                                    &#43;
-                                </button>
+                                <span style="color: #fff; font-weight: 800; font-size: 0.85rem; padding: 0 8px; display: inline-flex; align-items: center;">
+                                    ${playersCount} Player${playersCount === 1 ? '' : 's'}
+                                </span>
                             </div>
 
                             <!-- Price Pill -->
@@ -5444,8 +5441,10 @@ window.renderDeskVerifiedBookings = function() {
     updateDeskPaymentUI(totalDue);
 };
 
-// Adjust player count via stepper [ - ] or [ + ]
+// Adjust player count via stepper: ONLY OPT-OUT (delta < 0) allowed, no extras
 window.adjustDeskPlayerCount = async function(bookingId, delta) {
+    if (delta > 0) return; // Prevent adding extra players
+
     const booking = (window._deskVerifiedBookings || []).find(b => b.id === bookingId);
     if (!booking) return;
 
@@ -5455,34 +5454,16 @@ window.adjustDeskPlayerCount = async function(bookingId, delta) {
     if (nextCount === current) return;
 
     if (nextCount === 0) {
-        if (!confirm(`Are you sure you want to reduce player count to 0 for ${booking.item_name}?\nThis will cancel the session and release the simulator slot.`)) {
+        if (!confirm(`Are you sure you want to opt out all players for ${booking.item_name}?\nThis will cancel the session and release the simulator slot.`)) {
+            return;
+        }
+    } else {
+        if (!confirm(`Opt out 1 player from ${booking.item_name}?\nRemaining players will be ${nextCount}.`)) {
             return;
         }
     }
 
     await callCancelWalkoutApi({ booking_id: bookingId, target_quantity: nextCount });
-};
-
-// Clickable prompt [ count ✎ ] allowing exact manual input
-window.promptDeskPlayerCount = async function(bookingId, currentCount) {
-    const input = prompt(`Enter new player count for this session:`, currentCount);
-    if (input === null) return;
-
-    const newCount = parseInt(input.trim(), 10);
-    if (isNaN(newCount) || newCount < 0) {
-        alert('Please enter a valid positive number.');
-        return;
-    }
-
-    if (newCount === currentCount) return;
-
-    if (newCount === 0) {
-        if (!confirm(`Setting player count to 0 will cancel this session and release the simulator slot. Proceed?`)) {
-            return;
-        }
-    }
-
-    await callCancelWalkoutApi({ booking_id: bookingId, target_quantity: newCount });
 };
 
 // Release slot button (mark walkout & free simulator slot)

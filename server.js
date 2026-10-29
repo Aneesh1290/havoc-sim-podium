@@ -3262,6 +3262,10 @@ app.post('/api/admin/verify/cancel-walkout', verifyToken, (req, res) => {
         if (target_quantity !== undefined && target_quantity !== null) {
             newPlayers = parseInt(target_quantity, 10);
             if (isNaN(newPlayers) || newPlayers < 0) newPlayers = 0;
+            // Never allow increasing player count beyond current at check-in desk
+            if (newPlayers > currentPlayers) {
+                return res.status(400).json({ error: 'Adding extra players at desk is not permitted. Only opting out / reducing is allowed.' });
+            }
         } else if (reduce_quantity !== undefined && reduce_quantity !== null) {
             const dec = parseInt(reduce_quantity, 10) || 1;
             newPlayers = Math.max(0, currentPlayers - dec);
@@ -3270,7 +3274,7 @@ app.post('/api/admin/verify/cancel-walkout', verifyToken, (req, res) => {
             newPlayers = 0;
         }
 
-        const cleanReason = (reason || 'Customer walkout / changed mind at desk').trim();
+        const cleanReason = (reason || 'Customer opted out / changed mind at desk').trim();
 
         if (newPlayers === 0) {
             // Full cancellation: release slot lock and mark status as CANCELLED
