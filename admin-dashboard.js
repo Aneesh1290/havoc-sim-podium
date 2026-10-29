@@ -591,6 +591,38 @@ window.openOrderDetails = (baseOrderId) => {
         items.forEach(item => {
             const itemPriceNum = parseFloat(item.price) || 0;
             const itemBaseCost = (itemPriceNum / 1.18).toFixed(2);
+            
+            // Resolve slot wristband color badge
+            let slotColorBadgeHtml = '';
+            if (item.booking_time && typeof getSlotWristbandColor === 'function' && typeof getWristbandBadgeStyle === 'function') {
+                const colorInfo = getSlotWristbandColor(item.booking_time);
+                const badgeStyle = getWristbandBadgeStyle(colorInfo.hex);
+                slotColorBadgeHtml = `
+                    <span style="display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; border-radius: 12px; font-weight: 700; font-size: 0.68rem; background: ${badgeStyle.backgroundColor}; border: 1px solid ${badgeStyle.borderColor}; color: ${badgeStyle.color}; margin-left: 6px;">
+                        <span style="width: 7px; height: 7px; border-radius: 50%; background: ${colorInfo.hex};"></span>
+                        <span>${escapeHtml(colorInfo.name)} Band</span>
+                    </span>
+                `;
+            }
+
+            // Wristband assignment pill
+            const currentBand = (item.wristband_number || '').trim();
+            const bandAssignHtml = `
+                <div id="od-band-container-${item.id}" style="display: inline-flex; align-items: center; margin-top: 0.35rem;">
+                    ${currentBand ? `
+                        <span style="display: inline-flex; align-items: center; gap: 6px; background: rgba(229,184,105,0.12); border: 1px solid rgba(229,184,105,0.35); color: var(--gold); padding: 2px 8px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">
+                            <span style="opacity: 0.8;">🏷️ Band:</span>
+                            <strong style="color: #fff; font-family: monospace;">${escapeHtml(currentBand)}</strong>
+                            <button type="button" onclick="startEditItemWristband(${item.id}, '${escapeHtml(currentBand)}', '${baseOrderId}')" style="background: none; border: none; color: var(--gold); cursor: pointer; padding: 0 2px; font-size: 0.75rem;" title="Edit Band #">✎</button>
+                        </span>
+                    ` : `
+                        <button type="button" onclick="startEditItemWristband(${item.id}, '', '${baseOrderId}')" style="display: inline-flex; align-items: center; gap: 4px; background: rgba(59,130,246,0.12); border: 1px dashed rgba(59,130,246,0.35); color: #60a5fa; padding: 2px 8px; border-radius: 20px; font-size: 0.72rem; font-weight: 700; cursor: pointer;">
+                            <span>+ Assign Band #</span>
+                        </button>
+                    `}
+                </div>
+            `;
+
             itemsHtml += `
                 <div class="od-item-row">
                     <div style="display: flex; gap: 1rem;">
@@ -603,7 +635,11 @@ window.openOrderDetails = (baseOrderId) => {
                             </div>
                             ${item.player_two_name ? `<div style="font-size: 0.8rem; color: #aaa; margin-top: 0.2rem;">Co-Player (P2): <strong style="color:#fff;">${item.player_two_name}</strong></div>` : ''}
                             <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem;">Select Date: ${item.booking_date || '-'}</div>
-                            <div style="font-size: 0.8rem; color: var(--muted);">Select Time Slot: ${item.booking_time || '-'}</div>
+                            <div style="font-size: 0.8rem; color: var(--muted); display: flex; align-items: center; flex-wrap: wrap;">
+                                <span>Select Time Slot: <strong style="color: #fff;">${item.booking_time || '-'}</strong></span>
+                                ${slotColorBadgeHtml}
+                            </div>
+                            ${bandAssignHtml}
                             ${item.instructor_name ? `<div style="font-size: 0.8rem; color: var(--gold); margin-top: 0.3rem; font-weight: 500;">Assigned Instructor: ${item.instructor_name}</div>` : ''}
                         </div>
                     </div>
@@ -762,6 +798,54 @@ window.openOrderDetails = (baseOrderId) => {
         const tab = document.getElementById('tab-bookings');
         if (tab) tab.style.display = '';
         alert('Could not open order details: ' + err.message);
+    }
+};
+
+window.startEditItemWristband = (itemId, currentVal, baseOrderId) => {
+    const container = document.getElementById(`od-band-container-${itemId}`);
+    if (!container) return;
+
+    container.innerHTML = `
+        <div style="display: inline-flex; align-items: center; gap: 4px; background: rgba(0,0,0,0.4); border: 1px solid rgba(229,184,105,0.4); padding: 2px 6px; border-radius: 6px;">
+            <input type="text" id="od-band-input-${itemId}" value="${escapeHtml(currentVal || '')}" placeholder="e.g. 104, BND-01" style="width: 110px; font-size: 0.75rem; font-family: monospace; font-weight: 700; color: #fff; background: transparent; border: none; outline: none;" onkeydown="if(event.key==='Enter') saveItemWristband(${itemId}, '${baseOrderId}'); if(event.key==='Escape') openOrderDetails('${baseOrderId}');" autofocus />
+            <button type="button" onclick="saveItemWristband(${itemId}, '${baseOrderId}')" style="background: rgba(16,185,129,0.2); border: 1px solid rgba(16,185,129,0.4); color: #10B981; border-radius: 4px; font-size: 0.72rem; padding: 1px 6px; cursor: pointer; font-weight: 800;" title="Save">✓</button>
+            <button type="button" onclick="openOrderDetails('${baseOrderId}')" style="background: rgba(239,68,68,0.2); border: 1px solid rgba(239,68,68,0.4); color: #f87171; border-radius: 4px; font-size: 0.72rem; padding: 1px 6px; cursor: pointer; font-weight: 800;" title="Cancel">✕</button>
+        </div>
+    `;
+    const input = document.getElementById(`od-band-input-${itemId}`);
+    if (input) {
+        input.focus();
+        input.select();
+    }
+};
+
+window.saveItemWristband = async (itemId, baseOrderId) => {
+    const input = document.getElementById(`od-band-input-${itemId}`);
+    if (!input) return;
+
+    const val = input.value.trim();
+    try {
+        const res = await fetchAuth(`/api/admin/bookings/${itemId}/wristband`, {
+            method: 'PUT',
+            body: JSON.stringify({ wristband_number: val })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            alert(data.error || 'Failed to update wristband number.');
+            return;
+        }
+
+        // Update in-memory booking item
+        if (Array.isArray(window.allBookings)) {
+            const found = window.allBookings.find(b => b.id === itemId);
+            if (found) found.wristband_number = val || null;
+        }
+
+        // Re-render openOrderDetails
+        openOrderDetails(baseOrderId);
+    } catch (err) {
+        console.error('Error saving wristband number:', err);
+        alert('Server error saving wristband number.');
     }
 };
 

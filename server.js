@@ -258,6 +258,9 @@ db.run(`
             `, [], () => {});
         }
     });
+
+    // Ensure wristband_number column exists on bookings table
+    db.run("ALTER TABLE bookings ADD COLUMN wristband_number TEXT", [], () => {});
 });
 
 // Ensure common shared band_transactions audit log table exists (Shared with Havoc RC Fun Zone)
@@ -2322,6 +2325,32 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, checkPermission('ed
             res.json({ success: true, bookingsUpdated, locksUpdated });
         });
     });
+});
+
+// Update Wristband Number for a single booking item (Protected - requires 'edit_orders' permission or Super Admin)
+app.put('/api/admin/bookings/:id/wristband', verifyToken, checkPermission('edit_orders'), (req, res) => {
+    const bookingId = parseInt(req.params.id, 10);
+    if (!bookingId) {
+        return res.status(400).json({ error: 'Valid booking ID is required.' });
+    }
+
+    const { wristband_number } = req.body;
+    const cleanBand = (wristband_number || '').trim();
+
+    db.run(
+        "UPDATE bookings SET wristband_number = ? WHERE id = ?",
+        [cleanBand || null, bookingId],
+        function(err) {
+            if (err) {
+                console.error('Error updating wristband number:', err);
+                return res.status(500).json({ error: 'Database error updating wristband number.' });
+            }
+            if (this && this.changes === 0) {
+                return res.status(404).json({ error: 'Booking item not found.' });
+            }
+            res.json({ success: true, id: bookingId, wristband_number: cleanBand || null });
+        }
+    );
 });
 
 // Process ICICI Refund for a Booking (Protected - requires 'refunds' permission or Super Admin)
