@@ -87,13 +87,14 @@ function resolveColorNameToHex(name) {
 }
 
 function getSlotWristbandColor(slotLabel, customHex, customColorName) {
-  let targetHex = customHex;
+  let targetHex = (customHex && typeof customHex === 'string') ? customHex.trim() : null;
   if (!targetHex && customColorName) {
     const resolved = resolveColorNameToHex(customColorName);
     if (resolved) targetHex = resolved;
   }
 
-  const hex = (targetHex || (slotLabel ? DEFAULT_SLOT_COLORS[slotLabel.trim()] : null) || "#06B6D4").toUpperCase();
+  // Only use custom hex/name if provided by admin. Never auto-force default colors onto slots.
+  const hex = (targetHex || "#06B6D4").toUpperCase();
   
   const found = WRISTBAND_PALETTE.find(p => p.hex.toUpperCase() === hex);
   if (found) {
