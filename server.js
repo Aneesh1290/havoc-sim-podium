@@ -239,6 +239,25 @@ db.run(`
     db.run("CREATE INDEX IF NOT EXISTS idx_band_items_code ON band_items(band_code)", [], () => {});
     db.run("CREATE INDEX IF NOT EXISTS idx_band_items_status ON band_items(status)", [], () => {});
     db.run("CREATE INDEX IF NOT EXISTS idx_band_items_color ON band_items(color_name)", [], () => {});
+
+    // Ensure site_settings table exists for persistent flags (e.g. band_inventory_seeded)
+    db.run(`
+        CREATE TABLE IF NOT EXISTS site_settings (
+            key VARCHAR(100) PRIMARY KEY,
+            value TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `, [], (setErr) => {
+        if (setErr) {
+            db.run(`
+                CREATE TABLE IF NOT EXISTS site_settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `, [], () => {});
+        }
+    });
 });
 
 // Ensure common shared band_transactions audit log table exists (Shared with Havoc RC Fun Zone)
@@ -3287,47 +3306,37 @@ app.post('/api/admin/bookings', verifyToken, (req, res) => {
 // ==========================================
 
 function ensureBandInventorySeeded(cb) {
-    db.get("SELECT COUNT(*) as count FROM band_items", [], (err, row) => {
-        if (!err && row && Number(row.count) === 0) {
-            console.log("[Band Inventory] Seeding initial starter stock of wristbands...");
-            const seedColors = [
-                { code: "CYAN", name: "Cyan / Neon Blue", hex: "#06B6D4", count: 10 },
-                { code: "GRN",  name: "Emerald Green",    hex: "#10B981", count: 10 },
-                { code: "AMB",  name: "Amber Yellow",     hex: "#F59E0B", count: 10 },
-                { code: "ORG",  name: "Vibrant Orange",   hex: "#F97316", count: 10 },
-                { code: "RED",  name: "Ruby Red",         hex: "#EF4444", count: 10 },
-                { code: "PUR",  name: "Electric Purple",  hex: "#8B5CF6", count: 10 }
-            ];
-
-            let completed = 0;
-            const totalToSeed = seedColors.reduce((sum, c) => sum + c.count, 0);
-
-            seedColors.forEach(item => {
-                for (let i = 1; i <= item.count; i++) {
-                    const padNum = String(i).padStart(3, "0");
-                    const bandCode = `BND-${item.code}-${padNum}`;
-                    db.run(
-                        `INSERT INTO band_items (band_code, color_name, color_hex, category, status, total_uses, notes)
-                         VALUES (?, ?, ?, 'Standard', 'available', 0, 'Initial Starter Stock')`,
-                        [bandCode, item.name, item.hex],
-                        function(itemErr) {
-                            const newId = this ? this.lastID : null;
-                            if (newId) {
-                                db.run(
-                                    `INSERT INTO band_transactions (band_id, band_code, color_name, color_hex, transaction_type, quantity, staff_name, notes)
-                                     VALUES (?, ?, ?, ?, 'STOCK_IN', 1, 'System Setup', 'Initial Master Stock In')`,
-                                    [newId, bandCode, item.name, item.hex]
-                                );
-                            }
-                            completed++;
-                            if (completed === totalToSeed && cb) cb();
-                        }
-                    );
-                }
-            });
-        } else {
+    // Check if inventory already exists or if band_inventory_seeded flag is set
+    db.get("SELECT value FROM site_settings WHERE key = 'band_inventory_seeded'", [], (setErr, setRow) => {
+        if (!setErr && setRow && setRow.value === '1') {
             if (cb) cb();
+            return;
         }
+
+        db.get("SELECT COUNT(*) as count FROM band_items", [], (err, row) => {
+            if (!err && row && Number(row.count) > 0) {
+                // Records already present; mark seeded permanently so we never inject starter stock
+                db.run(
+                    "INSERT INTO site_settings (key, value) VALUES ('band_inventory_seeded', '1') ON CONFLICT (key) DO UPDATE SET value = '1'",
+                    [],
+                    () => {
+                        db.run("INSERT OR REPLACE INTO site_settings (key, value) VALUES ('band_inventory_seeded', '1')", [], () => {});
+                        if (cb) cb();
+                    }
+                );
+                return;
+            }
+
+            // If band_items is 0 or empty, permanently mark seeded so phantom starter colors are NEVER auto-injected
+            db.run(
+                "INSERT INTO site_settings (key, value) VALUES ('band_inventory_seeded', '1') ON CONFLICT (key) DO UPDATE SET value = '1'",
+                [],
+                () => {
+                    db.run("INSERT OR REPLACE INTO site_settings (key, value) VALUES ('band_inventory_seeded', '1')", [], () => {});
+                    if (cb) cb();
+                }
+            );
+        });
     });
 }
 
@@ -3428,15 +3437,77 @@ app.get('/api/admin/bands/summary', verifyToken, (req, res) => {
                             issued: Number(r.issued || 0)
                         }));
 
-                        // Auto-discover unique colors configured on time slots to include in palette
-                        db.all("SELECT DISTINCT color, color_name FROM time_slots WHERE color IS NOT NULL AND color != ''", [], (tsErr, slotColorRows) => {
-                            const combinedPalette = [...WRISTBAND_PALETTE];
+                        // Strictly reflect active slot colors and physical inventory
+                        db.all("SELECT DISTINCT color, color_name FROM time_slots WHERE active = 1 AND color IS NOT NULL AND TRIM(color) != ''", [], (tsErr, slotColorRows) => {
+                            const breakdownMap = new Map();
+
+                            // 1. Add active slot colors (cleanly initializing to 0 if no inventory exists yet)
                             (slotColorRows || []).forEach(sc => {
-                                const hexUpper = sc.color.toUpperCase();
-                                if (!combinedPalette.some(p => p.hex.toUpperCase() === hexUpper)) {
-                                    combinedPalette.push({
-                                        hex: sc.color,
-                                        name: sc.color_name || sc.color,
+                                const hex = sc.color.trim().toUpperCase();
+                                const name = (sc.color_name && sc.color_name.trim()) ? sc.color_name.trim() : hex;
+                                breakdownMap.set(hex, {
+                                    color_name: name,
+                                    color_hex: hex,
+                                    total: 0,
+                                    available: 0,
+                                    issued: 0,
+                                    damaged: 0,
+                                    lost: 0,
+                                    retired: 0
+                                });
+                            });
+
+                            // 2. Overlay or add physical inventory present in band_items
+                            (colorRows || []).forEach(r => {
+                                const hex = (r.color_hex || '').trim().toUpperCase();
+                                const name = (r.color_name || '').trim();
+                                if (!hex) return;
+
+                                if (breakdownMap.has(hex)) {
+                                    const entry = breakdownMap.get(hex);
+                                    entry.total = Number(r.total || 0);
+                                    entry.available = Number(r.available || 0);
+                                    entry.issued = Number(r.issued || 0);
+                                    entry.damaged = Number(r.damaged || 0);
+                                    entry.lost = Number(r.lost || 0);
+                                    entry.retired = Number(r.retired || 0);
+                                    if (name && (!entry.color_name || entry.color_name === hex)) {
+                                        entry.color_name = name;
+                                    }
+                                } else {
+                                    // Also include colors that actually have registered physical inventory in band_items
+                                    breakdownMap.set(hex, {
+                                        color_name: name || hex,
+                                        color_hex: hex,
+                                        total: Number(r.total || 0),
+                                        available: Number(r.available || 0),
+                                        issued: Number(r.issued || 0),
+                                        damaged: Number(r.damaged || 0),
+                                        lost: Number(r.lost || 0),
+                                        retired: Number(r.retired || 0)
+                                    });
+                                }
+                            });
+
+                            const strictColorBreakdown = Array.from(breakdownMap.values()).sort((a, b) => b.total - a.total || a.color_name.localeCompare(b.color_name));
+
+                            const lowStockColors = strictColorBreakdown
+                                .filter(c => c.total > 0 && c.available < 3)
+                                .map(c => ({
+                                    color_name: c.color_name,
+                                    color_hex: c.color_hex,
+                                    available: c.available
+                                }));
+
+                            // Build stock palette strictly from active slot colors and registered band colors
+                            const stockPalette = [];
+                            const seenHex = new Set();
+                            strictColorBreakdown.forEach(c => {
+                                if (!seenHex.has(c.color_hex)) {
+                                    seenHex.add(c.color_hex);
+                                    stockPalette.push({
+                                        hex: c.color_hex,
+                                        name: c.color_name,
                                         bgClass: "bg-gray-100",
                                         textClass: "text-gray-800"
                                     });
@@ -3454,10 +3525,10 @@ app.get('/api/admin/bands/summary', verifyToken, (req, res) => {
                                 issuedToday,
                                 returnedToday,
                                 availabilityRate,
-                                colorBreakdown,
+                                colorBreakdown: strictColorBreakdown,
                                 categoryBreakdown,
                                 lowStockColors,
-                                palette: combinedPalette
+                                palette: stockPalette
                             });
                         });
                     });
