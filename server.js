@@ -361,9 +361,9 @@ function seedDefaultBandCategories() {
     });
 }
 
-// Ensure time_slots table exists for Time Slot & Wristband Color Code Management
+// Ensure dedicated sim_podium_time_slots table exists (Independent for Sim Podium, never shared or synced with RC Fun Zone)
 db.run(`
-    CREATE TABLE IF NOT EXISTS time_slots (
+    CREATE TABLE IF NOT EXISTS sim_podium_time_slots (
         id SERIAL PRIMARY KEY,
         label VARCHAR(100) NOT NULL UNIQUE,
         start_hour NUMERIC,
@@ -378,7 +378,7 @@ db.run(`
 `, [], (tsErr) => {
     if (tsErr) {
         db.run(`
-            CREATE TABLE IF NOT EXISTS time_slots (
+            CREATE TABLE IF NOT EXISTS sim_podium_time_slots (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 label TEXT NOT NULL UNIQUE,
                 start_hour REAL,
@@ -1583,9 +1583,9 @@ app.post('/api/admin/products/:id/duplicate', verifyToken, verifySuperAdmin, (re
     });
 });
 
-// Slots API (Public listing for booking interface)
+// Slots API (Public listing for booking interface - strictly Sim Podium independent slots)
 app.get('/api/slots', (req, res) => {
-    db.all("SELECT * FROM time_slots WHERE active = 1 ORDER BY sort_order ASC, start_hour ASC", [], (err, rows) => {
+    db.all("SELECT * FROM sim_podium_time_slots WHERE active = 1 ORDER BY sort_order ASC, start_hour ASC", [], (err, rows) => {
         if (!err && rows && rows.length > 0) {
             // Map to compatible time_range property so existing booking scripts work seamlessly
             return res.json(rows.map(r => ({
@@ -1597,7 +1597,7 @@ app.get('/api/slots', (req, res) => {
                 color_name: r.color_name
             })));
         }
-        // Fallback to legacy slots table if time_slots is empty
+        // Fallback to legacy slots table if sim_podium_time_slots is empty
         db.all("SELECT * FROM slots WHERE active = 1 ORDER BY sort_order ASC", [], (sErr, sRows) => {
             if (sErr) return res.status(500).json({ error: 'Database error' });
             res.json(sRows || []);
@@ -2038,9 +2038,9 @@ app.delete('/api/admin/blocked-slots/:id', verifyToken, checkPermission('block_s
 // TIME SLOTS & WRISTBAND COLOR CODE ROUTES
 // ==========================================
 
-// 1. Get all time slots
+// 1. Get all time slots (Sim Podium Dedicated Slots)
 app.get('/api/admin/slots', verifyToken, (req, res) => {
-    db.all("SELECT * FROM time_slots ORDER BY sort_order ASC, start_hour ASC, id ASC", [], (err, rows) => {
+    db.all("SELECT * FROM sim_podium_time_slots ORDER BY sort_order ASC, start_hour ASC, id ASC", [], (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error fetching slots' });
         // Augment with computed wristband styles and defaults
         const slotsWithColor = (rows || []).map(slot => {
@@ -2080,13 +2080,13 @@ app.post('/api/admin/slots', verifyToken, checkPermission('block_slots'), (req, 
     }
     const resolved = getSlotWristbandColor(cleanLabel, hex, name);
 
-    db.get("SELECT id FROM time_slots WHERE UPPER(label) = UPPER(?)", [cleanLabel], (chkErr, existing) => {
+    db.get("SELECT id FROM sim_podium_time_slots WHERE UPPER(label) = UPPER(?)", [cleanLabel], (chkErr, existing) => {
         if (existing) {
             return res.status(400).json({ error: `A time slot with label '${cleanLabel}' already exists.` });
         }
 
         db.run(
-            `INSERT INTO time_slots (label, start_hour, end_hour, sort_order, color, color_name, remark, active)
+            `INSERT INTO sim_podium_time_slots (label, start_hour, end_hour, sort_order, color, color_name, remark, active)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [cleanLabel, startNum, endNum, sortNum, resolved.hex, resolved.name, (remark || '').trim() || null, activeVal],
             function(insErr) {
@@ -2135,13 +2135,13 @@ app.put('/api/admin/slots/:id', verifyToken, checkPermission('block_slots'), (re
     }
     const resolved = getSlotWristbandColor(cleanLabel, hex, name);
 
-    db.get("SELECT id FROM time_slots WHERE UPPER(label) = UPPER(?) AND id != ?", [cleanLabel, slotId], (chkErr, existing) => {
+    db.get("SELECT id FROM sim_podium_time_slots WHERE UPPER(label) = UPPER(?) AND id != ?", [cleanLabel, slotId], (chkErr, existing) => {
         if (existing) {
             return res.status(400).json({ error: `Slot label '${cleanLabel}' is already in use by another slot.` });
         }
 
         db.run(
-            `UPDATE time_slots
+            `UPDATE sim_podium_time_slots
              SET label = ?,
                  start_hour = ?,
                  end_hour = ?,
@@ -2168,11 +2168,11 @@ app.patch('/api/admin/slots/:id/toggle', verifyToken, checkPermission('block_slo
     const slotId = parseInt(req.params.id, 10);
     if (!slotId) return res.status(400).json({ error: 'Valid slot ID is required' });
 
-    db.get("SELECT active FROM time_slots WHERE id = ?", [slotId], (err, row) => {
+    db.get("SELECT active FROM sim_podium_time_slots WHERE id = ?", [slotId], (err, row) => {
         if (err || !row) return res.status(404).json({ error: 'Slot not found' });
         
         const newStatus = row.active === 1 ? 0 : 1;
-        db.run("UPDATE time_slots SET active = ? WHERE id = ?", [newStatus, slotId], function(upErr) {
+        db.run("UPDATE sim_podium_time_slots SET active = ? WHERE id = ?", [newStatus, slotId], function(upErr) {
             if (upErr) return res.status(500).json({ error: 'Failed to toggle slot status' });
             res.json({ success: true, active: newStatus });
         });
@@ -2184,7 +2184,7 @@ app.delete('/api/admin/slots/:id', verifyToken, checkPermission('block_slots'), 
     const slotId = parseInt(req.params.id, 10);
     if (!slotId) return res.status(400).json({ error: 'Valid slot ID is required' });
 
-    db.run("DELETE FROM time_slots WHERE id = ?", [slotId], function(delErr) {
+    db.run("DELETE FROM sim_podium_time_slots WHERE id = ?", [slotId], function(delErr) {
         if (delErr) return res.status(500).json({ error: 'Failed to delete time slot' });
         res.json({ success: true, deleted: this ? this.changes : 1 });
     });
@@ -2203,7 +2203,7 @@ app.post('/api/admin/slots/bulk-delete', verifyToken, checkPermission('block_slo
     }
 
     const placeholders = cleanIds.map(() => '?').join(',');
-    const sql = `DELETE FROM time_slots WHERE id IN (${placeholders})`;
+    const sql = `DELETE FROM sim_podium_time_slots WHERE id IN (${placeholders})`;
 
     db.run(sql, cleanIds, function(delErr) {
         if (delErr) {
@@ -3437,8 +3437,8 @@ app.get('/api/admin/bands/summary', verifyToken, (req, res) => {
                             issued: Number(r.issued || 0)
                         }));
 
-                        // Strictly reflect active slot colors and physical inventory
-                        db.all("SELECT DISTINCT color, color_name FROM time_slots WHERE active = 1 AND color IS NOT NULL AND TRIM(color) != ''", [], (tsErr, slotColorRows) => {
+                        // Strictly reflect active slot colors and physical inventory (Sim Podium Dedicated Slots)
+                        db.all("SELECT DISTINCT color, color_name FROM sim_podium_time_slots WHERE active = 1 AND color IS NOT NULL AND TRIM(color) != ''", [], (tsErr, slotColorRows) => {
                             const breakdownMap = new Map();
 
                             // 1. Add active slot colors (cleanly initializing to 0 if no inventory exists yet)
