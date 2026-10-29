@@ -5407,18 +5407,6 @@ window.renderDeskVerifiedBookings = function() {
                             <button type="button" onclick="cancelDeskBookingSlot(${b.id})" title="Release Simulator Slot (Walkout / Not Interested)" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">
                                 <span>🚫</span> Release Slot
                             </button>
-                        </div>
-                    </div>
-
-                    <!-- Wristband Handout Button -->
-                    ${!isCancelled ? `
-                        <div class="band-handout-section" style="margin-top: 0.75rem; padding-top: 0.65rem; border-top: 1px dashed rgba(255,255,255,0.08); display: flex; justify-content: space-between; align-items: center;">
-                            <span style="font-size: 0.75rem; color: var(--muted);">Track Wristband Assignment:</span>
-                            <button type="button" class="btn" onclick="openBandIssueForBooking('${escapeHtml(b.name || cust.name || 'Guest')}', '${escapeHtml(b.order_id || '')}', '${escapeHtml(b.item_name || '')} (${escapeHtml(b.booking_time || '')})')" style="background: rgba(16,185,129,0.15); border: 1px solid rgba(16,185,129,0.4); color: #10B981; font-size: 0.75rem; font-weight: 700; padding: 3px 8px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
-                                <span>⚡</span> Handout Band
-                            </button>
-                        </div>
-                    ` : ''}
                 </div>
             `;
         });
