@@ -3040,11 +3040,16 @@
 
                 <!-- Color Breakdown Cards Grid -->
                 <div class="table-card" style="margin-bottom: 1.5rem; padding: 1.25rem 1.5rem;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                        <h3 style="margin: 0; color: #fff; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
-                            <span>🎨</span> Stock Breakdown by Wristband Color
-                        </h3>
-                        <span style="font-size: 0.8rem; color: var(--muted);">Real-time live across Sim Podium &amp; Fun Zone</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.85rem;">
+                        <div>
+                            <h3 style="margin: 0; color: #fff; font-size: 1.05rem; display: flex; align-items: center; gap: 8px;">
+                                <span>🎨</span> Color-Wise Wristband Availability &amp; Stock Levels
+                            </h3>
+                            <p style="margin: 4px 0 0 0; font-size: 0.8rem; color: var(--muted);">Matches your track time slot color schemes for quick visual verification.</p>
+                        </div>
+                        <button type="button" onclick="setBandStockMode('bulk'); openBandStockInModal();" style="background: none; border: none; color: var(--gold); font-size: 0.85rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                            <span>+ Batch Generate Bands &gt;</span>
+                        </button>
                     </div>
 
                     <div id="bandColorCardsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem;">

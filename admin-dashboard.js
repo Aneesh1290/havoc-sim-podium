@@ -5663,7 +5663,7 @@ async function loadBandSummary() {
             }
         }
 
-        // Color breakdown cards
+        // Color breakdown cards (RC Fun Zone parity)
         const colorGrid = document.getElementById('bandColorCardsGrid');
         if (colorGrid) {
             if (!data.colorBreakdown || data.colorBreakdown.length === 0) {
@@ -5671,34 +5671,40 @@ async function loadBandSummary() {
             } else {
                 colorGrid.innerHTML = data.colorBreakdown.map(c => {
                     const availPct = c.total > 0 ? Math.round((c.available / c.total) * 100) : 0;
+                    const hasStock = c.total > 0;
                     return `
-                        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-left: 4px solid ${c.color_hex}; border-radius: 12px; padding: 1.15rem; transition: transform 0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">
-                            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.8rem;">
+                        <div onclick="openColorStockActionModal('${c.color_hex}', '${escapeHtml(c.color_name)}')" style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-top: 3px solid ${c.color_hex}; border-radius: 14px; padding: 1.15rem; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='${c.color_hex}'" onmouseout="this.style.transform='none'; this.style.borderColor='var(--border)'">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
                                 <div style="display: flex; align-items: center; gap: 8px;">
-                                    <span style="width: 14px; height: 14px; border-radius: 50%; background: ${c.color_hex}; box-shadow: 0 0 10px ${c.color_hex}88;"></span>
-                                    <span style="font-weight: 700; color: #fff; font-size: 0.95rem;">${escapeHtml(c.color_name)}</span>
+                                    <span style="width: 12px; height: 12px; border-radius: 50%; background: ${c.color_hex}; box-shadow: 0 0 8px ${c.color_hex}aa;"></span>
+                                    <span style="font-weight: 700; color: #fff; font-size: 0.95rem; text-transform: uppercase;">${escapeHtml(c.color_name)}</span>
                                 </div>
-                                <span style="font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: rgba(255,255,255,0.08); color: var(--gold);">${c.total} total</span>
+                                <span style="font-size: 0.72rem; font-weight: 700; padding: 2px 8px; border-radius: 6px; ${hasStock ? `background: ${c.color_hex}22; color: ${c.color_hex}; border: 1px solid ${c.color_hex}44;` : 'background: rgba(255,255,255,0.05); color: var(--muted); border: 1px dashed rgba(255,255,255,0.15);'}">
+                                    ${hasStock ? `${c.total} Total` : 'No Stock Yet'}
+                                </span>
                             </div>
 
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 0.8rem; font-size: 0.82rem;">
-                                <div style="background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); padding: 6px 10px; border-radius: 8px;">
-                                    <div style="font-size: 0.68rem; color: #10B981; font-weight: 700; text-transform: uppercase;">In Stock</div>
-                                    <div style="font-size: 1.2rem; font-weight: 800; color: #fff;">${c.available}</div>
+                            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 0.6rem 0; border-top: 1px solid rgba(255,255,255,0.06); text-align: center;">
+                                <div>
+                                    <span style="display: block; font-size: 0.65rem; text-transform: uppercase; font-weight: 700; color: var(--muted);">In Stock</span>
+                                    <span style="font-family: monospace; font-weight: 700; font-size: 0.92rem; color: ${c.available > 0 ? '#10B981' : 'var(--muted)'};">${c.available}</span>
                                 </div>
-                                <div style="background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); padding: 6px 10px; border-radius: 8px;">
-                                    <div style="font-size: 0.68rem; color: #60a5fa; font-weight: 700; text-transform: uppercase;">Issued</div>
-                                    <div style="font-size: 1.2rem; font-weight: 800; color: #fff;">${c.issued}</div>
+                                <div>
+                                    <span style="display: block; font-size: 0.65rem; text-transform: uppercase; font-weight: 700; color: var(--muted);">Issued</span>
+                                    <span style="font-family: monospace; font-weight: 700; font-size: 0.92rem; color: ${c.issued > 0 ? '#f59e0b' : 'var(--muted)'};">${c.issued}</span>
+                                </div>
+                                <div>
+                                    <span style="display: block; font-size: 0.65rem; text-transform: uppercase; font-weight: 700; color: var(--muted);">Damaged</span>
+                                    <span style="font-family: monospace; font-weight: 700; font-size: 0.92rem; color: ${(c.damaged || 0) > 0 ? '#f87171' : 'var(--muted)'};">${c.damaged || 0}</span>
                                 </div>
                             </div>
 
-                            <!-- Progress Bar -->
-                            <div style="background: rgba(255,255,255,0.06); height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 0.5rem;">
-                                <div style="background: ${c.color_hex}; height: 100%; width: ${availPct}%;"></div>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; font-size: 0.72rem; color: var(--muted);">
-                                <span>${availPct}% available</span>
-                                <span>${(c.damaged || 0) + (c.lost || 0)} quarantined</span>
+                            <!-- Bottom Action / Options link -->
+                            <div style="margin-top: 0.6rem; pt-2; border-top: 1px solid rgba(255,255,255,0.04); display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--muted);">
+                                <span style="display: flex; align-items: center; gap: 4px; font-weight: 600; color: var(--gold);">
+                                    <span>+</span> ${hasStock ? 'Manage & Add Series' : 'Add Inventory Now'}
+                                </span>
+                                <span style="font-weight: 600; opacity: 0.85;">Options &rarr;</span>
                             </div>
                         </div>
                     `;
@@ -6187,6 +6193,18 @@ window.setBandStockMode = (mode) => {
         btnSingle.style.background = 'transparent';
         btnSingle.style.color = 'var(--muted)';
     }
+};
+
+window.openColorStockActionModal = (hex, name) => {
+    selectedStockColor = { hex, name };
+    window.setBandStockMode('bulk');
+    const prefixInput = document.getElementById('bandStockBulkPrefix');
+    if (prefixInput) {
+        const shortCode = name.split('/')[0].trim().toUpperCase().substring(0, 4);
+        prefixInput.value = `BND-${shortCode}`;
+    }
+    window.openBandStockInModal();
+    loadBandSummary();
 };
 
 window.selectStockInColor = (hex, name) => {

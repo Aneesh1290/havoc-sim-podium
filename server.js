@@ -3437,14 +3437,24 @@ app.get('/api/admin/bands/summary', verifyToken, (req, res) => {
                             issued: Number(r.issued || 0)
                         }));
 
-                        // Strictly reflect active slot colors and physical inventory (Sim Podium Dedicated Slots)
-                        db.all("SELECT DISTINCT color, color_name FROM sim_podium_time_slots WHERE active = 1 AND color IS NOT NULL AND TRIM(color) != ''", [], (tsErr, slotColorRows) => {
+                        // Populate active track & simulator slot colors (from both Sim Podium dedicated slots and common time_slots)
+                        db.all(`
+                            SELECT DISTINCT color, color_name FROM (
+                                SELECT color, color_name FROM sim_podium_time_slots WHERE active = 1 AND color IS NOT NULL AND TRIM(color) != ''
+                                UNION
+                                SELECT color, color_name FROM time_slots WHERE active = 1 AND color IS NOT NULL AND TRIM(color) != ''
+                            ) sub
+                        `, [], (tsErr, slotColorRows) => {
                             const breakdownMap = new Map();
 
-                            // 1. Add active slot colors (cleanly initializing to 0 if no inventory exists yet)
-                            (slotColorRows || []).forEach(sc => {
-                                const hex = sc.color.trim().toUpperCase();
-                                const name = (sc.color_name && sc.color_name.trim()) ? sc.color_name.trim() : hex;
+                            // If no custom slot colors exist in database yet, initialize from standard WRISTBAND_PALETTE
+                            const paletteSource = (slotColorRows && slotColorRows.length > 0)
+                                ? slotColorRows.map(sc => ({ hex: sc.color.trim().toUpperCase(), name: (sc.color_name && sc.color_name.trim()) ? sc.color_name.trim() : sc.color }))
+                                : WRISTBAND_PALETTE.map(p => ({ hex: p.hex.toUpperCase(), name: p.name }));
+
+                            paletteSource.forEach(sc => {
+                                const hex = sc.hex.trim().toUpperCase();
+                                const name = sc.name;
                                 breakdownMap.set(hex, {
                                     color_name: name,
                                     color_hex: hex,
