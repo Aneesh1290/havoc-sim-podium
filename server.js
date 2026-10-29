@@ -3543,24 +3543,19 @@ app.get('/api/admin/bands/summary', verifyToken, (req, res) => {
                             issued: Number(r.issued || 0)
                         }));
 
-                        // Populate active track & simulator slot colors (from both Sim Podium dedicated slots and common time_slots)
+                        // Populate active simulator slot colors (strictly Sim Podium dedicated slots)
                         db.all(`
-                            SELECT DISTINCT color, color_name FROM (
-                                SELECT color, color_name FROM sim_podium_time_slots WHERE active = 1 AND color IS NOT NULL AND TRIM(color) != ''
-                                UNION
-                                SELECT color, color_name FROM time_slots WHERE active = 1 AND color IS NOT NULL AND TRIM(color) != ''
-                            ) sub
+                            SELECT DISTINCT color, color_name 
+                            FROM sim_podium_time_slots 
+                            WHERE active = 1 AND color IS NOT NULL AND TRIM(color) != ''
                         `, [], (tsErr, slotColorRows) => {
                             const breakdownMap = new Map();
 
-                            // If no custom slot colors exist in database yet, initialize from standard WRISTBAND_PALETTE
-                            const paletteSource = (slotColorRows && slotColorRows.length > 0)
-                                ? slotColorRows.map(sc => ({ hex: sc.color.trim().toUpperCase(), name: (sc.color_name && sc.color_name.trim()) ? sc.color_name.trim() : sc.color }))
-                                : WRISTBAND_PALETTE.map(p => ({ hex: p.hex.toUpperCase(), name: p.name }));
-
-                            paletteSource.forEach(sc => {
-                                const hex = sc.hex.trim().toUpperCase();
-                                const name = sc.name;
+                            // 1. Initialize slots that admin actually configured
+                            (slotColorRows || []).forEach(sc => {
+                                if (!sc.color) return;
+                                const hex = sc.color.trim().toUpperCase();
+                                const name = (sc.color_name && sc.color_name.trim()) ? sc.color_name.trim() : sc.color;
                                 breakdownMap.set(hex, {
                                     color_name: name,
                                     color_hex: hex,
@@ -3573,7 +3568,7 @@ app.get('/api/admin/bands/summary', verifyToken, (req, res) => {
                                 });
                             });
 
-                            // 2. Overlay or add physical inventory present in band_items
+                            // 2. Overlay or add physical inventory actually present in band_items
                             (colorRows || []).forEach(r => {
                                 const hex = (r.color_hex || '').trim().toUpperCase();
                                 const name = (r.color_name || '').trim();
