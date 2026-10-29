@@ -592,17 +592,19 @@ window.openOrderDetails = (baseOrderId) => {
             const itemPriceNum = parseFloat(item.price) || 0;
             const itemBaseCost = (itemPriceNum / 1.18).toFixed(2);
             
-            // Resolve slot wristband color badge
+            // Resolve slot wristband color badge (only if a color was explicitly configured for this slot)
             let slotColorBadgeHtml = '';
             if (item.booking_time && typeof getSlotWristbandColor === 'function' && typeof getWristbandBadgeStyle === 'function') {
                 const colorInfo = getSlotWristbandColor(item.booking_time);
-                const badgeStyle = getWristbandBadgeStyle(colorInfo.hex);
-                slotColorBadgeHtml = `
-                    <span style="display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; border-radius: 12px; font-weight: 700; font-size: 0.68rem; background: ${badgeStyle.backgroundColor}; border: 1px solid ${badgeStyle.borderColor}; color: ${badgeStyle.color}; margin-left: 6px;">
-                        <span style="width: 7px; height: 7px; border-radius: 50%; background: ${colorInfo.hex};"></span>
-                        <span>${escapeHtml(colorInfo.name)} Band</span>
-                    </span>
-                `;
+                if (colorInfo && colorInfo.hex) {
+                    const badgeStyle = getWristbandBadgeStyle(colorInfo.hex);
+                    slotColorBadgeHtml = `
+                        <span style="display: inline-flex; align-items: center; gap: 5px; padding: 2px 7px; border-radius: 12px; font-weight: 700; font-size: 0.68rem; background: ${badgeStyle.backgroundColor}; border: 1px solid ${badgeStyle.borderColor}; color: ${badgeStyle.color}; margin-left: 6px;">
+                            <span style="width: 7px; height: 7px; border-radius: 50%; background: ${colorInfo.hex};"></span>
+                            <span>${escapeHtml(colorInfo.name)} Band</span>
+                        </span>
+                    `;
+                }
             }
 
             // Wristband assignment pill
@@ -5351,17 +5353,19 @@ window.renderDeskVerifiedBookings = function() {
             const priceNum = parseFloat(b.price) || 0;
             const isCancelled = (b.status === 'CANCELLED' || playersCount === 0);
 
-            // Resolve wristband badge for slot
+            // Resolve wristband badge for slot (only if explicitly configured)
             let wristbandBadgeHtml = '';
             if (typeof getSlotWristbandColor === 'function' && typeof getWristbandBadgeStyle === 'function') {
                 const colorInfo = getSlotWristbandColor(b.booking_time);
-                const badgeStyle = getWristbandBadgeStyle(colorInfo.hex);
-                wristbandBadgeHtml = `
-                    <div style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 12px; font-weight: 700; font-size: 0.72rem; background: ${badgeStyle.backgroundColor}; border: 1px solid ${badgeStyle.borderColor}; color: ${badgeStyle.color};">
-                        <span style="width: 8px; height: 8px; border-radius: 50%; background: ${colorInfo.hex};"></span>
-                        <span>${escapeHtml(colorInfo.name)}</span>
-                    </div>
-                `;
+                if (colorInfo && colorInfo.hex) {
+                    const badgeStyle = getWristbandBadgeStyle(colorInfo.hex);
+                    wristbandBadgeHtml = `
+                        <div style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 12px; font-weight: 700; font-size: 0.72rem; background: ${badgeStyle.backgroundColor}; border: 1px solid ${badgeStyle.borderColor}; color: ${badgeStyle.color};">
+                            <span style="width: 8px; height: 8px; border-radius: 50%; background: ${colorInfo.hex};"></span>
+                            <span>${escapeHtml(colorInfo.name)}</span>
+                        </div>
+                    `;
+                }
             }
 
             html += `

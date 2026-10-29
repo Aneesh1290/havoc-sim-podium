@@ -93,8 +93,12 @@ function getSlotWristbandColor(slotLabel, customHex, customColorName) {
     if (resolved) targetHex = resolved;
   }
 
-  // Only use custom hex/name if provided by admin. Never auto-force default colors onto slots.
-  const hex = (targetHex || "#06B6D4").toUpperCase();
+  // If no color was explicitly configured for this slot, return null so no phantom color badge is shown
+  if (!targetHex) {
+    return null;
+  }
+
+  const hex = targetHex.toUpperCase();
   
   const found = WRISTBAND_PALETTE.find(p => p.hex.toUpperCase() === hex);
   if (found) {

@@ -2045,14 +2045,14 @@ app.delete('/api/admin/blocked-slots/:id', verifyToken, checkPermission('block_s
 app.get('/api/admin/slots', verifyToken, (req, res) => {
     db.all("SELECT * FROM sim_podium_time_slots ORDER BY sort_order ASC, start_hour ASC, id ASC", [], (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error fetching slots' });
-        // Augment with computed wristband styles and defaults
+        // Augment with computed wristband styles if configured
         const slotsWithColor = (rows || []).map(slot => {
             const resolved = getSlotWristbandColor(slot.label, slot.color, slot.color_name);
-            const badgeStyle = getWristbandBadgeStyle(resolved.hex);
+            const badgeStyle = resolved ? getWristbandBadgeStyle(resolved.hex) : null;
             return {
                 ...slot,
-                resolved_hex: resolved.hex,
-                resolved_color_name: resolved.name,
+                resolved_hex: resolved ? resolved.hex : null,
+                resolved_color_name: resolved ? resolved.name : null,
                 badge_style: badgeStyle
             };
         });
