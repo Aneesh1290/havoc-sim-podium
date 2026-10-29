@@ -3097,6 +3097,79 @@ app.post('/api/admin/verify/confirm-otp', verifyToken, (req, res) => {
     });
 });
 
+// 3.5 Direct Check-In (Direct confirmation without WhatsApp OTP)
+app.post('/api/admin/verify/direct-checkin', verifyToken, (req, res) => {
+    const rawPhone = (req.body.phone || '').trim();
+    const cleanPhone = normalizePhone(rawPhone);
+    const rawCountryCode = (req.body.country_code || req.body.countryCode || '+91').trim();
+    const cleanCountryCode = rawCountryCode.startsWith('+') ? rawCountryCode : ('+' + rawCountryCode);
+    const codeDigits = cleanCountryCode.replace(/[^0-9]/g, '');
+
+    if (!cleanPhone || cleanPhone.length < 5) {
+        return res.status(400).json({ error: 'Valid phone number is required.' });
+    }
+
+    const phoneQueries = [
+        cleanPhone,
+        `%${cleanPhone}`,
+        `%${codeDigits}${cleanPhone}`,
+        `%${cleanCountryCode}${cleanPhone}`,
+        `%${cleanPhone}%`
+    ];
+
+    // Fetch all bookings for this customer
+    db.all(`
+        SELECT id, order_id, name, phone, email, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, wristband_number, created_at
+        FROM bookings
+        WHERE phone = ? OR phone LIKE ? OR phone LIKE ? OR phone LIKE ? OR phone LIKE ?
+        ORDER BY created_at DESC, booking_date DESC, booking_time DESC
+        LIMIT 50
+    `, phoneQueries, (err, allBookings) => {
+        // Strictly filter to ensure the country code AND phone number match
+        const matchingBookings = (allBookings || []).filter(r => matchesCountryCodeAndPhone(r.phone, cleanCountryCode, cleanPhone));
+
+        if (err || !matchingBookings || matchingBookings.length === 0) {
+            return res.status(404).json({ error: 'No booking records could be found for this phone number.' });
+        }
+
+        // Filter: ONLY touch TODAY's active sessions!
+        const todaySessions = matchingBookings.filter(isTodayBooking);
+
+        if (todaySessions.length === 0) {
+            return res.status(404).json({ error: 'This customer has no sessions scheduled for today.' });
+        }
+
+        const autoFulfilledOrders = [];
+        const updatePromises = todaySessions.map(b => {
+            // Auto-fulfill ONLY if paid/cash and NOT already attended
+            const isPaid = (b.status === 'PAID' || b.status === 'CASH');
+            if (isPaid && b.status !== 'ATTENDED') {
+                autoFulfilledOrders.push(b.order_id);
+                return new Promise((resolve) => {
+                    db.run("UPDATE bookings SET status = 'ATTENDED' WHERE id = ?", [b.id], (upErr) => {
+                        if (!upErr) b.status = 'ATTENDED';
+                        resolve();
+                    });
+                });
+            }
+            return Promise.resolve();
+        });
+
+        Promise.all(updatePromises).then(async () => {
+            res.json({
+                success: true,
+                verified: true,
+                customer_name: matchingBookings[0].name || 'Guest Customer',
+                phone: cleanPhone,
+                country_code: cleanCountryCode,
+                auto_fulfilled: autoFulfilledOrders.length > 0,
+                auto_fulfilled_orders: autoFulfilledOrders,
+                bookings: todaySessions
+            });
+        });
+    });
+});
+
 // 4. Collect desk payment and fulfill unpaid order(s)
 app.post('/api/admin/verify/collect-and-fulfill', verifyToken, (req, res) => {
     const { order_ids, amount_collected, transaction_ref } = req.body;

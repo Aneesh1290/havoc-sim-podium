@@ -4912,6 +4912,8 @@ window.openDeskOtpModal = () => {
     const resetLookupState = () => {
         document.getElementById('deskLookupResult').style.display = 'none';
         document.getElementById('deskOtpError1').style.display = 'none';
+        const confirmBtn = document.getElementById('deskConfirmCheckInBtn');
+        if (confirmBtn) confirmBtn.style.display = 'none';
         const sendBtn = document.getElementById('deskSendOtpBtn');
         if (sendBtn) sendBtn.style.display = 'none';
         currentDeskCustomer = null;
@@ -4958,12 +4960,12 @@ window.lookupCustomerBookings = async () => {
     const countryCode = (countryCodeSelect?.value || '+91').trim();
     const errorDiv = document.getElementById('deskOtpError1');
     const resultDiv = document.getElementById('deskLookupResult');
-    const sendOtpBtn = document.getElementById('deskSendOtpBtn');
+    const confirmBtn = document.getElementById('deskConfirmCheckInBtn');
     const phone = (phoneInput.value || '').trim();
 
     errorDiv.style.display = 'none';
     resultDiv.style.display = 'none';
-    if (sendOtpBtn) sendOtpBtn.style.display = 'none';
+    if (confirmBtn) confirmBtn.style.display = 'none';
 
     if (!phone || phone.length < 5) {
         errorDiv.textContent = 'Please enter a valid customer phone number.';
@@ -5029,9 +5031,9 @@ window.lookupCustomerBookings = async () => {
         resultDiv.innerHTML = previewHtml;
         resultDiv.style.display = 'block';
 
-        // Reveal Send WhatsApp OTP button ONLY NOW that today's order is verified!
-        if (sendOtpBtn) {
-            sendOtpBtn.style.display = 'flex';
+        // Reveal Direct Check-In button directly without WhatsApp OTP!
+        if (confirmBtn) {
+            confirmBtn.style.display = 'flex';
         }
 
     } catch (err) {
@@ -5040,6 +5042,92 @@ window.lookupCustomerBookings = async () => {
     } finally {
         btn.innerHTML = origText;
         btn.disabled = false;
+    }
+};
+
+window.confirmDirectDeskCheckIn = async () => {
+    const phoneInput = document.getElementById('deskCustomerPhone');
+    const countryCodeSelect = document.getElementById('deskCustomerCountryCode');
+    const countryCode = (countryCodeSelect?.value || '+91').trim();
+    const errorDiv = document.getElementById('deskOtpError1');
+    const phone = (phoneInput.value || '').trim();
+
+    errorDiv.style.display = 'none';
+
+    if (!phone || phone.length < 5) {
+        errorDiv.textContent = 'Please enter a valid customer phone number.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    const confirmBtn = document.getElementById('deskConfirmCheckInBtn');
+    const origText = confirmBtn ? confirmBtn.innerHTML : '';
+    if (confirmBtn) {
+        confirmBtn.innerHTML = '<span>⏳</span> Confirming Check-In...';
+        confirmBtn.disabled = true;
+    }
+
+    try {
+        const res = await fetchAuth('/api/admin/verify/direct-checkin', {
+            method: 'POST',
+            body: JSON.stringify({ phone, country_code: countryCode })
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            errorDiv.textContent = data.error || 'Failed to check-in customer.';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        // Reload bookings table in background so UI stays fresh
+        if (typeof loadBookings === 'function') {
+            loadBookings();
+        }
+
+        // Transition directly to Step 3 (Verified Sessions & Payment & Band Assignment)
+        document.getElementById('deskOtpStep1').style.display = 'none';
+        const step2 = document.getElementById('deskOtpStep2');
+        if (step2) step2.style.display = 'none';
+        document.getElementById('deskOtpStep3').style.display = 'block';
+
+        window._lastVerifiedCustomer = {
+            name: data.customer_name,
+            phone: data.phone,
+            country_code: data.country_code || countryCode,
+            email: (data.bookings && data.bookings[0] && data.bookings[0].email) || ''
+        };
+
+        const reviewStatus = document.getElementById('deskReviewSentStatus');
+        if (reviewStatus) {
+            reviewStatus.textContent = 'Will be sent automatically when you click "Done / Close"';
+            reviewStatus.style.color = 'var(--gold)';
+        }
+
+        document.getElementById('resCustomerName').textContent = `${data.customer_name} (${data.country_code || countryCode} ${data.phone})`;
+
+        const autoFulfillBanner = document.getElementById('resAutoFulfillBanner');
+        if (data.auto_fulfilled) {
+            autoFulfillBanner.innerHTML = `✓ Verified! <strong>${data.auto_fulfilled_orders.length} paid session(s) automatically marked as ATTENDED!</strong>`;
+            autoFulfillBanner.style.color = '#10B981';
+        } else {
+            autoFulfillBanner.innerHTML = `⚠️ Customer verified, but payment is still pending. Collect payment at desk below.`;
+            autoFulfillBanner.style.color = '#fbbf24';
+        }
+
+        // Store active session records in memory for real-time stepper updates & band assignments
+        window._deskVerifiedBookings = (data.bookings || []).slice();
+        renderDeskVerifiedBookings();
+
+    } catch (err) {
+        console.error('Direct check-in error:', err);
+        errorDiv.textContent = 'Server error during check-in. Please try again.';
+        errorDiv.style.display = 'block';
+    } finally {
+        if (confirmBtn) {
+            confirmBtn.innerHTML = origText;
+            confirmBtn.disabled = false;
+        }
     }
 };
 

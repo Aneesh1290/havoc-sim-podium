@@ -1668,7 +1668,7 @@
                     <span style="font-size: 1.5rem; background: rgba(16,185,129,0.15); width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid rgba(16,185,129,0.3);">🛡️</span>
                     <div>
                         <h2 style="font-size: 1.25rem; margin: 0; color: #fff;">Customer Check-In Verification</h2>
-                        <p style="font-size: 0.78rem; color: var(--muted); margin: 2px 0 0;">Verify customer phone & OTP before podium entry</p>
+                        <p style="font-size: 0.78rem; color: var(--muted); margin: 2px 0 0;">Lookup customer phone &amp; confirm check-in directly before podium entry</p>
                     </div>
                 </div>
                 <button type="button" class="modal-close" onclick="closeDeskOtpModal()">&times;</button>
@@ -1738,8 +1738,8 @@
                     <button type="button" id="deskLookupBtn" onclick="lookupCustomerBookings()" class="btn" style="width: 100%; background: linear-gradient(135deg, #e5b869, #c9952f); color: #000; padding: 0.9rem; font-weight: 700; border-radius: 10px; cursor: pointer; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px;">
                         🔍 Verify Customer Number
                     </button>
-                    <button type="button" id="deskSendOtpBtn" onclick="sendDeskOtp()" class="btn" style="display: none; width: 100%; background: linear-gradient(135deg, #10B981, #059669); color: #fff; border: none; padding: 0.9rem; font-weight: 700; border-radius: 10px; cursor: pointer; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
-                        <span>📲</span> Customer Found — Send WhatsApp OTP
+                    <button type="button" id="deskConfirmCheckInBtn" onclick="confirmDirectDeskCheckIn()" class="btn" style="display: none; width: 100%; background: linear-gradient(135deg, #10B981, #059669); color: #fff; border: none; padding: 0.95rem; font-weight: 700; border-radius: 10px; cursor: pointer; align-items: center; justify-content: center; gap: 8px; font-size: 0.95rem; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
+                        <span>✓</span> Customer Found — Confirm Check-In &amp; Issue Bands &rarr;
                     </button>
                 </div>
             </div>
