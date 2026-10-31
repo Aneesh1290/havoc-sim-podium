@@ -2832,7 +2832,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     headersConfig.push({ title: "TYPE OF SIM PODIUM", type: "green", align: "left", width: 35 });
                     headersConfig.push({ title: "PPT", type: "green", align: "center", width: 8 });
                 }
-                if (cols.showAmountReceived) headersConfig.push({ title: "AMOUNT RECEIVED", type: "green", align: "right", width: 18 });
+                if (cols.showAmountReceived) headersConfig.push({ title: "AMOUNT RECEIVED", type: "green", align: "right", width: 20 });
                 if (cols.showAmountDue) headersConfig.push({ title: "AMOUNT DUE", type: "green", align: "right", width: 18 });
                 if (cols.showStatus) headersConfig.push({ title: "STATUS", type: "green", align: "center", width: 25 });
                 if (cols.showTxnId) headersConfig.push({ title: "GATEWAY TXN ID", type: "pink", align: "center", width: 28 });
@@ -2885,7 +2885,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // 2. COLUMN HEADERS ROW
                     const headerRow = sheet.addRow(headersConfig.map(h => h.title));
-                    headerRow.height = 26;
+                    headerRow.height = 32;
                     headerRow.eachCell((cell, colNumber) => {
                         const conf = headersConfig[colNumber - 1];
                         const isPink = conf && conf.type === 'pink';
