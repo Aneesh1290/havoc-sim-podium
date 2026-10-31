@@ -2552,12 +2552,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const showDate = document.getElementById('exp-col-date')?.checked;
         const showTime = document.getElementById('exp-col-time')?.checked;
         const showType = document.getElementById('exp-col-type')?.checked;
-        const showAmount = document.getElementById('exp-col-amount')?.checked;
+        const showAmountReceived = document.getElementById('exp-col-amount-received')?.checked;
+        const showAmountDue = document.getElementById('exp-col-amount-due')?.checked;
         const showStatus = document.getElementById('exp-col-status')?.checked;
         const showTxnId = document.getElementById('exp-col-txnid')?.checked;
         const showPayRef = document.getElementById('exp-col-payref')?.checked;
 
-        return { showSn, showOrder, showName, showPhone, showEmail, showDate, showTime, showType, showAmount, showStatus, showTxnId, showPayRef };
+        return { showSn, showOrder, showName, showPhone, showEmail, showDate, showTime, showType, showAmountReceived, showAmountDue, showStatus, showTxnId, showPayRef };
     }
 
     function generateReportDataset() {
@@ -2603,7 +2604,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cols.showDate) headerRow.push("DATE");
         if (cols.showTime) headerRow.push("TIME/SLOT");
         if (cols.showType) { headerRow.push("TYPE OF SIM PODIUM", "PPT"); }
-        if (cols.showAmount) headerRow.push("AMOUNT DUE (INR)");
+        if (cols.showAmountReceived) headerRow.push("AMOUNT RECEIVED (INR)");
+        if (cols.showAmountDue) headerRow.push("AMOUNT DUE (INR)");
         if (cols.showStatus) headerRow.push("STATUS");
         if (cols.showTxnId) headerRow.push("GATEWAY TXN ID");
         if (cols.showPayRef) headerRow.push("DESK REF / UTR");
@@ -2623,14 +2625,31 @@ document.addEventListener('DOMContentLoaded', () => {
             wsRows.push([`=== ${displayDate} ===`]); // date section title
             wsRows.push([...headerRow]); // column headers
 
-            let dateTotalAmount = 0;
+            let dateTotalReceived = 0;
+            let dateTotalDue = 0;
             let dateTotalPpt = 0;
 
             grouped[date].forEach(b => {
                 const ppt = 1;
                 const amt = parseFloat(b.price) || 0;
-                dateTotalAmount += amt;
                 dateTotalPpt += ppt;
+
+                const rawStatus = (b.status || 'PENDING').toUpperCase();
+                const isPending = rawStatus === 'PENDING' || rawStatus === 'UNPAID';
+                const isCancelled = rawStatus === 'CANCELLED';
+                const isAttended = rawStatus === 'ATTENDED';
+                const isCash = rawStatus === 'CASH';
+                const isPaid = (rawStatus === 'PAID' || rawStatus === 'SUCCESS' || isAttended) && !isPending && !isCancelled && !isCash;
+
+                const receivedAmt = isPaid ? amt : 0;
+                const dueAmt = (!isPaid && !isCancelled) ? amt : 0;
+
+                dateTotalReceived += receivedAmt;
+                dateTotalDue += dueAmt;
+
+                const paymentLabel = isCancelled ? 'REFUNDED' : (isPaid ? 'PAID' : 'UNPAID');
+                const fulfillLabel = isAttended ? 'FULFILLED' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED');
+                const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
 
                 let formattedDate = b.booking_date;
                 try {
@@ -2641,15 +2660,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } catch (e) {}
 
-                const rawStatus = (b.status || 'PENDING').toUpperCase();
-                const isPending = rawStatus === 'PENDING';
-                const isCancelled = rawStatus === 'CANCELLED';
-                const isAttended = rawStatus === 'ATTENDED';
-                const isCash = rawStatus === 'CASH';
-                const paymentLabel = isPending ? 'UNPAID' : (isCash ? 'UNPAID' : (isCancelled ? 'REFUNDED' : 'PAID'));
-                const fulfillLabel = isAttended ? 'FULFILLED' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED');
-                const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
-
                 const rowData = [];
                 if (cols.showSn) { rowData.push(totalSlCounter, 1); }
                 if (cols.showOrder) rowData.push(b.order_id || '');
@@ -2659,7 +2669,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (cols.showDate) rowData.push(formattedDate);
                 if (cols.showTime) rowData.push(b.booking_time || '');
                 if (cols.showType) { rowData.push(b.item_name || '', ppt); }
-                if (cols.showAmount) rowData.push(amt);
+                if (cols.showAmountReceived) rowData.push(receivedAmt);
+                if (cols.showAmountDue) rowData.push(dueAmt);
                 if (cols.showStatus) rowData.push(statusLabel);
                 if (cols.showTxnId) rowData.push(b.icici_txn_id || '');
                 if (cols.showPayRef) rowData.push(b.payment_ref || '');
@@ -2669,15 +2680,17 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             // Date Total Row
-            if (cols.showType || cols.showAmount) {
+            if (cols.showType || cols.showAmountReceived || cols.showAmountDue) {
                 const totalRow = [];
                 headerRow.forEach((h, colIdx) => {
                     if (h === "ORDER NO" || (colIdx === 0 && !cols.showOrder)) {
                         totalRow.push("DATE TOTAL");
                     } else if (h === "PPT") {
                         totalRow.push(dateTotalPpt);
+                    } else if (h === "AMOUNT RECEIVED (INR)") {
+                        totalRow.push(dateTotalReceived);
                     } else if (h === "AMOUNT DUE (INR)") {
-                        totalRow.push(dateTotalAmount);
+                        totalRow.push(dateTotalDue);
                     } else {
                         totalRow.push("");
                     }
@@ -2819,7 +2832,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     headersConfig.push({ title: "TYPE OF SIM PODIUM", type: "green", align: "left", width: 35 });
                     headersConfig.push({ title: "PPT", type: "green", align: "center", width: 8 });
                 }
-                if (cols.showAmount) headersConfig.push({ title: "AMOUNT DUE", type: "green", align: "right", width: 18 });
+                if (cols.showAmountReceived) headersConfig.push({ title: "AMOUNT RECEIVED", type: "green", align: "right", width: 18 });
+                if (cols.showAmountDue) headersConfig.push({ title: "AMOUNT DUE", type: "green", align: "right", width: 18 });
                 if (cols.showStatus) headersConfig.push({ title: "STATUS", type: "green", align: "center", width: 25 });
                 if (cols.showTxnId) headersConfig.push({ title: "GATEWAY TXN ID", type: "pink", align: "center", width: 28 });
                 if (cols.showPayRef) headersConfig.push({ title: "DESK REF / UTR", type: "green", align: "center", width: 22 });
@@ -2893,21 +2907,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     // 3. BOOKINGS DATA ROWS
                     let datePptTotal = 0;
-                    let dateAmtTotal = 0;
+                    let dateAmtReceivedTotal = 0;
+                    let dateAmtDueTotal = 0;
                     let slCounter = startSl;
 
                     bookingsList.forEach((b, bIdx) => {
                         const ppt = 1;
                         const amt = parseFloat(b.price) || 0;
                         datePptTotal += ppt;
-                        dateAmtTotal += amt;
 
                         const rawStatus = (b.status || 'PENDING').toUpperCase();
-                        const isPending = rawStatus === 'PENDING';
+                        const isPending = rawStatus === 'PENDING' || rawStatus === 'UNPAID';
                         const isCancelled = rawStatus === 'CANCELLED';
                         const isAttended = rawStatus === 'ATTENDED';
                         const isCash = rawStatus === 'CASH';
-                        const paymentLabel = isPending ? 'UNPAID' : (isCash ? 'UNPAID' : (isCancelled ? 'REFUNDED' : 'PAID'));
+                        const isPaid = (rawStatus === 'PAID' || rawStatus === 'SUCCESS' || isAttended) && !isPending && !isCancelled && !isCash;
+
+                        const receivedAmt = isPaid ? amt : 0;
+                        const dueAmt = (!isPaid && !isCancelled) ? amt : 0;
+
+                        dateAmtReceivedTotal += receivedAmt;
+                        dateAmtDueTotal += dueAmt;
+
+                        const paymentLabel = isCancelled ? 'REFUNDED' : (isPaid ? 'PAID' : 'UNPAID');
                         const fulfillLabel = isAttended ? 'FULFILLED' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED');
                         const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
 
@@ -2949,8 +2971,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             rowValues.push(b.item_name || '', ppt);
                             aligns.push('left', 'center');
                         }
-                        if (cols.showAmount) {
-                            rowValues.push(`₹ ${amt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                        if (cols.showAmountReceived) {
+                            rowValues.push(`₹ ${receivedAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+                            aligns.push('right');
+                        }
+                        if (cols.showAmountDue) {
+                            rowValues.push(`₹ ${dueAmt.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
                             aligns.push('right');
                         }
                         if (cols.showStatus) {
@@ -2982,11 +3008,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
 
                     // 4. TOTAL SUMMARY ROW
-                    if (cols.showType || cols.showAmount) {
+                    if (cols.showType || cols.showAmountReceived || cols.showAmountDue) {
                         const totalRowValues = new Array(totalCols).fill('');
                         const typeColIdx = headersConfig.findIndex(h => h.title === "TYPE OF SIM PODIUM");
                         const pptColIdx = headersConfig.findIndex(h => h.title === "PPT");
-                        const amtColIdx = headersConfig.findIndex(h => h.title === "AMOUNT DUE");
+                        const amtRecColIdx = headersConfig.findIndex(h => h.title === "AMOUNT RECEIVED");
+                        const amtDueColIdx = headersConfig.findIndex(h => h.title === "AMOUNT DUE");
 
                         if (typeColIdx !== -1) {
                             totalRowValues[typeColIdx] = 'TOTAL';
@@ -2994,14 +3021,17 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (pptColIdx !== -1) {
                             totalRowValues[pptColIdx] = datePptTotal;
                         }
-                        if (amtColIdx !== -1) {
-                            totalRowValues[amtColIdx] = `₹ ${dateAmtTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                        if (amtRecColIdx !== -1) {
+                            totalRowValues[amtRecColIdx] = `₹ ${dateAmtReceivedTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                        }
+                        if (amtDueColIdx !== -1) {
+                            totalRowValues[amtDueColIdx] = `₹ ${dateAmtDueTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                         }
 
                         const totalRow = sheet.addRow(totalRowValues);
                         totalRow.height = 22;
 
-                        [typeColIdx, pptColIdx, amtColIdx].forEach(idx => {
+                        [typeColIdx, pptColIdx, amtRecColIdx, amtDueColIdx].forEach(idx => {
                             if (idx !== -1) {
                                 const cell = totalRow.getCell(idx + 1);
                                 cell.font = { name: 'Calibri', size: 10, bold: true, color: { argb: 'FF000000' } };
@@ -3010,7 +3040,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     cell.alignment = { horizontal: 'center', vertical: 'middle' };
                                 } else if (idx === pptColIdx) {
                                     cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                                } else if (idx === amtColIdx) {
+                                } else if (idx === amtRecColIdx || idx === amtDueColIdx) {
                                     cell.alignment = { horizontal: 'right', vertical: 'middle' };
                                 }
                             }
