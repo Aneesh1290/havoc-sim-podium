@@ -2610,6 +2610,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cols.showTxnId) headerRow.push("GATEWAY TXN ID");
         if (cols.showPayRef) headerRow.push("DESK REF / UTR");
 
+        wsRows.push(["HAVOC SIM PODIUM — BOOKINGS REPORT"]);
+        wsRows.push([]);
+
         Object.keys(grouped).forEach((date, i) => {
             let displayDate = date;
             try {
@@ -2622,7 +2625,7 @@ document.addEventListener('DOMContentLoaded', () => {
             } catch (e) {}
 
             if (i > 0) wsRows.push([]); // blank separator row
-            wsRows.push([`=== ${displayDate} ===`]); // date section title
+            wsRows.push([`=== HAVOC SIM PODIUM — ${displayDate} ===`]); // date section title
             wsRows.push([...headerRow]); // column headers
 
             let dateTotalReceived = 0;
@@ -2863,7 +2866,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     } catch (e) {}
 
                     // 1. DATE BANNER ROW
-                    const dateRow = sheet.addRow([dateDisplay]);
+                    // If on multi-date sheet with multiple dates, display e.g. "HAVOC SIM PODIUM - DATE: Oct 3 (Sat)"
+                    // For single date sheets, the sheet already has the main top banner
+                    const dateRow = sheet.addRow([isMultiDateSheet ? `HAVOC SIM PODIUM — DATE: ${dateDisplay}` : dateDisplay]);
                     dateRow.height = 24;
                     const dateRowNumber = dateRow.number;
 
@@ -3074,14 +3079,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 allSheet.columns = headersConfig.map(h => ({ width: h.width }));
 
+                // Top Branding Banner: HAVOC SIM PODIUM
+                const allSheetBrandRow = allSheet.addRow(["HAVOC SIM PODIUM — ALL BOOKINGS"]);
+                allSheetBrandRow.height = 30;
+                if (totalCols > 1) {
+                    allSheet.mergeCells(1, 1, 1, totalCols);
+                }
+                for (let c = 1; c <= totalCols; c++) {
+                    const bCell = allSheetBrandRow.getCell(c);
+                    bCell.fill = {
+                        type: 'pattern',
+                        pattern: 'solid',
+                        fgColor: { argb: 'FFD1DFD1' } // Pale sage green
+                    };
+                    bCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FF0D1B2A' } };
+                    bCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    bCell.border = thinBorder;
+                }
+
                 let runningSl = 1;
                 const dateKeys = Object.keys(grouped);
                 dateKeys.forEach((dateKey, gIdx) => {
-                    if (gIdx > 0) {
-                        allSheet.addRow([]); // Blank separator row between date sections
-                    }
                     const res = appendDateSectionToSheet(allSheet, dateKey, grouped[dateKey], true, runningSl);
                     runningSl = res.nextSl;
+                    allSheet.addRow([]); // Blank separator row between date sections
                 });
 
                 // 2. INDIVIDUAL DATE TABS (Previous Day, Present Day, and Future Dates)
@@ -3093,13 +3114,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     let tabName = dateKey;
+                    let fullDateBanner = dateKey;
                     try {
                         if (dateKey.includes('-')) {
                             const dObj = new Date(dateKey);
                             const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                            const monthsLong = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
                             const daysShort = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+                            const daysLong = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
                             // Formatted as "Oct 24 (Sat)" matching user reference
                             tabName = `${monthsShort[dObj.getMonth()]} ${dObj.getDate()} (${daysShort[dObj.getDay()]})`;
+                            fullDateBanner = `${monthsLong[dObj.getMonth()]} ${dObj.getDate()} (${daysLong[dObj.getDay()]})`;
                         }
                     } catch (e) {}
 
@@ -3117,6 +3142,24 @@ document.addEventListener('DOMContentLoaded', () => {
                         pageSetup: printPageSetup
                     });
                     dateSheet.columns = headersConfig.map(h => ({ width: h.width }));
+
+                    // Top Branding Banner: HAVOC SIM PODIUM — DATE
+                    const brandRow = dateSheet.addRow([`HAVOC SIM PODIUM — ${fullDateBanner}`]);
+                    brandRow.height = 30;
+                    if (totalCols > 1) {
+                        dateSheet.mergeCells(1, 1, 1, totalCols);
+                    }
+                    for (let c = 1; c <= totalCols; c++) {
+                        const bCell = brandRow.getCell(c);
+                        bCell.fill = {
+                            type: 'pattern',
+                            pattern: 'solid',
+                            fgColor: { argb: 'FFD1DFD1' } // Pale sage green
+                        };
+                        bCell.font = { name: 'Calibri', size: 13, bold: true, color: { argb: 'FF0D1B2A' } };
+                        bCell.alignment = { horizontal: 'center', vertical: 'middle' };
+                        bCell.border = thinBorder;
+                    }
 
                     // Build this specific date's table (starting SL from 1 for this date's tab)
                     appendDateSectionToSheet(dateSheet, dateKey, grouped[dateKey], false, 1);
