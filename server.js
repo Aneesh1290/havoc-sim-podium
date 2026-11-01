@@ -3365,7 +3365,7 @@ app.post('/api/admin/verify/send-review-link', verifyToken, async (req, res) => 
 
 // Manually create a walk-in booking (Protected)
 app.post('/api/admin/bookings', verifyToken, (req, res) => {
-    const { name, phone, email, item_name, price, booking_date, booking_time, status } = req.body;
+    const { name, phone, email, item_name, price, booking_date, booking_time, status, order_id } = req.body;
     
     // Validate required fields
     if (!item_name || !booking_date || !booking_time) {
@@ -3373,7 +3373,7 @@ app.post('/api/admin/bookings', verifyToken, (req, res) => {
     }
 
     const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const orderId = `WK_${shortCode}`;
+    const orderId = (order_id && String(order_id).trim()) ? String(order_id).trim() : `WK_${shortCode}`;
     const finalName = name || 'Walk-in';
     const finalPhone = phone || '';
     const finalEmail = email || '';
@@ -3405,6 +3405,22 @@ app.post('/api/admin/bookings', verifyToken, (req, res) => {
             res.json({ success: true, order_id: orderId });
         }
     );
+});
+
+// Update order_id for a booking (Admin only)
+app.put('/api/admin/bookings/:order_id/update-order-id', verifyToken, (req, res) => {
+    let oldOrderId = req.params.order_id;
+    if (!oldOrderId) return res.status(400).json({ error: 'Current order ID is required' });
+    oldOrderId = decodeURIComponent(oldOrderId).trim();
+    const newOrderId = (req.body.new_order_id || '').trim();
+    if (!newOrderId) return res.status(400).json({ error: 'Valid new_order_id is required' });
+
+    db.run("UPDATE bookings SET order_id = ? WHERE order_id = ? OR order_id LIKE ?", [newOrderId, oldOrderId, `${oldOrderId}%`], function(bErr) {
+        if (bErr) return res.status(500).json({ error: 'Database error updating booking' });
+        db.run("UPDATE simulator_slot_locks SET source_order_id = ? WHERE source_order_id = ? OR source_order_id LIKE ?", [newOrderId, oldOrderId, `${oldOrderId}%`], function(lErr) {
+            res.json({ success: true, oldOrderId, newOrderId });
+        });
+    });
 });
 
 // ==========================================
@@ -4297,12 +4313,14 @@ const getNextOrderNumber = () => {
                 const spMatch = oid.match(/(?:PAYDUE|PAID)_SP_(\d+)/i);
                 if (spMatch && spMatch[1]) {
                     const num = parseInt(spMatch[1], 10);
-                    if (!isNaN(num) && num > maxNum) maxNum = num;
+                    // Disregard anomalous >100 numbers if SP sequence is in 80s
+                    if (!isNaN(num) && num <= 100 && num > maxNum) maxNum = num;
+                    else if (!isNaN(num) && num > maxNum && !oid.includes('FZ')) maxNum = num;
                     return;
                 }
-                // 2. Legacy format: PREFIX_DATE_ORDERNO (e.g. PAYDUE_10OCT26_21)
+                // 2. Legacy format: PREFIX_DATE_ORDERNO (e.g. PAYDUE_10OCT26_21) - exclude FZ!
                 const parts = oid.split('_');
-                if (parts.length >= 3) {
+                if (parts.length >= 3 && !oid.includes('FZ') && parts[1] !== 'FZ') {
                     const num = parseInt(parts[2], 10);
                     if (!isNaN(num) && num > maxNum) maxNum = num;
                 }
@@ -4332,34 +4350,89 @@ app.post('/api/bookings/cod', async (req, res) => {
     // Pre-flight concurrency check
     const checkAvailability = () => {
         return new Promise((resolve, reject) => {
+            if (!items || items.length === 0) return resolve(false);
             let checkCount = 0;
             let hasConflict = false;
+            const custEmail = (customer_details && customer_details.email) ? customer_details.email.trim().toLowerCase() : '';
+            const custPhone = (customer_details && customer_details.phone) ? customer_details.phone.replace(/[^\d]/g, '') : '';
+
             items.forEach(item => {
-                let query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND item_name = ?";
+                let query = "SELECT id, status, email, phone, created_at, order_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND item_name = ?";
                 let params = [item.date, item.time, item.item_name];
                 if (item.instructor_id) {
-                    query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
+                    query = "SELECT id, status, email, phone, created_at, order_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
                     params = [item.date, item.time, item.item_name, item.instructor_id];
                 }
                 
-                db.get(query, params, (err, row) => {
+                db.all(query, params, (err, rows) => {
                     if (err) return reject(err);
-                    if (row && row.count > 0) hasConflict = true;
+                    if (rows && rows.length > 0) {
+                        for (const r of rows) {
+                            // Confirmed/paid/attended/desk bookings are always a hard block
+                            if (r.status === 'PAID' || r.status === 'SUCCESS' || r.status === 'CASH' || (r.order_id && r.order_id.startsWith('PAYDUE_'))) {
+                                hasConflict = true;
+                                break;
+                            }
+                            
+                            // For online PENDING attempts:
+                            const rEmail = (r.email || '').trim().toLowerCase();
+                            const rPhone = (r.phone || '').replace(/[^\d]/g, '');
+                            const isSameCustomer = (custEmail && rEmail === custEmail) || (custPhone && rPhone && rPhone === custPhone);
+                            
+                            if (isSameCustomer) {
+                                // It's the same customer's prior abandoned pending attempt! Allow them to supersede it
+                                continue;
+                            }
+
+                            // If pending attempt was by someone else, check if older than 2 minutes
+                            const bookingAgeMs = Date.now() - new Date(r.created_at).getTime();
+                            if (bookingAgeMs > 2 * 60 * 1000) {
+                                // Expired abandoned attempt, ignore conflict
+                                continue;
+                            }
+
+                            hasConflict = true;
+                            break;
+                        }
+                    }
 
                     // Also check shared simulator_slot_locks (for locks from RC Fun Zone or other channels)
-                    const lockQuery = "SELECT COUNT(*) as count FROM simulator_slot_locks WHERE simulator_name = ? AND (booking_date = ? OR booking_date = ?) AND booking_time = ? AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
+                    const lockQuery = "SELECT simulator_name, booking_date, booking_time, status, customer_phone, source_order_id, created_at FROM simulator_slot_locks WHERE simulator_name = ? AND (booking_date = ? OR booking_date = ?) AND booking_time = ? AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
                     const lockParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
 
-                    db.get(lockQuery, lockParams, (lockErr, lockRow) => {
-                        if (!lockErr && lockRow && lockRow.count > 0) hasConflict = true;
+                    db.all(lockQuery, lockParams, (lockErr, lockRows) => {
+                        if (!lockErr && lockRows && lockRows.length > 0) {
+                            for (const lr of lockRows) {
+                                if (lr.status === 'PAID' || lr.status === 'ATTENDED' || lr.status === 'CONFIRMED' || (lr.source_order_id && lr.source_order_id.startsWith('PAYDUE_'))) {
+                                    hasConflict = true;
+                                    break;
+                                }
+                                const lockPhone = (lr.customer_phone || '').replace(/[^\d]/g, '');
+                                if (custPhone && lockPhone && lockPhone === custPhone) {
+                                    // Same customer's prior pending lock
+                                    continue;
+                                }
+                                const lockAgeMs = Date.now() - new Date(lr.created_at).getTime();
+                                if (lockAgeMs > 2 * 60 * 1000) {
+                                    continue;
+                                }
+                                hasConflict = true;
+                                break;
+                            }
+                        }
 
                         // Also check active online checkout holds (< 2 minutes old)
-                        db.all("SELECT items_json, created_at FROM online_checkout_holds", [], (holdErr, holdRows) => {
+                        db.all("SELECT txn_id, customer_email, customer_phone, items_json, created_at FROM online_checkout_holds", [], (holdErr, holdRows) => {
                             if (!holdErr && holdRows) {
-                                const now = Date.now();
                                 for (const hr of holdRows) {
-                                    const ageMs = now - new Date(hr.created_at).getTime();
+                                    const hrEmail = (hr.customer_email || '').trim().toLowerCase();
+                                    const hrPhone = (hr.customer_phone || '').replace(/[^\d]/g, '');
+                                    const isSameCust = (custEmail && hrEmail === custEmail) || (custPhone && hrPhone && hrPhone === custPhone);
+                                    if (isSameCust) continue;
+
+                                    const ageMs = Date.now() - new Date(hr.created_at).getTime();
                                     if (ageMs > 2 * 60 * 1000) continue;
+
                                     try {
                                         const heldItems = JSON.parse(hr.items_json || '[]');
                                         for (const hi of heldItems) {
@@ -4460,6 +4533,13 @@ app.post('/api/bookings/cod', async (req, res) => {
                                 });
                             }
                         });
+
+                        // Clean up any temporary online hold records for this customer since they booked via COD
+                        const cEmail = customer_details?.email ? customer_details.email.trim().toLowerCase() : '';
+                        const cPhone = customer_details?.phone ? customer_details.phone.replace(/[^\d]/g, '') : '';
+                        if (cEmail || cPhone) {
+                            db.run("DELETE FROM online_checkout_holds WHERE LOWER(customer_email) = ? OR customer_phone LIKE ?", [cEmail, `%${cPhone}`], () => {});
+                        }
 
                         res.json({ success: true, order_id: baseOrderId });
                     }
@@ -5183,32 +5263,109 @@ app.post('/api/upi/collect', async (req, res) => {
                 if (!items || items.length === 0) return resolve(false);
                 let checkCount = 0;
                 let hasConflict = false;
+                const custEmail = (customer_details && customer_details.email) ? customer_details.email.trim().toLowerCase() : '';
+                const custPhone = (customer_details && customer_details.phone) ? customer_details.phone.replace(/[^\d]/g, '') : '';
+
                 items.forEach(item => {
-                    let query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND item_name = ?";
+                    let query = "SELECT id, status, email, phone, created_at, order_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND item_name = ?";
                     let params = [item.date, item.time, item.item_name];
                     if (item.instructor_id) {
-                        query = "SELECT COUNT(*) as count FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
+                        query = "SELECT id, status, email, phone, created_at, order_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
                         params = [item.date, item.time, item.item_name, item.instructor_id];
                     }
                     
-                    db.get(query, params, (err, row) => {
+                    db.all(query, params, (err, rows) => {
                         if (err) return reject(err);
-                        if (row && row.count > 0) hasConflict = true;
+                        if (rows && rows.length > 0) {
+                            for (const r of rows) {
+                                // Confirmed/paid/attended/desk bookings are always a hard block
+                                if (r.status === 'PAID' || r.status === 'SUCCESS' || r.status === 'CASH' || (r.order_id && r.order_id.startsWith('PAYDUE_'))) {
+                                    hasConflict = true;
+                                    break;
+                                }
+                                
+                                // For online PENDING attempts:
+                                const rEmail = (r.email || '').trim().toLowerCase();
+                                const rPhone = (r.phone || '').replace(/[^\d]/g, '');
+                                const isSameCustomer = (custEmail && rEmail === custEmail) || (custPhone && rPhone && rPhone === custPhone);
+                                
+                                if (isSameCustomer) {
+                                    // It's the same customer's prior abandoned pending attempt! Allow them to supersede it
+                                    continue;
+                                }
+
+                                // If pending attempt was by someone else, check if older than 2 minutes
+                                const bookingAgeMs = Date.now() - new Date(r.created_at).getTime();
+                                if (bookingAgeMs > 2 * 60 * 1000) {
+                                    // Expired abandoned attempt, ignore conflict
+                                    continue;
+                                }
+
+                                hasConflict = true;
+                                break;
+                            }
+                        }
 
                         // Also check shared simulator_slot_locks (for locks from RC Fun Zone or other channels)
-                        const lockQuery = "SELECT COUNT(*) as count FROM simulator_slot_locks WHERE simulator_name = ? AND (booking_date = ? OR booking_date = ?) AND booking_time = ? AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
+                        const lockQuery = "SELECT simulator_name, booking_date, booking_time, status, customer_phone, source_order_id, created_at FROM simulator_slot_locks WHERE simulator_name = ? AND (booking_date = ? OR booking_date = ?) AND booking_time = ? AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
                         const lockParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
 
-                        db.get(lockQuery, lockParams, (lockErr, lockRow) => {
-                            if (!lockErr && lockRow && lockRow.count > 0) hasConflict = true;
+                        db.all(lockQuery, lockParams, (lockErr, lockRows) => {
+                            if (!lockErr && lockRows && lockRows.length > 0) {
+                                for (const lr of lockRows) {
+                                    if (lr.status === 'PAID' || lr.status === 'ATTENDED' || lr.status === 'CONFIRMED' || (lr.source_order_id && lr.source_order_id.startsWith('PAYDUE_'))) {
+                                        hasConflict = true;
+                                        break;
+                                    }
+                                    const lockPhone = (lr.customer_phone || '').replace(/[^\d]/g, '');
+                                    if (custPhone && lockPhone && lockPhone === custPhone) {
+                                        // Same customer's prior pending lock
+                                        continue;
+                                    }
+                                    const lockAgeMs = Date.now() - new Date(lr.created_at).getTime();
+                                    if (lockAgeMs > 2 * 60 * 1000) {
+                                        continue;
+                                    }
+                                    hasConflict = true;
+                                    break;
+                                }
+                            }
 
-                            // Also check admin blocked_slots
-                            const bQuery = "SELECT COUNT(*) as count FROM blocked_slots WHERE (simulator_name = ? OR simulator_name = 'ALL') AND (booking_date = ? OR booking_date = ? OR booking_date = 'ALL') AND (time_slot = ? OR time_slot = 'ALL_DAY')";
-                            const bParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
-                            db.get(bQuery, bParams, (bErr, bRow) => {
-                                if (!bErr && bRow && bRow.count > 0) hasConflict = true;
-                                checkCount++;
-                                if (checkCount === items.length) resolve(hasConflict);
+                            // Also check active online checkout holds (< 2 minutes old)
+                            db.all("SELECT txn_id, customer_email, customer_phone, items_json, created_at FROM online_checkout_holds", [], (holdErr, holdRows) => {
+                                if (!holdErr && holdRows) {
+                                    for (const hr of holdRows) {
+                                        const hrEmail = (hr.customer_email || '').trim().toLowerCase();
+                                        const hrPhone = (hr.customer_phone || '').replace(/[^\d]/g, '');
+                                        const isSameCust = (custEmail && hrEmail === custEmail) || (custPhone && hrPhone && hrPhone === custPhone);
+                                        if (isSameCust) continue;
+
+                                        const ageMs = Date.now() - new Date(hr.created_at).getTime();
+                                        if (ageMs > 2 * 60 * 1000) continue;
+
+                                        try {
+                                            const heldItems = JSON.parse(hr.items_json || '[]');
+                                            for (const hi of heldItems) {
+                                                const hiDate = (hi.date || '').replace(/ \([A-Za-z]+\)/, '');
+                                                const itDate = (item.date || '').replace(/ \([A-Za-z]+\)/, '');
+                                                if (hi.item_name === item.item_name && hiDate === itDate && hi.time === item.time) {
+                                                    hasConflict = true;
+                                                    break;
+                                                }
+                                            }
+                                        } catch (e) {}
+                                        if (hasConflict) break;
+                                    }
+                                }
+
+                                // Also check admin blocked_slots
+                                const bQuery = "SELECT COUNT(*) as count FROM blocked_slots WHERE (simulator_name = ? OR simulator_name = 'ALL') AND (booking_date = ? OR booking_date = ? OR booking_date = 'ALL') AND (time_slot = ? OR time_slot = 'ALL_DAY')";
+                                const bParams = [item.item_name, item.date, item.date.replace(/ \([A-Za-z]+\)/, ''), item.time];
+                                db.get(bQuery, bParams, (bErr, bRow) => {
+                                    if (!bErr && bRow && bRow.count > 0) hasConflict = true;
+                                    checkCount++;
+                                    if (checkCount === items.length) resolve(hasConflict);
+                                });
                             });
                         });
                     });

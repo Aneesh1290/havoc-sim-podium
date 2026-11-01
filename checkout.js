@@ -446,7 +446,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         } catch (err) {
             console.error("Payment error:", err);
-            alert("Could not connect to payment server. " + err.message);
+            const msg = err.message && !err.message.includes("Failed to fetch")
+                ? err.message
+                : "Could not connect to payment server. Please check your internet connection and try again.";
+            alert(msg);
             payBtn.disabled         = false;
             updatePricing();
         }
