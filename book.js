@@ -713,8 +713,8 @@ document.addEventListener("DOMContentLoaded", () => {
                         <div class="product-info">
                             <h4>${p.name}</h4>
                             <div class="product-price">
-                                ${p.compare_price && p.compare_price > p.price ? `<span style="text-decoration: line-through; color: #888; font-size: 0.85em; margin-right: 6px;">₹${parseFloat(p.compare_price).toFixed(2)}</span>` : ''}
-                                ₹${p.price.toFixed(2)} <span style="font-size: 0.7em; color: #888;">+ GST</span>
+                                ${p.compare_price && parseFloat(p.compare_price) > parseFloat(p.price) ? `<span style="text-decoration: line-through; color: #888; font-size: 0.85em; margin-right: 6px;">₹${parseFloat(p.compare_price).toFixed(2)}</span>` : ''}
+                                ₹${parseFloat(p.price || 0).toFixed(2)} <span style="font-size: 0.7em; color: #888;">+ GST</span>
                             </div>
                             <div class="product-actions" style="display:flex; flex-direction:column; gap:8px; margin-top:15px;">
                                 ${p.description && p.description.trim().length > 0 ? `<button class="btn-specs view-specs-btn" data-id="${p.id}" style="width:100%; border-radius:8px; padding:0.6rem;">View Specs</button>` : ''}
