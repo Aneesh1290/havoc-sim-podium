@@ -2287,6 +2287,14 @@ app.get('/api/admin/bookings/date/:date', verifyToken, (req, res) => {
 // BLOCKED SLOTS MANAGEMENT ROUTES
 // ==========================================
 
+// Public API: Get blocked slots and closed dates for the public booking calendar
+app.get('/api/blocked-dates', (req, res) => {
+    db.all("SELECT id, simulator_name, booking_date, time_slot, reason FROM blocked_slots", [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Database error' });
+        res.json(rows || []);
+    });
+});
+
 // Get all blocked slots (Protected)
 app.get('/api/admin/blocked-slots', verifyToken, (req, res) => {
     db.all("SELECT * FROM blocked_slots ORDER BY id DESC", [], (err, rows) => {

@@ -128,6 +128,19 @@ document.addEventListener("DOMContentLoaded", () => {
     let selectedPlayerCount = 1;
     let playerTwoName = "";
 
+    let globalBlockedSlots = [];
+    const fetchBlockedSlots = async () => {
+        try {
+            const res = await fetch('/api/blocked-dates');
+            if (res.ok) {
+                globalBlockedSlots = await res.json();
+            }
+        } catch(e) {
+            console.warn('Could not fetch blocked slots:', e);
+        }
+    };
+    fetchBlockedSlots();
+
     // Build date pills for the active month
     const buildDatePills = () => {
         if (!datePillsEl) return;
@@ -192,6 +205,19 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             // If no custom dates saved, fall back to: close Mondays only
             
+            // Check if entire date is locked/blocked in blocked_slots (Entire Day Close)
+            const prodName = pendingProduct ? (pendingProduct.name || '') : '';
+            const isEntireDayBlocked = (globalBlockedSlots || []).some(bs => {
+                if (bs.time_slot !== 'ALL_DAY') return false;
+                const matchesSim = (bs.simulator_name === 'ALL' || (prodName && bs.simulator_name.toLowerCase() === prodName.toLowerCase()));
+                if (!matchesSim) return false;
+                const bDate = (bs.booking_date || '').trim();
+                return (bDate === label || bDate === fullMonthLabel || bDate === fullMonthLabelOld || bDate === 'ALL');
+            });
+            if (isEntireDayBlocked) {
+                isForceClosed = true;
+            }
+
             const pill = document.createElement("button");
             const isDisabled = isPast || isMonday || isForceClosed;
             pill.className = "pill" + (isDisabled ? " pill-disabled" : "");
@@ -283,6 +309,7 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         const normalizedBookedSlots = bookedSlots.map(s => normalizeTimeSlot(s));
+        const isDayBlocked = bookedSlots.includes('ALL_DAY');
 
         availableSlots.forEach(slot => {
             let isPast = false;
@@ -292,9 +319,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (slotHour <= nowDecimal) isPast = true;
             }
 
-            // Check if slot is already booked or is an exception using normalized matching
+            // Check if slot is already booked, entire day is blocked, or is an exception using normalized matching
             const normSlot = normalizeTimeSlot(slot);
-            let isBooked = bookedSlots.includes(slot) || normalizedBookedSlots.includes(normSlot);
+            let isBooked = isDayBlocked || bookedSlots.includes(slot) || normalizedBookedSlots.includes(normSlot);
             if (!isBooked && slotExceptions.some(ex => {
                 const parts = ex.split('|');
                 if (parts.length === 2) {
@@ -402,7 +429,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return html;
     };
 
-    const openModal = (product) => {
+    const openModal = async (product) => {
         pendingProduct = product;
         selectedDate   = null;
         selectedSlot   = null;
@@ -532,6 +559,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
+        await fetchBlockedSlots();
         buildDatePills();
         if (timePillsEl) timePillsEl.innerHTML = "<span style='color:#555;font-size:0.82rem;'>Select a date first</span>";
         updateSummary();
