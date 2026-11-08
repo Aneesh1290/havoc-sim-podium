@@ -5034,14 +5034,22 @@ window.closeDeskOtpModal = () => {
     window._activeDeskPayUrl = null;
     window._activeDeskPayPhone = null;
     window._activeDeskPayAmount = null;
+    window._activeDeskPayLinkId = null;
+    window._activeDeskPayLinkPaid = false;
     const payLinkBanner = document.getElementById('deskPayLinkBanner');
     if (payLinkBanner) payLinkBanner.style.display = 'none';
     const paymentBox = document.getElementById('deskPaymentCollectionBox');
     if (paymentBox) paymentBox.style.display = 'none';
     const txnInput = document.getElementById('deskTxnRefInput');
     const amtInput = document.getElementById('deskAmountCollectedInput');
-    if (txnInput) txnInput.value = '';
-    if (amtInput) amtInput.value = '';
+    if (txnInput) {
+        txnInput.value = '';
+        txnInput.placeholder = 'e.g. UPI Ref / Cash / Card TN';
+    }
+    if (amtInput) {
+        amtInput.value = '';
+        amtInput.placeholder = '0.00';
+    }
 };
 
 window.backToStep1 = () => {
@@ -5054,10 +5062,22 @@ window.backToStep1 = () => {
     window._activeDeskPayUrl = null;
     window._activeDeskPayPhone = null;
     window._activeDeskPayAmount = null;
+    window._activeDeskPayLinkId = null;
+    window._activeDeskPayLinkPaid = false;
     const payLinkBanner = document.getElementById('deskPayLinkBanner');
     if (payLinkBanner) payLinkBanner.style.display = 'none';
     const paymentBox = document.getElementById('deskPaymentCollectionBox');
     if (paymentBox) paymentBox.style.display = 'none';
+    const txnInput = document.getElementById('deskTxnRefInput');
+    const amtInput = document.getElementById('deskAmountCollectedInput');
+    if (txnInput) {
+        txnInput.value = '';
+        txnInput.placeholder = 'e.g. UPI Ref / Cash / Card TN';
+    }
+    if (amtInput) {
+        amtInput.value = '';
+        amtInput.placeholder = '0.00';
+    }
 };
 
 window.lookupCustomerBookings = async () => {
@@ -5713,14 +5733,21 @@ window.generateAndSendDeskPaymentLink = async function() {
             statusMsg.style.color = '#86efac';
         }
 
-        // Auto-fill transaction reference with payment link ID so staff can quickly confirm once customer pays
+        // Auto-fill transaction reference and amount only AFTER payment is verified online
+        // Do NOT populate or enable the confirm button prematurely while payment is still pending!
+        window._activeDeskPayLinkId = data.link_id;
+        window._activeDeskPayLinkPaid = false;
+
+        // Clear any previous values so staff cannot fulfill before payment is completed
         const txnRefInput = document.getElementById('deskTxnRefInput');
-        if (txnRefInput && !txnRefInput.value.trim()) {
-            txnRefInput.value = data.link_id;
+        if (txnRefInput) {
+            txnRefInput.value = '';
+            txnRefInput.placeholder = 'Waiting for customer to pay online...';
         }
         const amtInput = document.getElementById('deskAmountCollectedInput');
-        if (amtInput && !amtInput.value) {
-            amtInput.value = totalDue.toFixed(2);
+        if (amtInput) {
+            amtInput.value = '';
+            amtInput.placeholder = totalDue.toFixed(2);
         }
         window.updateDeskPaymentValidation();
 
@@ -5776,6 +5803,7 @@ window.startDeskPaymentPolling = function(linkId, expectedAmount) {
 
             if (linkData && linkData.status === 'PAID') {
                 window.stopDeskPaymentPolling();
+                window._activeDeskPayLinkPaid = true;
                 console.log(`[Desk Payment Poll] Payment verified for ${linkId}!`, linkData);
 
                 // Update UI banner to show verified green status
@@ -5785,7 +5813,7 @@ window.startDeskPaymentPolling = function(linkId, expectedAmount) {
                     statusMsg.style.color = '#4ade80';
                 }
 
-                // Update transaction reference and amount
+                // Update transaction reference and amount now that payment is actually verified
                 const txnRefInput = document.getElementById('deskTxnRefInput');
                 if (txnRefInput) {
                     txnRefInput.value = linkData.icici_txn_id || linkData.link_id;
@@ -5870,6 +5898,31 @@ window.updateDeskPaymentValidation = function() {
     const enteredAmt = parseFloat(amtInput?.value);
     const amtMatches = !isNaN(enteredAmt) && Math.abs(enteredAmt - expected) < 0.01;
     const hasRef = txnRef.length > 0;
+
+    // If an online payment link was generated for this session, check if it's still unpaid.
+    // If the transaction reference entered matches the pending payment link (or begins with PL_),
+    // DO NOT allow confirmation until verified by the polling system or gateway!
+    const isPaymentLinkRef = txnRef.startsWith('PL_');
+    const isPendingPaymentLink = isPaymentLinkRef && (!window._activeDeskPayLinkPaid);
+
+    if (isPendingPaymentLink) {
+        if (btn) {
+            btn.disabled = true;
+            btn.style.opacity = '0.45';
+            btn.style.cursor = 'not-allowed';
+            btn.style.background = 'linear-gradient(135deg, #e5b869, #c9952f)';
+            btn.style.color = '#000';
+            btn.style.boxShadow = 'none';
+            btn.innerHTML = '<span>⏳</span> Waiting for Online Payment...';
+        }
+        if (indicator) {
+            indicator.innerHTML = `<span>⏳</span> Payment link <strong>#${txnRef}</strong> has been sent. Waiting for customer to complete payment online...`;
+            indicator.style.color = '#e5b869';
+            indicator.style.background = 'rgba(229, 184, 105, 0.12)';
+            indicator.style.border = '1px solid rgba(229, 184, 105, 0.3)';
+        }
+        return;
+    }
 
     if (amtMatches && hasRef) {
         if (indicator) {

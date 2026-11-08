@@ -3583,7 +3583,7 @@ app.post('/api/admin/verify/direct-checkin', verifyToken, (req, res) => {
 });
 
 // 4. Collect desk payment and fulfill unpaid order(s)
-app.post('/api/admin/verify/collect-and-fulfill', verifyToken, (req, res) => {
+app.post('/api/admin/verify/collect-and-fulfill', verifyToken, async (req, res) => {
     const { order_ids, amount_collected, transaction_ref } = req.body;
 
     if (!Array.isArray(order_ids) || order_ids.length === 0) {
@@ -3598,6 +3598,23 @@ app.post('/api/admin/verify/collect-and-fulfill', verifyToken, (req, res) => {
     const txnRef = (transaction_ref || '').trim();
     if (!txnRef) {
         return res.status(400).json({ error: 'Transaction reference number / payment note is required.' });
+    }
+
+    // Safety check: If the transaction reference is a payment link (e.g. PL_...),
+    // enforce that the payment link has ACTUALLY been paid in full via ICICI gateway!
+    if (txnRef.startsWith('PL_')) {
+        const linkCheck = await new Promise((resolve) => {
+            db.get("SELECT status, icici_txn_id FROM payment_links WHERE link_id = ?", [txnRef], (err, row) => {
+                if (err || !row) return resolve({ found: false });
+                return resolve({ found: true, status: row.status, txnId: row.icici_txn_id });
+            });
+        });
+
+        if (linkCheck.found && linkCheck.status !== 'PAID') {
+            return res.status(400).json({
+                error: `Payment link #${txnRef} is still PENDING. The customer has not completed payment yet.`
+            });
+        }
     }
 
     // Verify order(s) and amounts
