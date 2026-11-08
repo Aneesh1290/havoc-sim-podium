@@ -277,6 +277,39 @@ db.run(`
     )
 `, [], () => {});
 
+// 7. Slots table
+db.run(`
+    CREATE TABLE IF NOT EXISTS slots (
+        id SERIAL PRIMARY KEY,
+        time_range TEXT UNIQUE,
+        active INTEGER DEFAULT 1,
+        sort_order INTEGER DEFAULT 0
+    )
+`, [], (err) => {
+    if (err) {
+        db.run(`
+            CREATE TABLE IF NOT EXISTS slots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                time_range TEXT UNIQUE,
+                active INTEGER DEFAULT 1,
+                sort_order INTEGER DEFAULT 0
+            )
+        `, [], () => {});
+    }
+});
+
+// 8. Inventory Overrides table
+db.run(`
+    CREATE TABLE IF NOT EXISTS inventory_overrides (
+        id SERIAL PRIMARY KEY,
+        product_id INTEGER,
+        date_str TEXT,
+        time_range TEXT,
+        override_quantity INTEGER,
+        UNIQUE(product_id, date_str, time_range)
+    )
+`, [], () => {});
+
 // Ensure columns exist on tables if created previously
 db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS whatsapp_consent INTEGER DEFAULT 1", [], () => {});
 db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_ref TEXT", [], () => {});

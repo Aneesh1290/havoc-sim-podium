@@ -210,7 +210,7 @@ function renderBookings(bookingsToRender) {
         }
         const g = groupedMap.get(baseId);
         g.items.push(b);
-        g.total_price += (b.price || 0);
+        g.total_price += (parseFloat(b.price) || 0);
     });
     
     const groupedArray = Array.from(groupedMap.values());
@@ -329,7 +329,7 @@ function renderBookings(bookingsToRender) {
             <td>
                 <span class="badge ${getBadgeClass(fulfillBadge)}" style="margin-left:0; padding: 0.2rem 0.6rem; font-size: 0.75rem;">${fulfillBadge.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</span>
             </td>
-            <td style="color: var(--muted); font-size: 0.85rem;">₹${b.total_price.toFixed(2)}</td>
+            <td style="color: var(--muted); font-size: 0.85rem;">₹${(parseFloat(b.total_price) || 0).toFixed(2)}</td>
             <td style="color: #60a5fa; font-size: 0.85rem;">
                 ${b.items.length} 
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 2px; vertical-align: middle;">
@@ -3605,7 +3605,7 @@ function renderInventory(products) {
                 </div>
             </td>
             <td style="padding: 1rem 1.5rem; font-size: 0.85rem;">${product.type || 'Physical'}</td>
-            <td style="padding: 1rem 1.5rem; font-size: 0.85rem;">₹${(product.price || 0).toFixed(2)}</td>
+            <td style="padding: 1rem 1.5rem; font-size: 0.85rem;">₹${(parseFloat(product.price) || 0).toFixed(2)}</td>
             <td style="padding: 1rem 1.5rem; text-align: right; position: relative;">
                 <button id="actionBtn-${product.id}" class="btn action-menu-btn" style="background: #1e40af; color: #fff; border: none; border-radius: 50%; width: 32px; height: 32px; padding: 0; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; transition: all 0.2s;" onclick="toggleActionMenu(event, ${product.id})">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
