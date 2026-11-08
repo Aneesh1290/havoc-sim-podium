@@ -87,7 +87,7 @@ db.run(`
         password_hash TEXT NOT NULL,
         totp_secret TEXT,
         must_change_password INTEGER DEFAULT 0,
-        role TEXT DEFAULT 'super_admin',
+        role TEXT DEFAULT 'staff',
         permissions TEXT DEFAULT 'all'
     )
 `, [], (err) => {
@@ -99,28 +99,11 @@ db.run(`
                 password_hash TEXT NOT NULL,
                 totp_secret TEXT,
                 must_change_password INTEGER DEFAULT 0,
-                role TEXT DEFAULT 'super_admin',
+                role TEXT DEFAULT 'staff',
                 permissions TEXT DEFAULT 'all'
             )
         `, [], () => {});
     }
-
-    // Seed default admin if table is empty
-    db.get("SELECT COUNT(1) as cnt FROM admin_auth", (cErr, cRow) => {
-        const count = cRow ? parseInt(cRow.cnt || cRow.count || 0) : 0;
-        if (!cErr && count === 0) {
-            console.log("[Auto-Init] Seeding default super admin 'admin' into admin_auth...");
-            const defaultHash = "$2b$10$Vlg/ykSj5/UnkFBNzwcYLeC6dCpyY992juavZDxERn6zRW0UA5JGC"; // sabharwal@65
-            db.run(
-                "INSERT INTO admin_auth (username, password_hash, role, permissions) VALUES (?, ?, ?, ?)",
-                ['admin', defaultHash, 'super_admin', 'all'],
-                (insErr) => {
-                    if (insErr) console.error("[Auto-Init] Error seeding admin:", insErr.message);
-                    else console.log("[Auto-Init] Default admin seeded successfully!");
-                }
-            );
-        }
-    });
 });
 
 // 2. Settings table
