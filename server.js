@@ -28,7 +28,7 @@ const {
 
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, 'assets', 'uploads');
-if (!fs.existsSync(uploadDir)){
+if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });
 }
 
@@ -43,7 +43,7 @@ function saveBase64ImageFile(dataUri, prefix = 'img') {
         const filePath = path.join(uploadDir, filename);
         fs.writeFileSync(filePath, Buffer.from(matches[2], 'base64'));
         return `/assets/uploads/${filename}`;
-    } catch(e) {
+    } catch (e) {
         return dataUri;
     }
 }
@@ -60,12 +60,12 @@ function saveUploadedBufferFile(file, prefix = 'upload') {
 
 // Configure multer
 const storage = multer.memoryStorage();
-const upload = multer({ 
-    storage: storage, 
-    limits: { 
+const upload = multer({
+    storage: storage,
+    limits: {
         fileSize: 10 * 1024 * 1024,  // 10MB per file
         fieldSize: 30 * 1024 * 1024   // 30MB per field (for base64 existing images)
-    } 
+    }
 });
 
 
@@ -102,7 +102,7 @@ db.run(`
                 role TEXT DEFAULT 'staff',
                 permissions TEXT DEFAULT 'all'
             )
-        `, [], () => {});
+        `, [], () => { });
     }
 });
 
@@ -112,7 +112,7 @@ db.run(`
         key TEXT PRIMARY KEY,
         value TEXT
     )
-`, [], () => {});
+`, [], () => { });
 
 // 3. Coupons table
 db.run(`
@@ -143,7 +143,7 @@ db.run(`
                 allowed_simulators TEXT,
                 max_sessions INTEGER
             )
-        `, [], () => {});
+        `, [], () => { });
     }
 });
 
@@ -182,7 +182,7 @@ db.run(`
                 two_player_price REAL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        `, [], () => {});
+        `, [], () => { });
     }
 });
 
@@ -231,7 +231,7 @@ db.run(`
                 wristband_number TEXT,
                 whatsapp_consent INTEGER DEFAULT 1
             )
-        `, [], () => {});
+        `, [], () => { });
     }
 });
 
@@ -258,7 +258,7 @@ db.run(`
         reset_otp_expires_at BIGINT,
         notice_hours INTEGER DEFAULT 0
     )
-`, [], () => {});
+`, [], () => { });
 
 // 7. Slots table
 db.run(`
@@ -277,7 +277,7 @@ db.run(`
                 active INTEGER DEFAULT 1,
                 sort_order INTEGER DEFAULT 0
             )
-        `, [], () => {});
+        `, [], () => { });
     }
 });
 
@@ -291,17 +291,17 @@ db.run(`
         override_quantity INTEGER,
         UNIQUE(product_id, date_str, time_range)
     )
-`, [], () => {});
+`, [], () => { });
 
 // Ensure columns exist on tables if created previously
-db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS whatsapp_consent INTEGER DEFAULT 1", [], () => {});
-db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_ref TEXT", [], () => {});
-db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS wristband_number TEXT", [], () => {});
-db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS allowed_simulators TEXT", [], () => {});
-db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_sessions INTEGER", [], () => {});
-db.run("ALTER TABLE admin_auth ADD COLUMN IF NOT EXISTS permissions TEXT DEFAULT 'all'", [], () => {});
-db.run("ALTER TABLE products ADD COLUMN IF NOT EXISTS images_json TEXT DEFAULT '[]'", [], () => {});
-db.run("ALTER TABLE products ADD COLUMN IF NOT EXISTS two_player_price REAL", [], () => {});
+db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS whatsapp_consent INTEGER DEFAULT 1", [], () => { });
+db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_ref TEXT", [], () => { });
+db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS wristband_number TEXT", [], () => { });
+db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS allowed_simulators TEXT", [], () => { });
+db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_sessions INTEGER", [], () => { });
+db.run("ALTER TABLE admin_auth ADD COLUMN IF NOT EXISTS permissions TEXT DEFAULT 'all'", [], () => { });
+db.run("ALTER TABLE products ADD COLUMN IF NOT EXISTS images_json TEXT DEFAULT '[]'", [], () => { });
+db.run("ALTER TABLE products ADD COLUMN IF NOT EXISTS two_player_price REAL", [], () => { });
 
 // Ensure payment_links table exists for custom admin payment requests
 db.run(`
@@ -337,15 +337,15 @@ db.run(`
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 paid_at TIMESTAMP
             )
-        `, [], () => {});
+        `, [], () => { });
     }
 });
 
 // Ensure order_ids column exists in payment_links if table was already created
 if (db.isPostgres) {
-    db.pool.query("ALTER TABLE payment_links ADD COLUMN IF NOT EXISTS order_ids TEXT", () => {});
+    db.pool.query("ALTER TABLE payment_links ADD COLUMN IF NOT EXISTS order_ids TEXT", () => { });
 } else {
-    db.run("ALTER TABLE payment_links ADD COLUMN order_ids TEXT", [], () => {});
+    db.run("ALTER TABLE payment_links ADD COLUMN order_ids TEXT", [], () => { });
 }
 
 // Ensure blocked_slots table exists for global/date/simulator slot blocking
@@ -372,7 +372,7 @@ db.run(`
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(simulator_name, booking_date, time_slot)
             )
-        `, [], () => {});
+        `, [], () => { });
     }
 });
 
@@ -404,7 +404,7 @@ db.run(`
                 whatsapp_consent INTEGER DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        `, [], () => {});
+        `, [], () => { });
     }
 });
 
@@ -444,12 +444,12 @@ db.run(`
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        `, [], () => {});
+        `, [], () => { });
     }
     // Create indexes for high-speed queries
-    db.run("CREATE INDEX IF NOT EXISTS idx_band_items_code ON band_items(band_code)", [], () => {});
-    db.run("CREATE INDEX IF NOT EXISTS idx_band_items_status ON band_items(status)", [], () => {});
-    db.run("CREATE INDEX IF NOT EXISTS idx_band_items_color ON band_items(color_name)", [], () => {});
+    db.run("CREATE INDEX IF NOT EXISTS idx_band_items_code ON band_items(band_code)", [], () => { });
+    db.run("CREATE INDEX IF NOT EXISTS idx_band_items_status ON band_items(status)", [], () => { });
+    db.run("CREATE INDEX IF NOT EXISTS idx_band_items_color ON band_items(color_name)", [], () => { });
 
     // Ensure site_settings table exists for persistent flags (e.g. band_inventory_seeded)
     db.run(`
@@ -466,12 +466,12 @@ db.run(`
                     value TEXT,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            `, [], () => {});
+            `, [], () => { });
         }
     });
 
     // Ensure wristband_number column exists on bookings table
-    db.run("ALTER TABLE bookings ADD COLUMN wristband_number TEXT", [], () => {});
+    db.run("ALTER TABLE bookings ADD COLUMN wristband_number TEXT", [], () => { });
 });
 
 // Ensure common shared band_transactions audit log table exists (Shared with Havoc RC Fun Zone)
@@ -510,11 +510,11 @@ db.run(`
                 notes TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        `, [], () => {});
+        `, [], () => { });
     }
-    db.run("CREATE INDEX IF NOT EXISTS idx_band_tx_band_id ON band_transactions(band_id)", [], () => {});
-    db.run("CREATE INDEX IF NOT EXISTS idx_band_tx_type ON band_transactions(transaction_type)", [], () => {});
-    db.run("CREATE INDEX IF NOT EXISTS idx_band_tx_created ON band_transactions(created_at)", [], () => {});
+    db.run("CREATE INDEX IF NOT EXISTS idx_band_tx_band_id ON band_transactions(band_id)", [], () => { });
+    db.run("CREATE INDEX IF NOT EXISTS idx_band_tx_type ON band_transactions(transaction_type)", [], () => { });
+    db.run("CREATE INDEX IF NOT EXISTS idx_band_tx_created ON band_transactions(created_at)", [], () => { });
 
     // Ensure custom band categories & offers table exists (Shared pool)
     db.run(`
@@ -568,7 +568,7 @@ function seedDefaultBandCategories() {
                     `INSERT OR IGNORE INTO band_categories (name, description, badge_color, sort_order, active)
                      VALUES (?, ?, ?, ?, 1)`,
                     [d.name, d.desc, d.color, d.order],
-                    () => {}
+                    () => { }
                 );
             }
         );
@@ -604,7 +604,7 @@ db.run(`
                 remark TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        `, [], () => {});
+        `, [], () => { });
     }
 });
 
@@ -656,8 +656,8 @@ const ICICI_AGGREGATOR_ID = process.env.ICICI_AGGREGATOR_ID || '100000000531582'
 const ICICI_ENV = process.env.ICICI_ENV || 'live'; // 'uat' or 'live'
 
 const getIciciBaseUrl = () => {
-    return ICICI_ENV === 'live' 
-        ? 'https://pgpay.icici.bank.in/pg/api/v2' 
+    return ICICI_ENV === 'live'
+        ? 'https://pgpay.icici.bank.in/pg/api/v2'
         : 'https://pgpayuat.icicibank.com/tsp/pg/api/v2';
 };
 
@@ -669,10 +669,10 @@ const getIciciBaseUrl = () => {
 const verifyToken = (req, res, next) => {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.status(403).json({ error: 'No token provided.' });
-    
+
     jwt.verify(token, JWT_SECRET, (err, decoded) => {
         if (err) return res.status(401).json({ error: 'Unauthorized.' });
-        
+
         // Check if user still exists in database
         db.get("SELECT id, username, role, permissions FROM admin_auth WHERE id = ?", [decoded.id], (dbErr, user) => {
             if (dbErr || !user) {
@@ -715,8 +715,8 @@ app.get('/api/admin/me', verifyToken, (req, res) => {
 app.post('/api/newsletter', express.json(), (req, res) => {
     const email = req.body.email;
     if (!email) return res.status(400).json({ error: 'Email is required.' });
-    
-    db.run("INSERT INTO newsletter_subscribers (email) VALUES (?)", [email], function(err) {
+
+    db.run("INSERT INTO newsletter_subscribers (email) VALUES (?)", [email], function (err) {
         if (err) {
             if (err.message.includes('UNIQUE constraint failed')) {
                 return res.status(400).json({ error: 'Email is already subscribed.' });
@@ -740,7 +740,7 @@ app.post('/api/admin/newsletter-send', verifyToken, async (req, res) => {
 
     db.all("SELECT email FROM newsletter_subscribers", [], async (err, rows) => {
         if (err) return res.status(500).json({ error: 'Failed to fetch subscribers.' });
-        
+
         if (rows.length === 0) {
             return res.status(400).json({ error: 'No subscribers found.' });
         }
@@ -774,8 +774,8 @@ app.get('/api/settings/payment', (req, res) => {
 app.post('/api/admin/settings/payment', verifyToken, verifySuperAdmin, (req, res) => {
     const { cod, upi } = req.body;
     const value = JSON.stringify({ cod: !!cod, upi: !!upi });
-    
-    db.run("UPDATE settings SET value = ? WHERE key = 'payment_methods'", [value], function(err) {
+
+    db.run("UPDATE settings SET value = ? WHERE key = 'payment_methods'", [value], function (err) {
         if (err) return res.status(500).json({ error: 'Failed to update settings.' });
         if (this.changes === 0) {
             db.run("INSERT INTO settings (key, value) VALUES ('payment_methods', ?)", [value], (insertErr) => {
@@ -809,7 +809,7 @@ app.post('/api/admin/settings/features', verifyToken, (req, res) => {
     db.get("SELECT value FROM settings WHERE key = 'feature_switches'", (getErr, row) => {
         let current = { band_inventory_enabled: true, desk_payment_link_enabled: true };
         if (!getErr && row && row.value) {
-            try { current = { ...current, ...JSON.parse(row.value) }; } catch (e) {}
+            try { current = { ...current, ...JSON.parse(row.value) }; } catch (e) { }
         }
 
         if (req.body.band_inventory_enabled !== undefined) {
@@ -821,7 +821,7 @@ app.post('/api/admin/settings/features', verifyToken, (req, res) => {
 
         const value = JSON.stringify(current);
 
-        db.run("UPDATE settings SET value = ? WHERE key = 'feature_switches'", [value], function(err) {
+        db.run("UPDATE settings SET value = ? WHERE key = 'feature_switches'", [value], function (err) {
             if (err) return res.status(500).json({ error: 'Failed to update feature settings.' });
             if (this.changes === 0) {
                 db.run("INSERT INTO settings (key, value) VALUES ('feature_switches', ?)", [value], (insertErr) => {
@@ -838,13 +838,13 @@ app.post('/api/admin/settings/features', verifyToken, (req, res) => {
 // 1. Admin Login (Username + Password + TOTP)
 app.post('/api/admin/login', (req, res) => {
     const { username, password, token } = req.body;
-    
+
     db.get("SELECT * FROM admin_auth WHERE username = ?", [username], async (err, user) => {
         if (err || !user) return res.status(401).json({ error: 'Invalid credentials.' });
-        
+
         const match = await bcrypt.compare(password, user.password_hash);
         if (!match) return res.status(401).json({ error: 'Invalid credentials.' });
-        
+
         // If TOTP is set, verify the token (DISABLED FOR NOW)
         /*
         if (user.totp_secret) {
@@ -862,13 +862,13 @@ app.post('/api/admin/login', (req, res) => {
             return res.status(400).json({ error: '2FA not setup for this user yet.' });
         }
         */
-        
+
         const jwtToken = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
-        res.json({ 
-            success: true, 
-            token: jwtToken, 
+        res.json({
+            success: true,
+            token: jwtToken,
             totpSetup: true /* bypassed */,
-            mustChangePassword: user.must_change_password === 1 
+            mustChangePassword: user.must_change_password === 1
         });
     });
 });
@@ -878,9 +878,9 @@ app.get('/api/admin/setup-2fa', verifyToken, (req, res) => {
     db.get("SELECT totp_secret FROM admin_auth WHERE id = ?", [req.user.id], (err, user) => {
         if (err || !user) return res.status(500).json({ error: 'Database error' });
         if (user.totp_secret) return res.status(400).json({ error: '2FA is already setup.' });
-        
+
         const secret = speakeasy.generateSecret({ name: `Havoc Sim Podium (${req.user.username})` });
-        
+
         qrcode.toDataURL(secret.otpauth_url, (err, imageUrl) => {
             if (err) return res.status(500).json({ error: 'Error generating QR Code' });
             res.json({ secret: secret.base32, qrCodeUrl: imageUrl });
@@ -896,7 +896,7 @@ app.post('/api/admin/confirm-2fa', verifyToken, (req, res) => {
         encoding: 'base32',
         token: token
     });
-    
+
     if (isValid) {
         db.run("UPDATE admin_auth SET totp_secret = ? WHERE id = ?", [secret, req.user.id], (err) => {
             if (err) return res.status(500).json({ error: 'Error saving 2FA settings' });
@@ -913,11 +913,11 @@ app.post('/api/admin/change-password', verifyToken, async (req, res) => {
     if (!newPassword || newPassword.length < 6) {
         return res.status(400).json({ error: 'Password must be at least 6 characters.' });
     }
-    
+
     try {
         const saltRounds = 10;
         const hash = await bcrypt.hash(newPassword, saltRounds);
-        db.run("UPDATE admin_auth SET password_hash = ?, must_change_password = 0 WHERE id = ?", [hash, req.user.id], function(err) {
+        db.run("UPDATE admin_auth SET password_hash = ?, must_change_password = 0 WHERE id = ?", [hash, req.user.id], function (err) {
             if (err) return res.status(500).json({ error: 'Database error' });
             res.json({ success: true });
         });
@@ -968,14 +968,14 @@ app.get('/api/admin/users', verifyToken, verifySuperAdmin, (req, res) => {
 app.post('/api/admin/users', verifyToken, verifySuperAdmin, async (req, res) => {
     const { username, password, role, permissions } = req.body;
     if (!username || !password) return res.status(400).json({ error: 'Username and password required' });
-    
+
     const userRole = role === 'super_admin' ? 'super_admin' : 'staff';
     const userPerms = userRole === 'super_admin' ? 'all' : (Array.isArray(permissions) ? permissions.join(',') : (permissions || 'bookings,availability'));
-    
+
     try {
         const saltRounds = 10;
         const hash = await bcrypt.hash(password, saltRounds);
-        db.run("INSERT INTO admin_auth (username, password_hash, must_change_password, role, permissions) VALUES (?, ?, 1, ?, ?)", [username, hash, userRole, userPerms], function(err) {
+        db.run("INSERT INTO admin_auth (username, password_hash, must_change_password, role, permissions) VALUES (?, ?, 1, ?, ?)", [username, hash, userRole, userPerms], function (err) {
             if (err) {
                 if (err.message.includes('UNIQUE constraint failed') || (err.message.includes('duplicate key') && err.message.includes('username'))) {
                     return res.status(400).json({ error: 'Username already exists' });
@@ -993,7 +993,7 @@ app.post('/api/admin/users', verifyToken, verifySuperAdmin, async (req, res) => 
 app.put('/api/admin/users/:id/role', verifyToken, verifySuperAdmin, (req, res) => {
     const { id } = req.params;
     const { role, permissions } = req.body;
-    
+
     if (role !== 'super_admin' && role !== 'staff') {
         return res.status(400).json({ error: 'Invalid role' });
     }
@@ -1003,7 +1003,7 @@ app.put('/api/admin/users/:id/role', verifyToken, verifySuperAdmin, (req, res) =
         if (user.username === 'admin') {
             return res.status(403).json({ error: 'Cannot change the primary admin account role' });
         }
-        
+
         let userPerms = 'bookings,availability';
         if (role === 'super_admin') {
             userPerms = 'all';
@@ -1012,7 +1012,7 @@ app.put('/api/admin/users/:id/role', verifyToken, verifySuperAdmin, (req, res) =
         } else if (typeof permissions === 'string') {
             userPerms = permissions;
         }
-        
+
         db.run("UPDATE admin_auth SET role = ?, permissions = ? WHERE id = ?", [role, userPerms, id], (err) => {
             if (err) return res.status(500).json({ error: 'Error updating role' });
             res.json({ success: true, permissions: userPerms });
@@ -1023,14 +1023,14 @@ app.put('/api/admin/users/:id/role', verifyToken, verifySuperAdmin, (req, res) =
 // Delete a staff user (Protected, Admin only)
 app.delete('/api/admin/users/:id', verifyToken, verifySuperAdmin, (req, res) => {
     const { id } = req.params;
-    
+
     // Prevent deleting the main 'admin' account (id=1 usually, but safer to check by username)
     db.get("SELECT username FROM admin_auth WHERE id = ?", [id], (err, user) => {
         if (err || !user) return res.status(404).json({ error: 'User not found' });
         if (user.username === 'admin') {
             return res.status(403).json({ error: 'Cannot delete the primary admin account' });
         }
-        
+
         db.run("DELETE FROM admin_auth WHERE id = ?", [id], (err) => {
             if (err) return res.status(500).json({ error: 'Error deleting user' });
             res.json({ success: true });
@@ -1042,14 +1042,14 @@ app.delete('/api/admin/users/:id', verifyToken, verifySuperAdmin, (req, res) => 
 app.post('/api/admin/users/:id/reset-password', verifyToken, verifySuperAdmin, (req, res) => {
     const { id } = req.params;
     const { newPassword } = req.body || {};
-    
+
     // Prevent resetting the main 'admin' account
     db.get("SELECT username FROM admin_auth WHERE id = ?", [id], async (err, user) => {
         if (err || !user) return res.status(404).json({ error: 'User not found' });
         if (user.username === 'admin') {
             return res.status(403).json({ error: 'Cannot reset the primary admin account' });
         }
-        
+
         try {
             const targetPassword = (newPassword && typeof newPassword === 'string' && newPassword.trim().length >= 6)
                 ? newPassword.trim()
@@ -1100,7 +1100,7 @@ app.get('/api/coupons', (req, res) => {
 // Bulk create coupons (Protected, Admin only)
 app.post('/api/admin/coupons/bulk', verifyToken, verifySuperAdmin, (req, res) => {
     const { prefix, count, start_from, type, value, expires_at, max_uses, format, allowed_simulators, max_sessions } = req.body;
-    
+
     if (!prefix || !count || count < 1 || count > 500) {
         return res.status(400).json({ error: 'Invalid prefix or count (max 500).' });
     }
@@ -1134,17 +1134,17 @@ app.post('/api/admin/coupons/bulk', verifyToken, verifySuperAdmin, (req, res) =>
 
     // Insert all codes
     const stmt = db.prepare("INSERT OR IGNORE INTO coupons (code, type, value, expires_at, max_uses, used_count, allowed_simulators, max_sessions) VALUES (?, ?, ?, ?, ?, 0, ?, ?)");
-    
+
     let insertedCount = 0;
     codes.forEach((code) => {
-        stmt.run([code, type, value, expiresVal, maxUsesVal, allowedSimsVal, maxSessionsVal], function(err) {
+        stmt.run([code, type, value, expiresVal, maxUsesVal, allowedSimsVal, maxSessionsVal], function (err) {
             if (!err) {
                 // Approximate since we don't have this.changes from pg in the mocked stmt
                 insertedCount++;
             }
         });
     });
-    
+
     stmt.finalize();
     // Simulate slight delay for bulk inserts to finish before returning
     setTimeout(() => {
@@ -1159,11 +1159,11 @@ app.post('/api/admin/coupons', verifyToken, verifySuperAdmin, (req, res) => {
     const maxUsesVal = max_uses != null && max_uses !== '' ? parseInt(max_uses) : null;
     const maxSessionsVal = max_sessions != null && max_sessions !== '' ? parseInt(max_sessions) : null;
     const allowedSimsVal = allowed_simulators ? (typeof allowed_simulators === 'string' ? allowed_simulators : JSON.stringify(allowed_simulators)) : null;
-    
+
     db.run(
         "INSERT INTO coupons (code, type, value, expires_at, max_uses, used_count, allowed_simulators, max_sessions) VALUES (?, ?, ?, ?, ?, 0, ?, ?)",
         [code, type, value, expiresVal, maxUsesVal, allowedSimsVal, maxSessionsVal],
-        function(err) {
+        function (err) {
             if (err) return res.status(400).json({ error: 'Coupon code might already exist.' });
             res.json({ success: true, id: this.lastID });
         }
@@ -1178,11 +1178,11 @@ app.put('/api/admin/coupons/:code', verifyToken, verifySuperAdmin, (req, res) =>
     const maxUsesVal = max_uses != null && max_uses !== '' ? parseInt(max_uses) : null;
     const maxSessionsVal = max_sessions != null && max_sessions !== '' ? parseInt(max_sessions) : null;
     const allowedSimsVal = allowed_simulators ? (typeof allowed_simulators === 'string' ? allowed_simulators : JSON.stringify(allowed_simulators)) : null;
-    
+
     db.run(
         "UPDATE coupons SET type = ?, value = ?, expires_at = ?, max_uses = ?, allowed_simulators = ?, max_sessions = ? WHERE code = ?",
         [type, value, expiresVal, maxUsesVal, allowedSimsVal, maxSessionsVal, codeToUpdate],
-        function(err) {
+        function (err) {
             if (err) return res.status(500).json({ error: 'Failed to update coupon.' });
             res.json({ success: true });
         }
@@ -1221,9 +1221,9 @@ app.post('/api/admin/coupons/bulk-delete', verifyToken, verifySuperAdmin, (req, 
     if (!Array.isArray(codes) || codes.length === 0) {
         return res.status(400).json({ error: 'No codes provided' });
     }
-    
+
     const placeholders = codes.map(() => '?').join(',');
-    db.run(`DELETE FROM coupons WHERE code IN (${placeholders})`, codes, function(err) {
+    db.run(`DELETE FROM coupons WHERE code IN (${placeholders})`, codes, function (err) {
         if (err) return res.status(500).json({ error: 'Error deleting coupons' });
         res.json({ success: true, deleted: this.changes });
     });
@@ -1253,27 +1253,27 @@ app.post('/api/instructor/login', async (req, res) => {
     const { email, password } = req.body;
     db.get("SELECT * FROM instructors WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?) OR LOWER(name) = LOWER(?)", [email, email, email], async (err, instructor) => {
         if (err || !instructor) return res.status(401).json({ error: 'Invalid username/email or password' });
-        
+
         // If no password set yet, default is 'havoc123'
-        const match = instructor.password_hash 
+        const match = instructor.password_hash
             ? await bcrypt.compare(password, instructor.password_hash)
             : password === 'havoc123';
-            
+
         if (!match) return res.status(401).json({ error: 'Invalid username/email or password' });
-        
+
         // Auto-migrate if they used default without hash
         if (!instructor.password_hash) {
             const hash = await bcrypt.hash('havoc123', 10);
             db.run("UPDATE instructors SET password_hash = ?, must_change_password = 1 WHERE id = ?", [hash, instructor.id]);
         }
-        
+
         const mustChangePassword = (instructor.must_change_password === 1 || password === 'havoc123');
         const token = jwt.sign({ id: instructor.id, role: 'instructor' }, process.env.JWT_SECRET || 'havoc-secret-key', { expiresIn: '7d' });
-        res.json({ 
+        res.json({
             success: true,
-            token, 
+            token,
             mustChangePassword,
-            instructor: { id: instructor.id, name: instructor.name, username: instructor.username } 
+            instructor: { id: instructor.id, name: instructor.name, username: instructor.username }
         });
     });
 });
@@ -1314,13 +1314,13 @@ app.post('/api/instructor/forgot-password/send-otp', async (req, res) => {
             // Mask email e.g. "an****@gmail.com"
             const parts = instructor.email.split('@');
             const namePart = parts[0];
-            const maskedName = namePart.length <= 2 
-                ? namePart[0] + '***' 
+            const maskedName = namePart.length <= 2
+                ? namePart[0] + '***'
                 : namePart.substring(0, 2) + '*'.repeat(Math.max(3, namePart.length - 2));
             const maskedEmail = `${maskedName}@${parts[1]}`;
 
-            res.json({ 
-                success: true, 
+            res.json({
+                success: true,
                 message: `An OTP has been sent to your email (${maskedEmail}).`,
                 maskedEmail
             });
@@ -1358,14 +1358,14 @@ app.post('/api/instructor/forgot-password/verify-reset', async (req, res) => {
         db.run(
             "UPDATE instructors SET password_hash = ?, must_change_password = 0, reset_otp = NULL, reset_otp_expires_at = NULL WHERE id = ?",
             [hash, instructor.id],
-            function(updateErr) {
+            function (updateErr) {
                 if (updateErr) {
                     return res.status(500).json({ error: 'Failed to update password.' });
                 }
 
                 const token = jwt.sign(
-                    { id: instructor.id, role: 'instructor' }, 
-                    process.env.JWT_SECRET || 'havoc-secret-key', 
+                    { id: instructor.id, role: 'instructor' },
+                    process.env.JWT_SECRET || 'havoc-secret-key',
                     { expiresIn: '7d' }
                 );
 
@@ -1395,7 +1395,7 @@ app.post('/api/instructor/change-password', verifyInstructorToken, async (req, r
         return res.status(400).json({ error: 'Password must be at least 6 characters long.' });
     }
     const hash = await bcrypt.hash(newPassword.trim(), 10);
-    db.run("UPDATE instructors SET password_hash = ?, must_change_password = 0 WHERE id = ?", [hash, req.user.id], function(err) {
+    db.run("UPDATE instructors SET password_hash = ?, must_change_password = 0 WHERE id = ?", [hash, req.user.id], function (err) {
         if (err) return res.status(500).json({ error: 'Failed to update password' });
         res.json({ success: true, message: 'Password updated successfully' });
     });
@@ -1410,7 +1410,7 @@ app.get('/api/instructor/me', verifyInstructorToken, (req, res) => {
 
 app.put('/api/instructor/me', verifyInstructorToken, (req, res) => {
     const { status, schedule_json } = req.body;
-    db.run("UPDATE instructors SET status = ?, schedule_json = ? WHERE id = ?", [status, schedule_json, req.user.id], function(err) {
+    db.run("UPDATE instructors SET status = ?, schedule_json = ? WHERE id = ?", [status, schedule_json, req.user.id], function (err) {
         if (err) return res.status(500).json({ error: 'Update failed' });
         res.json({ success: true });
     });
@@ -1431,10 +1431,10 @@ app.get('/api/available-instructors', (req, res) => {
     db.all("SELECT instructor_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PAID', 'ATTENDED', 'CASH', 'PENDING') AND instructor_id IS NOT NULL", [date, time], (err, bookedRows) => {
         if (err) return res.status(500).json({ error: 'Database error fetching bookings' });
         const bookedInstructorIds = (bookedRows || []).map(r => r.instructor_id);
-        
+
         db.all("SELECT * FROM instructors WHERE status = 'Available' ORDER BY id ASC", [], (err, instructors) => {
             if (err) return res.status(500).json({ error: 'Database error fetching instructors' });
-            
+
             // Normalize time helper
             const normTime = t => {
                 let s = (t || '').toLowerCase().replace(/[:\s]/g, '');
@@ -1486,7 +1486,7 @@ app.get('/api/available-instructors', (req, res) => {
                     const meridiem = timeMatch[3].toLowerCase();
                     if (meridiem === 'pm' && hour < 12) hour += 12;
                     if (meridiem === 'am' && hour === 12) hour = 0;
-                    
+
                     const [y, m, d] = finalIsoDate.split('-').map(Number);
                     slotStartTimestamp = new Date(y, m - 1, d, hour, minute, 0).getTime();
                 } else {
@@ -1508,7 +1508,7 @@ app.get('/api/available-instructors', (req, res) => {
                         return false; // Slot is too soon for this instructor's notice requirement
                     }
                 }
-                
+
                 if (i.schedule_json) {
                     try {
                         const schedule = JSON.parse(i.schedule_json);
@@ -1559,7 +1559,7 @@ app.get('/api/available-instructors', (req, res) => {
                             });
                             if (!isMatch) return false;
                         }
-                    } catch(e) {
+                    } catch (e) {
                         // ignore parse err
                     }
                 }
@@ -1580,14 +1580,14 @@ app.post('/api/admin/instructors', verifyToken, verifySuperAdmin, upload.single(
     const initialPassword = password && password.trim() ? password.trim() : 'havoc123';
     const password_hash = await bcrypt.hash(initialPassword, 10);
     const mustChange = initialPassword === 'havoc123' ? 1 : 0;
-    const finalUsername = username && username.trim() 
-        ? username.trim().toLowerCase() 
+    const finalUsername = username && username.trim()
+        ? username.trim().toLowerCase()
         : (email ? email.split('@')[0].toLowerCase() : name.toLowerCase().replace(/\s+/g, ''));
     const noticeHoursVal = parseInt(notice_hours, 10) || 0;
 
     db.run("INSERT INTO instructors (name, username, age, role, key_achievement, status, biography, photo_url, fee, email, phone, simulator_type, password_hash, must_change_password, notice_hours) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [name, finalUsername, age || null, role, key_achievement, status || 'Available', biography, photo_url, fee != null ? parseFloat(fee) : 500, email, phone, simulator_type || 'All', password_hash, mustChange, noticeHoursVal],
-        function(err) {
+        function (err) {
             if (err) return res.status(500).json({ error: 'Failed to add instructor' });
             res.json({ success: true, id: this.lastID });
         }
@@ -1603,7 +1603,7 @@ app.put('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, upload.sing
 
     let query = "UPDATE instructors SET name=?, username=?, age=?, role=?, key_achievement=?, status=?, biography=?, fee=?, email=?, phone=?, simulator_type=?, notice_hours=?";
     let params = [name, finalUsername, age || null, role, key_achievement, status || 'Available', biography, feeVal, email, phone, simTypeVal, noticeHoursVal];
-    
+
     if (password && password.trim()) {
         const hash = await bcrypt.hash(password.trim(), 10);
         const mustChange = password.trim() === 'havoc123' ? 1 : 0;
@@ -1617,7 +1617,7 @@ app.put('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, upload.sing
         query += ", photo_url=?";
         params.push(photo_url);
     }
-    
+
     query += " WHERE id=?";
     params.push(req.params.id);
 
@@ -1633,7 +1633,7 @@ app.put('/api/admin/instructors/:id', verifyToken, verifySuperAdmin, upload.sing
 app.post('/api/admin/instructors/:id/reset-password', verifyToken, verifySuperAdmin, async (req, res) => {
     try {
         const hash = await bcrypt.hash('havoc123', 10);
-        db.run("UPDATE instructors SET password_hash = ?, must_change_password = 1 WHERE id = ?", [hash, req.params.id], function(err) {
+        db.run("UPDATE instructors SET password_hash = ?, must_change_password = 1 WHERE id = ?", [hash, req.params.id], function (err) {
             if (err) return res.status(500).json({ error: 'Failed to reset instructor password' });
             res.json({ success: true, message: 'Password reset to default (havoc123). Instructor will be prompted to change password.' });
         });
@@ -1679,13 +1679,13 @@ app.get('/api/products', (req, res) => {
 app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.array('images', 20), (req, res) => {
     const { name, type, price, compare_price, two_player_price, stock_quantity, description, options, hide_suffix, existing_images, image_order } = req.body;
     let imagesList = [];
-    
+
     // Parse order if provided
     let orderArray = null;
     if (image_order) {
         try {
             orderArray = JSON.parse(image_order);
-        } catch(e) {}
+        } catch (e) { }
     }
 
     if (Array.isArray(orderArray) && orderArray.length > 0) {
@@ -1706,7 +1706,7 @@ app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.array('ima
                 if (Array.isArray(parsed)) {
                     parsed.forEach(url => imagesList.push(saveBase64ImageFile(url, 'prod_ex')));
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
         if (req.files && req.files.length > 0) {
             req.files.forEach(f => {
@@ -1724,7 +1724,7 @@ app.post('/api/admin/products', verifyToken, verifySuperAdmin, upload.array('ima
 
     db.run("INSERT INTO products (name, type, price, compare_price, two_player_price, stock_quantity, description, image_url, images_json, options, hide_suffix) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [name, type, price, compare_price || null, twoPlayerVal, stock_quantity || 10, description, image_url, images_json, options || '[]', hideSuffixVal],
-        function(err) {
+        function (err) {
             if (err) {
                 console.error("SQL INSERT PRODUCT ERROR:", err);
                 return res.status(500).json({ error: 'Failed to add product: ' + err.message });
@@ -1738,15 +1738,15 @@ app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.array('
     const { name, type, price, compare_price, two_player_price, stock_quantity, description, options, hide_suffix, existing_images, image_order } = req.body;
     const hideSuffixVal = hide_suffix === '1' || hide_suffix === 'true' ? 1 : 0;
     const twoPlayerVal = two_player_price ? parseFloat(two_player_price) : null;
-    
+
     let imagesList = [];
-    
+
     // Parse order if provided
     let orderArray = null;
     if (image_order) {
         try {
             orderArray = JSON.parse(image_order);
-        } catch(e) {}
+        } catch (e) { }
     }
 
     if (Array.isArray(orderArray) && orderArray.length > 0) {
@@ -1767,7 +1767,7 @@ app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.array('
                 if (Array.isArray(parsed)) {
                     parsed.forEach(url => imagesList.push(saveBase64ImageFile(url, 'prod_ex')));
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
         if (req.files && req.files.length > 0) {
             req.files.forEach(f => {
@@ -1782,7 +1782,7 @@ app.put('/api/admin/products/:id', verifyToken, verifySuperAdmin, upload.array('
 
     let query = "UPDATE products SET name=?, type=?, price=?, compare_price=?, two_player_price=?, stock_quantity=?, description=?, options=?, hide_suffix=?, image_url=?, images_json=? WHERE id=?";
     let params = [name, type, price, compare_price || null, twoPlayerVal, stock_quantity || 10, description, options || '[]', hideSuffixVal, image_url, images_json, req.params.id];
-    
+
     db.run(query, params, (err) => {
         if (err) {
             console.error("SQL UPDATE PRODUCT ERROR:", err);
@@ -1802,13 +1802,13 @@ app.delete('/api/admin/products/:id', verifyToken, verifySuperAdmin, (req, res) 
 app.post('/api/admin/products/:id/duplicate', verifyToken, verifySuperAdmin, (req, res) => {
     db.get("SELECT * FROM products WHERE id=?", [req.params.id], (err, product) => {
         if (err || !product) return res.status(404).json({ error: 'Product not found' });
-        
+
         const newName = product.name + ' (Copy)';
         const query = `INSERT INTO products (name, type, price, compare_price, two_player_price, stock_quantity, description, options, image_url, images_json)
                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
         const params = [newName, product.type, product.price, product.compare_price, product.two_player_price || null, product.stock_quantity, product.description, product.options, product.image_url, product.images_json || '[]'];
-        
-        db.run(query, params, function(err) {
+
+        db.run(query, params, function (err) {
             if (err) return res.status(500).json({ error: 'Error duplicating product' });
             res.json({ success: true, id: this.lastID });
         });
@@ -1942,7 +1942,7 @@ app.get('/api/availability/:date', (req, res) => {
 
     db.all(query, params, (err, rows) => {
         if (err) return res.status(500).json({ error: 'Database error' });
-        
+
         const now = Date.now();
         const bookedSlots = [];
 
@@ -1977,7 +1977,7 @@ app.get('/api/availability/:date', (req, res) => {
                                     }
                                 }
                             });
-                        } catch (e) {}
+                        } catch (e) { }
                     }
                 });
             }
@@ -2032,7 +2032,7 @@ app.get('/api/availability/:date', (req, res) => {
 // Get Analytics (Protected)
 app.get('/api/admin/analytics', verifyToken, (req, res) => {
     let days = req.query.days || 30;
-    
+
     let dateFilter = '';
     let params = [];
     if (days !== 'all') {
@@ -2043,23 +2043,23 @@ app.get('/api/admin/analytics', verifyToken, (req, res) => {
 
     db.get(`SELECT SUM(price) as sales, COUNT(id) as orders FROM bookings WHERE status IN ('PAID', 'ATTENDED', 'CASH', 'SUCCESS') ${dateFilter}`, params, (err, bookingStats) => {
         if (err) return res.status(500).json({ error: 'Database error' });
-        
+
         db.get("SELECT COUNT(id) as active_slots FROM slots WHERE active=1", [], (err, slotStat) => {
             if (err) return res.status(500).json({ error: 'Database error' });
-            
+
             db.get("SELECT SUM(stock_quantity) as total_stock FROM products", [], (err, prodStat) => {
                 if (err) return res.status(500).json({ error: 'Database error' });
-                
+
                 const sales = bookingStats.sales || 0;
                 const orders = bookingStats.orders || 0;
-                
+
                 const activeSlots = slotStat.active_slots || 0;
                 const totalStock = prodStat.total_stock || 0;
-                
+
                 const calcDays = (days === 'all') ? 365 : parseInt(days);
                 const totalCapacity = calcDays * activeSlots * totalStock;
                 const slotsEmpty = Math.max(0, totalCapacity - orders);
-                
+
                 res.json({
                     sales,
                     orders,
@@ -2078,16 +2078,16 @@ app.get('/api/admin/inventory', verifyToken, (req, res) => {
     // Return products, slots, future bookings, and overrides to let frontend build the matrix
     db.all("SELECT id, name, stock_quantity FROM products ORDER BY name ASC", [], (err, products) => {
         if (err) return res.status(500).json({ error: 'Database error' });
-        
+
         db.all("SELECT time_range FROM slots WHERE active=1 ORDER BY sort_order ASC", [], (err, slots) => {
             if (err) return res.status(500).json({ error: 'Database error' });
-            
+
             db.all("SELECT item_name, booking_date, booking_time, status FROM bookings WHERE status IN ('PAID', 'ATTENDED', 'CASH', 'SUCCESS') AND booking_date >= date('now', '-1 day')", [], (err, bookings) => {
                 if (err) return res.status(500).json({ error: 'Database error' });
-                
+
                 db.all("SELECT product_id, date_str, time_range, override_quantity FROM inventory_overrides WHERE date_str >= date('now', '-1 day')", [], (err, overrides) => {
                     if (err) return res.status(500).json({ error: 'Database error' });
-                    
+
                     res.json({
                         products,
                         slots,
@@ -2106,14 +2106,14 @@ app.post('/api/admin/inventory/override', verifyToken, express.json(), (req, res
     if (!product_id || !date_str || !time_range) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
-    
+
     const stmt = db.prepare(`
         INSERT INTO inventory_overrides (product_id, date_str, time_range, override_quantity)
         VALUES (?, ?, ?, ?)
         ON CONFLICT(product_id, date_str, time_range) DO UPDATE SET override_quantity = excluded.override_quantity
     `);
-    
-    stmt.run([product_id, date_str, time_range, override_quantity], function(err) {
+
+    stmt.run([product_id, date_str, time_range, override_quantity], function (err) {
         if (err) {
             console.error(err);
             return res.status(500).json({ error: 'Database error' });
@@ -2137,8 +2137,8 @@ app.get('/api/admin/inventory-report', verifyToken, (req, res) => {
             let dateFilter = '';
             let dateParams = [];
             if (month && month !== 'all') {
-                const monthNamesLong = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-                const monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+                const monthNamesLong = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
                 const parts = month.split('-');
                 const yrStr = parts[0];
                 const moNumStr = parts[1];
@@ -2317,7 +2317,7 @@ app.post('/api/admin/blocked-slots', verifyToken, checkPermission('block_slots')
             ON CONFLICT (simulator_name, booking_date, time_slot)
             DO UPDATE SET reason = excluded.reason
         `;
-        db.run(query, [simName, booking_date, slot, cleanReason], function(err) {
+        db.run(query, [simName, booking_date, slot, cleanReason], function (err) {
             if (err) {
                 // SQLite fallback if ON CONFLICT syntax differs
                 db.run("DELETE FROM blocked_slots WHERE simulator_name = ? AND booking_date = ? AND time_slot = ?", [simName, booking_date, slot], () => {
@@ -2345,7 +2345,7 @@ app.post('/api/admin/blocked-slots', verifyToken, checkPermission('block_slots')
 // Unblock a slot by id (Protected - requires 'block_slots' permission or Super Admin)
 app.delete('/api/admin/blocked-slots/:id', verifyToken, checkPermission('block_slots'), (req, res) => {
     const { id } = req.params;
-    db.run("DELETE FROM blocked_slots WHERE id = ?", [id], function(err) {
+    db.run("DELETE FROM blocked_slots WHERE id = ?", [id], function (err) {
         if (err) return res.status(500).json({ error: 'Database error' });
         res.json({ success: true, deleted: this.changes });
     });
@@ -2387,7 +2387,7 @@ app.post('/api/admin/slots', verifyToken, checkPermission('block_slots'), (req, 
     const endNum = parseFloat(end_hour) || (startNum + 1.0);
     const sortNum = parseInt(sort_order, 10) || 0;
     const activeVal = active === 0 || active === false ? 0 : 1;
-    
+
     // Auto-resolve hex and name using slotColors helper
     let hex = (color || '').trim();
     let name = (color_name || '').trim();
@@ -2406,7 +2406,7 @@ app.post('/api/admin/slots', verifyToken, checkPermission('block_slots'), (req, 
             `INSERT INTO sim_podium_time_slots (label, start_hour, end_hour, sort_order, color, color_name, remark, active)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
             [cleanLabel, startNum, endNum, sortNum, resolved.hex, resolved.name, (remark || '').trim() || null, activeVal],
-            function(insErr) {
+            function (insErr) {
                 if (insErr) {
                     console.error('Error creating time slot:', insErr);
                     return res.status(500).json({ error: insErr.message || 'Failed to create time slot' });
@@ -2469,7 +2469,7 @@ app.put('/api/admin/slots/:id', verifyToken, checkPermission('block_slots'), (re
                  active = ?
              WHERE id = ?`,
             [cleanLabel, startNum, endNum, sortNum, resolved.hex, resolved.name, (remark || '').trim() || null, activeVal, slotId],
-            function(upErr) {
+            function (upErr) {
                 if (upErr) {
                     console.error('Error updating time slot:', upErr);
                     return res.status(500).json({ error: 'Failed to update time slot' });
@@ -2487,9 +2487,9 @@ app.patch('/api/admin/slots/:id/toggle', verifyToken, checkPermission('block_slo
 
     db.get("SELECT active FROM sim_podium_time_slots WHERE id = ?", [slotId], (err, row) => {
         if (err || !row) return res.status(404).json({ error: 'Slot not found' });
-        
+
         const newStatus = row.active === 1 ? 0 : 1;
-        db.run("UPDATE sim_podium_time_slots SET active = ? WHERE id = ?", [newStatus, slotId], function(upErr) {
+        db.run("UPDATE sim_podium_time_slots SET active = ? WHERE id = ?", [newStatus, slotId], function (upErr) {
             if (upErr) return res.status(500).json({ error: 'Failed to toggle slot status' });
             res.json({ success: true, active: newStatus });
         });
@@ -2501,7 +2501,7 @@ app.delete('/api/admin/slots/:id', verifyToken, checkPermission('block_slots'), 
     const slotId = parseInt(req.params.id, 10);
     if (!slotId) return res.status(400).json({ error: 'Valid slot ID is required' });
 
-    db.run("DELETE FROM sim_podium_time_slots WHERE id = ?", [slotId], function(delErr) {
+    db.run("DELETE FROM sim_podium_time_slots WHERE id = ?", [slotId], function (delErr) {
         if (delErr) return res.status(500).json({ error: 'Failed to delete time slot' });
         res.json({ success: true, deleted: this ? this.changes : 1 });
     });
@@ -2522,7 +2522,7 @@ app.post('/api/admin/slots/bulk-delete', verifyToken, checkPermission('block_slo
     const placeholders = cleanIds.map(() => '?').join(',');
     const sql = `DELETE FROM sim_podium_time_slots WHERE id IN (${placeholders})`;
 
-    db.run(sql, cleanIds, function(delErr) {
+    db.run(sql, cleanIds, function (delErr) {
         if (delErr) {
             console.error('Error bulk deleting time slots:', delErr);
             return res.status(500).json({ error: 'Failed to delete selected time slots' });
@@ -2541,7 +2541,7 @@ app.delete('/api/admin/bookings/:order_id', verifyToken, checkPermission('delete
     order_id = decodeURIComponent(order_id).trim();
 
     // 1. Delete from bookings table
-    db.run("DELETE FROM bookings WHERE order_id = ? OR order_id LIKE ?", [order_id, `${order_id}%`], function(bErr) {
+    db.run("DELETE FROM bookings WHERE order_id = ? OR order_id LIKE ?", [order_id, `${order_id}%`], function (bErr) {
         if (bErr) {
             console.error('Error deleting from bookings:', bErr);
             return res.status(500).json({ error: 'Database error deleting booking' });
@@ -2549,7 +2549,7 @@ app.delete('/api/admin/bookings/:order_id', verifyToken, checkPermission('delete
         const bookingsDeleted = this?.changes || 0;
 
         // 2. Also delete from simulator_slot_locks table (for cross-platform combo passes like RC Fun Zone)
-        db.run("DELETE FROM simulator_slot_locks WHERE source_order_id = ? OR source_order_id LIKE ?", [order_id, `${order_id}%`], function(lErr) {
+        db.run("DELETE FROM simulator_slot_locks WHERE source_order_id = ? OR source_order_id LIKE ?", [order_id, `${order_id}%`], function (lErr) {
             if (lErr) {
                 console.error('Error deleting from simulator_slot_locks:', lErr);
             }
@@ -2561,8 +2561,8 @@ app.delete('/api/admin/bookings/:order_id', verifyToken, checkPermission('delete
                 return res.status(404).json({ error: `Order #${order_id} not found in bookings or simulator locks.` });
             }
 
-            res.json({ 
-                success: true, 
+            res.json({
+                success: true,
                 message: `Order #${order_id} deleted successfully.`,
                 bookingsDeleted,
                 locksDeleted
@@ -2580,11 +2580,11 @@ app.post('/api/admin/purge-test-orders', verifyToken, verifySuperAdmin, (req, re
     const query = order_id ? "DELETE FROM bookings WHERE order_id = ?" : "DELETE FROM bookings WHERE LOWER(name) = ?";
     const param = order_id ? order_id : String(name).trim().toLowerCase();
 
-    db.run(query, [param], function(err) {
+    db.run(query, [param], function (err) {
         if (err) return res.status(500).json({ error: 'Database error: ' + err.message });
         const bookingsDeleted = this?.changes || 0;
         const lockQuery = order_id ? "DELETE FROM simulator_slot_locks WHERE source_order_id = ?" : "DELETE FROM simulator_slot_locks WHERE LOWER(customer_name) = ?";
-        db.run(lockQuery, [param], function(lockErr) {
+        db.run(lockQuery, [param], function (lockErr) {
             const locksDeleted = this?.changes || 0;
             res.json({
                 success: true,
@@ -2599,7 +2599,7 @@ app.post('/api/admin/purge-test-orders', verifyToken, verifySuperAdmin, (req, re
 // Mark booking as attended (Protected - requires 'edit_orders' permission or Super Admin)
 app.put('/api/admin/bookings/:order_id/attend', verifyToken, checkPermission('edit_orders'), (req, res) => {
     const { order_id } = req.params;
-    db.run("UPDATE bookings SET status = 'ATTENDED' WHERE order_id LIKE ?", [`${order_id}%`], function(err) {
+    db.run("UPDATE bookings SET status = 'ATTENDED' WHERE order_id LIKE ?", [`${order_id}%`], function (err) {
         if (err) return res.status(500).json({ error: 'Database error' });
         if (this.changes === 0) return res.status(404).json({ error: 'Booking not found' });
         res.json({ success: true });
@@ -2611,15 +2611,15 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, checkPermission('ed
     let { order_id } = req.params;
     order_id = decodeURIComponent(order_id).trim();
     const { status } = req.body;
-    
+
     const validStatuses = ['PENDING', 'PAID', 'ATTENDED', 'CANCELLED', 'CASH', 'REFUNDED'];
     if (!validStatuses.includes(status?.toUpperCase())) {
         return res.status(400).json({ error: 'Invalid status value' });
     }
-    
+
     const targetStatus = status.toUpperCase();
 
-    db.run("UPDATE bookings SET status = ? WHERE order_id = ? OR order_id LIKE ?", [targetStatus, order_id, `${order_id}%`], function(err) {
+    db.run("UPDATE bookings SET status = ? WHERE order_id = ? OR order_id LIKE ?", [targetStatus, order_id, `${order_id}%`], function (err) {
         if (err) return res.status(500).json({ error: 'Database error' });
         const bookingsUpdated = this?.changes || 0;
 
@@ -2631,7 +2631,7 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, checkPermission('ed
             ? [order_id, `${order_id}%`]
             : [targetStatus, order_id, `${order_id}%`];
 
-        db.run(lockAction, lockParams, function(lockErr) {
+        db.run(lockAction, lockParams, function (lockErr) {
             const locksUpdated = this?.changes || 0;
             if (bookingsUpdated === 0 && locksUpdated === 0) {
                 return res.status(404).json({ error: `Order #${order_id} not found.` });
@@ -2654,7 +2654,7 @@ app.put('/api/admin/bookings/:id/wristband', verifyToken, checkPermission('edit_
     db.run(
         "UPDATE bookings SET wristband_number = ? WHERE id = ?",
         [cleanBand || null, bookingId],
-        function(err) {
+        function (err) {
             if (err) {
                 console.error('Error updating wristband number:', err);
                 return res.status(500).json({ error: 'Database error updating wristband number.' });
@@ -2686,58 +2686,88 @@ app.post('/api/admin/bookings/:order_id/refund', verifyToken, checkPermission('r
         }
 
         const totalAmount = refundAmount || rows.reduce((sum, r) => sum + (parseFloat(r.price) || 0), 0).toFixed(2);
-        const originalTxnNo = booking.order_id;
-        const refundTxnNo = ('REF_' + Date.now().toString().slice(-8) + Math.floor(100 + Math.random() * 900)).slice(0, 20);
+        
+        // Find the gateway transaction ID to refund:
+        // ICICI refunds require the original gateway transaction ID (icici_txn_id, e.g. '3000004563830')
+        // or the transaction attempt reference (icici_merchant_txn / merchantTxnNo).
+        // If the booking was paid via a payment link (#PL_...), look up the payment link's icici_txn_id.
+        let originalTxnNo = booking.icici_txn_id || booking.icici_merchant_txn;
 
-        const refundPayload = {
-            amount: totalAmount,
-            merchantId: ICICI_MERCHANT_ID,
-            merchantTxnNo: refundTxnNo,
-            originalTxnNo: originalTxnNo,
-            transactionType: 'REFUND'
-        };
-        if (ICICI_AGGREGATOR_ID) {
-            refundPayload.aggregatorID = ICICI_AGGREGATOR_ID;
-        }
-        refundPayload.secureHash = generateIciciHash(refundPayload);
-
-        try {
-            const formBody = new URLSearchParams();
-            for (const [k, v] of Object.entries(refundPayload)) {
-                formBody.append(k, v);
+        const executeRefund = async (targetTxnNo) => {
+            if (!targetTxnNo) {
+                targetTxnNo = booking.order_id;
             }
 
-            const iciciBase = ICICI_ENV === 'live' ? 'https://pgpay.icici.bank.in/pg/api' : 'https://pgpayuat.icicibank.com/tsp/pg/api';
-            const response = await fetch(`${iciciBase}/command`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: formBody.toString()
-            });
+            const refundTxnNo = ('REF_' + Date.now().toString().slice(-8) + Math.floor(100 + Math.random() * 900)).slice(0, 20);
 
-            const data = await response.json();
-            console.log('ICICI Refund Response:', data);
+            const refundPayload = {
+                amount: totalAmount,
+                merchantId: ICICI_MERCHANT_ID,
+                merchantTxnNo: refundTxnNo,
+                originalTxnNo: targetTxnNo,
+                transactionType: 'REFUND'
+            };
+            if (ICICI_AGGREGATOR_ID) {
+                refundPayload.aggregatorID = ICICI_AGGREGATOR_ID;
+            }
+            refundPayload.secureHash = generateIciciHash(refundPayload);
 
-            // Response code "000" or "R1000" means refund accepted / success
-            if (data.responseCode === "000" || data.responseCode === "R1000") {
-                db.run("UPDATE bookings SET status = 'REFUNDED', refund_id = ? WHERE order_id LIKE ?", [data.txnID || refundTxnNo, `${order_id}%`], () => {
-                    res.json({
-                        success: true,
-                        message: 'Refund processed successfully',
-                        refundTxnNo,
+            try {
+                const formBody = new URLSearchParams();
+                for (const [k, v] of Object.entries(refundPayload)) {
+                    formBody.append(k, v);
+                }
+
+                const iciciBase = ICICI_ENV === 'live' ? 'https://pgpay.icici.bank.in/pg/api' : 'https://pgpayuat.icicibank.com/tsp/pg/api';
+                const response = await fetch(`${iciciBase}/command`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formBody.toString()
+                });
+
+                const data = await response.json();
+                console.log(`ICICI Refund Response (target: ${targetTxnNo}):`, data);
+
+                // Response code "000" or "R1000" means refund accepted / success
+                if (data.responseCode === "000" || data.responseCode === "R1000") {
+                    const finalRefundId = data.txnID || refundTxnNo;
+                    db.run("UPDATE bookings SET status = 'REFUNDED', refund_id = ? WHERE order_id LIKE ?", [finalRefundId, `${order_id}%`], () => {
+                        // Release / Cancel any associated locks so the slot becomes free
+                        db.run("UPDATE simulator_slot_locks SET status = 'CANCELLED' WHERE source_order_id = ? OR source_order_id LIKE ?", [order_id, `${order_id}%`]);
+
+                        res.json({
+                            success: true,
+                            message: 'Refund processed successfully',
+                            refundTxnNo: finalRefundId,
+                            details: data
+                        });
+                    });
+                } else {
+                    return res.status(400).json({
+                        error: data.respDescription || 'ICICI Payment Gateway rejected the refund request',
+                        code: data.responseCode,
                         details: data
                     });
-                });
-            } else {
-                // If ICICI rejects (e.g. transaction already settled or beyond cutoff), inform admin
-                return res.status(400).json({
-                    error: data.respDescription || 'ICICI Payment Gateway rejected the refund request',
-                    code: data.responseCode,
-                    details: data
-                });
+                }
+            } catch (apiErr) {
+                console.error('Refund API error:', apiErr);
+                return res.status(500).json({ error: 'Failed to communicate with ICICI Refund Gateway' });
             }
-        } catch (apiErr) {
-            console.error('Refund API error:', apiErr);
-            return res.status(500).json({ error: 'Failed to communicate with ICICI Refund Gateway' });
+        };
+
+        if (originalTxnNo) {
+            return executeRefund(originalTxnNo);
+        }
+
+        // If not directly on booking, check if payment_ref holds a Payment Link ID (e.g. PL_ATTZOZ)
+        const payRef = (booking.payment_ref || '').trim();
+        if (payRef.startsWith('PL_')) {
+            db.get("SELECT icici_txn_id, icici_merchant_txn FROM payment_links WHERE link_id = ?", [payRef], (plErr, plRow) => {
+                const foundTxn = (plRow && (plRow.icici_txn_id || plRow.icici_merchant_txn)) || booking.order_id;
+                executeRefund(foundTxn);
+            });
+        } else {
+            executeRefund(booking.order_id);
         }
     });
 });
@@ -3139,7 +3169,7 @@ function parseBookingDate(dateStr) {
         if (!isNaN(parsed.getTime())) {
             return parsed;
         }
-    } catch (e) {}
+    } catch (e) { }
     return null;
 }
 
@@ -3154,8 +3184,8 @@ function isTodayBooking(b) {
     const istMonth = nowIST.getMonth(); // 0-indexed
     const istDate = nowIST.getDate();
 
-    const monthNamesShort = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-    const monthNamesLong = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const monthNamesShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthNamesLong = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
     const bStr = String(b.booking_date || '').trim();
     if (!bStr) return false;
@@ -3193,7 +3223,7 @@ function matchesCountryCodeAndPhone(storedPhone, targetCountryCode, targetPhoneD
     if (String(storedPhone).trim().startsWith('+')) {
         const parsed = parseInternationalPhone(storedPhone);
         return parsed.countryCode === (targetCountryCode.startsWith('+') ? targetCountryCode : `+${targetCountryCode}`) &&
-               parsed.phoneNumber === cleanTargetDigits;
+            parsed.phoneNumber === cleanTargetDigits;
     }
 
     // 2. If stored phone starts with the code digits followed by target phone digits
@@ -3259,8 +3289,8 @@ app.post('/api/admin/verify/lookup', verifyToken, (req, res) => {
         const customerName = matchingRows[0].name || 'Valued Customer';
 
         if (todaySessions.length === 0) {
-            return res.status(404).json({ 
-                error: `No sessions scheduled for TODAY for this customer (${cleanCountryCode} ${cleanPhone}). Past or future bookings cannot be checked in today.` 
+            return res.status(404).json({
+                error: `No sessions scheduled for TODAY for this customer (${cleanCountryCode} ${cleanPhone}). Past or future bookings cannot be checked in today.`
             });
         }
 
@@ -3381,8 +3411,8 @@ app.post('/api/admin/verify/generate-otp', verifyToken, async (req, res) => {
             sent_via_interakt: sentViaInterakt,
             // For convenience before Interakt template approval, return dev_otp if Interakt not configured
             dev_otp: !sentViaInterakt ? otp : undefined,
-            message: sentViaInterakt 
-                ? 'OTP sent successfully to customer WhatsApp!' 
+            message: sentViaInterakt
+                ? 'OTP sent successfully to customer WhatsApp!'
                 : `OTP generated: ${otp} (Interakt template pending/not connected)`
         });
     });
@@ -3664,12 +3694,12 @@ app.post('/api/admin/verify/cancel-walkout', verifyToken, (req, res) => {
             db.run(
                 "UPDATE bookings SET status = 'CANCELLED', players = 0, price = ?, payment_ref = COALESCE(payment_ref || ' | ', '') || ? WHERE id = ?",
                 [newPrice, `Walkout: ${cleanReason}`, booking.id],
-                function(upErr) {
+                function (upErr) {
                     if (upErr) {
                         return res.status(500).json({ error: 'Failed to cancel booking' });
                     }
                     // Free slot lock for cross-platform simulator calendar
-                    db.run("DELETE FROM simulator_slot_locks WHERE source_order_id LIKE ?", [`${booking.order_id}%`], () => {});
+                    db.run("DELETE FROM simulator_slot_locks WHERE source_order_id LIKE ?", [`${booking.order_id}%`], () => { });
 
                     console.log(`[Desk Check-In] Booking #${booking.id} (${booking.order_id}) marked CANCELLED/WALKOUT. Slot freed.`);
                     res.json({
@@ -3692,7 +3722,7 @@ app.post('/api/admin/verify/cancel-walkout', verifyToken, (req, res) => {
             db.run(
                 "UPDATE bookings SET players = ?, price = ?, status = ? WHERE id = ?",
                 [newPlayers, newPrice, statusToSet, booking.id],
-                function(upErr) {
+                function (upErr) {
                     if (upErr) {
                         return res.status(500).json({ error: 'Failed to update player count' });
                     }
@@ -3748,7 +3778,7 @@ app.post('/api/admin/verify/send-review-link', verifyToken, async (req, res) => 
 // Manually create a walk-in booking (Protected)
 app.post('/api/admin/bookings', verifyToken, (req, res) => {
     const { name, phone, email, item_name, price, booking_date, booking_time, status, order_id } = req.body;
-    
+
     // Validate required fields
     if (!item_name || !booking_date || !booking_time) {
         return res.status(400).json({ error: 'Missing required booking details' });
@@ -3763,9 +3793,9 @@ app.post('/api/admin/bookings', verifyToken, (req, res) => {
     const finalStatus = status || 'CASH';
 
     db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-        [orderId, finalName, finalEmail, finalPhone, item_name, finalPrice, booking_date, booking_time, finalStatus], 
-        function(err) {
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [orderId, finalName, finalEmail, finalPhone, item_name, finalPrice, booking_date, booking_time, finalStatus],
+        function (err) {
             if (err) return res.status(500).json({ error: 'Database error' });
 
             if (finalPhone || finalEmail) {
@@ -3797,9 +3827,9 @@ app.put('/api/admin/bookings/:order_id/update-order-id', verifyToken, (req, res)
     const newOrderId = (req.body.new_order_id || '').trim();
     if (!newOrderId) return res.status(400).json({ error: 'Valid new_order_id is required' });
 
-    db.run("UPDATE bookings SET order_id = ? WHERE order_id = ? OR order_id LIKE ?", [newOrderId, oldOrderId, `${oldOrderId}%`], function(bErr) {
+    db.run("UPDATE bookings SET order_id = ? WHERE order_id = ? OR order_id LIKE ?", [newOrderId, oldOrderId, `${oldOrderId}%`], function (bErr) {
         if (bErr) return res.status(500).json({ error: 'Database error updating booking' });
-        db.run("UPDATE simulator_slot_locks SET source_order_id = ? WHERE source_order_id = ? OR source_order_id LIKE ?", [newOrderId, oldOrderId, `${oldOrderId}%`], function(lErr) {
+        db.run("UPDATE simulator_slot_locks SET source_order_id = ? WHERE source_order_id = ? OR source_order_id LIKE ?", [newOrderId, oldOrderId, `${oldOrderId}%`], function (lErr) {
             res.json({ success: true, oldOrderId, newOrderId });
         });
     });
@@ -3824,7 +3854,7 @@ function ensureBandInventorySeeded(cb) {
                     "INSERT INTO site_settings (key, value) VALUES ('band_inventory_seeded', '1') ON CONFLICT (key) DO UPDATE SET value = '1'",
                     [],
                     () => {
-                        db.run("INSERT OR REPLACE INTO site_settings (key, value) VALUES ('band_inventory_seeded', '1')", [], () => {});
+                        db.run("INSERT OR REPLACE INTO site_settings (key, value) VALUES ('band_inventory_seeded', '1')", [], () => { });
                         if (cb) cb();
                     }
                 );
@@ -3836,7 +3866,7 @@ function ensureBandInventorySeeded(cb) {
                 "INSERT INTO site_settings (key, value) VALUES ('band_inventory_seeded', '1') ON CONFLICT (key) DO UPDATE SET value = '1'",
                 [],
                 () => {
-                    db.run("INSERT OR REPLACE INTO site_settings (key, value) VALUES ('band_inventory_seeded', '1')", [], () => {});
+                    db.run("INSERT OR REPLACE INTO site_settings (key, value) VALUES ('band_inventory_seeded', '1')", [], () => { });
                     if (cb) cb();
                 }
             );
@@ -4194,7 +4224,7 @@ app.post('/api/admin/bands/create', verifyToken, (req, res) => {
             `INSERT INTO band_items (band_code, color_name, color_hex, category, status, total_uses, notes)
              VALUES (?, ?, ?, ?, 'available', 0, ?)`,
             [cleanCode, color_name.trim(), color_hex.trim(), bandCategory, cleanNotes],
-            function(insErr) {
+            function (insErr) {
                 if (insErr) return res.status(500).json({ error: insErr.message || 'Failed to create band' });
                 const newId = this ? this.lastID : null;
 
@@ -4202,7 +4232,7 @@ app.post('/api/admin/bands/create', verifyToken, (req, res) => {
                     `INSERT INTO band_transactions (band_id, band_code, color_name, color_hex, transaction_type, quantity, staff_name, notes)
                      VALUES (?, ?, ?, ?, 'STOCK_IN', 1, ?, ?)`,
                     [newId, cleanCode, color_name.trim(), color_hex.trim(), staffName, cleanNotes || 'Manual stock-in'],
-                    () => {}
+                    () => { }
                 );
 
                 res.json({ success: true, id: newId, band_code: cleanCode });
@@ -4239,7 +4269,7 @@ app.post('/api/admin/bands/bulk-create', verifyToken, (req, res) => {
                     `INSERT INTO band_items (band_code, color_name, color_hex, category, status, total_uses, notes)
                      VALUES (?, ?, ?, ?, 'available', 0, ?)`,
                     [code, color_name.trim(), color_hex.trim(), bandCategory, batchNotes],
-                    function(insErr) {
+                    function (insErr) {
                         if (!insErr) {
                             const newId = this ? this.lastID : null;
                             createdCount++;
@@ -4269,7 +4299,7 @@ app.post('/api/admin/bands/bulk-create', verifyToken, (req, res) => {
 app.post('/api/admin/bands/issue', verifyToken, (req, res) => {
     const { band_id, band_code, customer_name, booking_id, order_number, notes } = req.body;
 
-    const lookupQuery = band_id 
+    const lookupQuery = band_id
         ? "SELECT * FROM band_items WHERE id = ?"
         : "SELECT * FROM band_items WHERE UPPER(band_code) = UPPER(?)";
     const lookupParam = band_id ? parseInt(band_id, 10) : (band_code || '').trim();
@@ -4280,14 +4310,14 @@ app.post('/api/admin/bands/issue', verifyToken, (req, res) => {
         }
 
         if (band.status === 'issued') {
-            return res.status(400).json({ 
-                error: `Band '${band.band_code}' is currently issued to ${band.current_holder_name || "another player"}. Please return it first.` 
+            return res.status(400).json({
+                error: `Band '${band.band_code}' is currently issued to ${band.current_holder_name || "another player"}. Please return it first.`
             });
         }
 
         if (band.status === 'damaged' || band.status === 'lost' || band.status === 'retired') {
-            return res.status(400).json({ 
-                error: `Band '${band.band_code}' cannot be issued because its status is '${band.status.toUpperCase()}'.` 
+            return res.status(400).json({
+                error: `Band '${band.band_code}' cannot be issued because its status is '${band.status.toUpperCase()}'.`
             });
         }
 
@@ -4306,7 +4336,7 @@ app.post('/api/admin/bands/issue', verifyToken, (req, res) => {
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
             [customerName, booking_id || null, orderNum, band.id],
-            function(upErr) {
+            function (upErr) {
                 if (upErr) return res.status(500).json({ error: 'Failed to update band status' });
 
                 db.run(
@@ -4315,7 +4345,7 @@ app.post('/api/admin/bands/issue', verifyToken, (req, res) => {
                         quantity, customer_name, booking_id, order_number, staff_name, notes
                     ) VALUES (?, ?, ?, ?, 'ISSUE', 1, ?, ?, ?, ?, ?)`,
                     [band.id, band.band_code, band.color_name, band.color_hex, customerName, booking_id || null, orderNum, staffName, issueNotes],
-                    () => {}
+                    () => { }
                 );
 
                 res.json({ success: true, band_id: band.id, band_code: band.band_code, holder: customerName });
@@ -4327,7 +4357,7 @@ app.post('/api/admin/bands/issue', verifyToken, (req, res) => {
 // 7. Return wristband back to inventory
 app.post('/api/admin/bands/return', verifyToken, (req, res) => {
     const { band_id, band_code, condition, notes } = req.body;
-    const lookupQuery = band_id 
+    const lookupQuery = band_id
         ? "SELECT * FROM band_items WHERE id = ?"
         : "SELECT * FROM band_items WHERE UPPER(band_code) = UPPER(?)";
     const lookupParam = band_id ? parseInt(band_id, 10) : (band_code || '').trim();
@@ -4364,7 +4394,7 @@ app.post('/api/admin/bands/return', verifyToken, (req, res) => {
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
             [newStatus, band.id],
-            function(upErr) {
+            function (upErr) {
                 if (upErr) return res.status(500).json({ error: 'Failed to return band' });
 
                 db.run(
@@ -4373,7 +4403,7 @@ app.post('/api/admin/bands/return', verifyToken, (req, res) => {
                         quantity, customer_name, booking_id, order_number, staff_name, notes
                     ) VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?)`,
                     [band.id, band.band_code, band.color_name, band.color_hex, txType, prevHolder, prevBookingId, prevOrder, staffName, returnNotes],
-                    () => {}
+                    () => { }
                 );
 
                 res.json({ success: true, band_id: band.id, band_code: band.band_code, status: newStatus });
@@ -4402,14 +4432,14 @@ app.post('/api/admin/bands/retire', verifyToken, (req, res) => {
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
             [band.id],
-            function(upErr) {
+            function (upErr) {
                 if (upErr) return res.status(500).json({ error: 'Database update failed' });
 
                 db.run(
                     `INSERT INTO band_transactions (band_id, band_code, color_name, color_hex, transaction_type, quantity, staff_name, notes)
                      VALUES (?, ?, ?, ?, 'STOCK_OUT', 1, ?, ?)`,
                     [band.id, band.band_code, band.color_name, band.color_hex, staffName, retireReason],
-                    () => {}
+                    () => { }
                 );
 
                 res.json({ success: true });
@@ -4435,14 +4465,14 @@ app.post('/api/admin/bands/restore', verifyToken, (req, res) => {
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
             [band.id],
-            function(upErr) {
+            function (upErr) {
                 if (upErr) return res.status(500).json({ error: 'Database update failed' });
 
                 db.run(
                     `INSERT INTO band_transactions (band_id, band_code, color_name, color_hex, transaction_type, quantity, staff_name, notes)
                      VALUES (?, ?, ?, ?, 'STATUS_CHANGE', 1, ?, ?)`,
                     [band.id, band.band_code, band.color_name, band.color_hex, staffName, restoreNotes],
-                    () => {}
+                    () => { }
                 );
 
                 res.json({ success: true });
@@ -4475,7 +4505,7 @@ app.put('/api/admin/bands/:id', verifyToken, (req, res) => {
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
             [cleanCode, (color_name || '').trim(), (color_hex || '').trim(), category || null, status || null, (notes || '').trim() || null, parseInt(id, 10)],
-            function(upErr) {
+            function (upErr) {
                 if (upErr) return res.status(500).json({ error: 'Failed to update band details' });
                 res.json({ success: true });
             }
@@ -4489,7 +4519,7 @@ app.delete('/api/admin/bands/:id', verifyToken, verifySuperAdmin, (req, res) => 
     const numId = parseInt(id, 10);
 
     db.run("DELETE FROM band_transactions WHERE band_id = ?", [numId], () => {
-        db.run("DELETE FROM band_items WHERE id = ?", [numId], function(delErr) {
+        db.run("DELETE FROM band_items WHERE id = ?", [numId], function (delErr) {
             if (delErr) return res.status(500).json({ error: 'Failed to delete band item' });
             res.json({ success: true });
         });
@@ -4663,7 +4693,7 @@ app.post('/api/admin/bands/categories', verifyToken, (req, res) => {
             `INSERT INTO band_categories (name, description, badge_color, sort_order, active)
              VALUES (?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM band_categories), 1)`,
             [name, description || null, badge_color],
-            function(insErr) {
+            function (insErr) {
                 if (insErr) return res.status(500).json({ error: insErr.message || 'Failed to create category' });
                 res.json({ success: true, id: this ? this.lastID : null, name, description, badge_color });
             }
@@ -4675,7 +4705,7 @@ app.delete('/api/admin/bands/categories/:id', verifyToken, verifySuperAdmin, (re
     const id = parseInt(req.params.id, 10);
     if (!id) return res.status(400).json({ error: 'Valid category ID required' });
 
-    db.run("DELETE FROM band_categories WHERE id = ?", [id], function(delErr) {
+    db.run("DELETE FROM band_categories WHERE id = ?", [id], function (delErr) {
         if (delErr) return res.status(500).json({ error: 'Failed to delete category' });
         res.json({ success: true });
     });
@@ -4717,7 +4747,7 @@ const getNextOrderNumber = () => {
 app.post('/api/bookings/cod', async (req, res) => {
     const { amount, customer_details, booking_data } = req.body;
     const items = Array.isArray(booking_data) ? booking_data : [booking_data];
-    
+
     // Validate required fields
     if (!items[0] || !items[0].item_name || !items[0].date || !items[0].time) {
         return res.status(400).json({ error: 'Missing required booking details' });
@@ -4745,7 +4775,7 @@ app.post('/api/bookings/cod', async (req, res) => {
                     query = "SELECT id, status, email, phone, created_at, order_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
                     params = [item.date, item.time, item.item_name, item.instructor_id];
                 }
-                
+
                 db.all(query, params, (err, rows) => {
                     if (err) return reject(err);
                     if (rows && rows.length > 0) {
@@ -4755,12 +4785,12 @@ app.post('/api/bookings/cod', async (req, res) => {
                                 hasConflict = true;
                                 break;
                             }
-                            
+
                             // For online PENDING attempts:
                             const rEmail = (r.email || '').trim().toLowerCase();
                             const rPhone = (r.phone || '').replace(/[^\d]/g, '');
                             const isSameCustomer = (custEmail && rEmail === custEmail) || (custPhone && rPhone && rPhone === custPhone);
-                            
+
                             if (isSameCustomer) {
                                 // It's the same customer's prior abandoned pending attempt! Allow them to supersede it
                                 continue;
@@ -4825,7 +4855,7 @@ app.post('/api/bookings/cod', async (req, res) => {
                                                 break;
                                             }
                                         }
-                                    } catch (e) {}
+                                    } catch (e) { }
                                     if (hasConflict) break;
                                 }
                             }
@@ -4844,7 +4874,7 @@ app.post('/api/bookings/cod', async (req, res) => {
             });
         });
     };
-    
+
     try {
         const hasConflict = await checkAvailability();
         if (hasConflict) {
@@ -4855,7 +4885,7 @@ app.post('/api/bookings/cod', async (req, res) => {
     }
 
     const orderAmount = parseFloat(amount).toFixed(2);
-    
+
     // Parse "Aug 30 (Sun)" into "30AUG26" (based on the first item for generating order ID)
     const dateParts = items[0].date.split(' ');
     let formattedDate = 'DATE';
@@ -4874,60 +4904,60 @@ app.post('/api/bookings/cod', async (req, res) => {
     let insertedCount = 0;
     let hasError = false;
 
-        const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
+    const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
 
-        items.forEach((item, index) => {
-            const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
-            
-            let itemPrice = (parseFloat(amount) / items.length).toFixed(2);
-            if (totalBaseCost > 0) {
-                const itemRatio = ((Number(item.base_price) || 0) + (Number(item.instructor_fee) || 0)) / totalBaseCost;
-                itemPrice = (parseFloat(amount) * itemRatio).toFixed(2);
-            }
-            
-            const whatsappConsentVal = (customer_details && customer_details.whatsapp_consent === false) ? 0 : 1;
-            db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, whatsapp_consent) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null, item.players || 1, item.player_two_name || null, whatsappConsentVal], 
-                function(err) {
-                    if (err) {
-                        console.error("DB Insert Error (COD):", err);
-                        hasError = true;
-                    }
-                    insertedCount++;
-                    
-                    if (insertedCount === items.length) {
-                        if (hasError) return res.status(500).json({ error: 'Database error while inserting items' });
-                        
-                        // Send single consolidated confirmation email and WhatsApp notification for all booked items
-                        db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`], (err, rows) => {
-                            if (!err && rows && rows.length > 0) {
-                                sendConfirmationEmail(rows);
-                                dispatchBookingWhatsAppNotification(rows, 'Pay at Desk');
-                                rows.forEach(row => {
-                                    if (row.instructor_id) {
-                                        db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
-                                            if (!err && instructor && instructor.email) {
-                                                sendInstructorEmail(instructor, row);
-                                            }
-                                        });
-                                    }
-                                });
-                            }
-                        });
+    items.forEach((item, index) => {
+        const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
 
-                        // Clean up any temporary online hold records for this customer since they booked via COD
-                        const cEmail = customer_details?.email ? customer_details.email.trim().toLowerCase() : '';
-                        const cPhone = customer_details?.phone ? customer_details.phone.replace(/[^\d]/g, '') : '';
-                        if (cEmail || cPhone) {
-                            db.run("DELETE FROM online_checkout_holds WHERE LOWER(customer_email) = ? OR customer_phone LIKE ?", [cEmail, `%${cPhone}`], () => {});
-                        }
+        let itemPrice = (parseFloat(amount) / items.length).toFixed(2);
+        if (totalBaseCost > 0) {
+            const itemRatio = ((Number(item.base_price) || 0) + (Number(item.instructor_fee) || 0)) / totalBaseCost;
+            itemPrice = (parseFloat(amount) * itemRatio).toFixed(2);
+        }
 
-                        res.json({ success: true, order_id: baseOrderId });
-                    }
+        const whatsappConsentVal = (customer_details && customer_details.whatsapp_consent === false) ? 0 : 1;
+        db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, whatsapp_consent) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null, item.players || 1, item.player_two_name || null, whatsappConsentVal],
+            function (err) {
+                if (err) {
+                    console.error("DB Insert Error (COD):", err);
+                    hasError = true;
                 }
-            );
-        });
+                insertedCount++;
+
+                if (insertedCount === items.length) {
+                    if (hasError) return res.status(500).json({ error: 'Database error while inserting items' });
+
+                    // Send single consolidated confirmation email and WhatsApp notification for all booked items
+                    db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`], (err, rows) => {
+                        if (!err && rows && rows.length > 0) {
+                            sendConfirmationEmail(rows);
+                            dispatchBookingWhatsAppNotification(rows, 'Pay at Desk');
+                            rows.forEach(row => {
+                                if (row.instructor_id) {
+                                    db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
+                                        if (!err && instructor && instructor.email) {
+                                            sendInstructorEmail(instructor, row);
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+
+                    // Clean up any temporary online hold records for this customer since they booked via COD
+                    const cEmail = customer_details?.email ? customer_details.email.trim().toLowerCase() : '';
+                    const cPhone = customer_details?.phone ? customer_details.phone.replace(/[^\d]/g, '') : '';
+                    if (cEmail || cPhone) {
+                        db.run("DELETE FROM online_checkout_holds WHERE LOWER(customer_email) = ? OR customer_phone LIKE ?", [cEmail, `%${cPhone}`], () => { });
+                    }
+
+                    res.json({ success: true, order_id: baseOrderId });
+                }
+            }
+        );
+    });
 });
 
 // ==========================================
@@ -4974,7 +5004,7 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                         query = "SELECT id, status, email, phone, created_at, order_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
                         params = [item.date, item.time, item.item_name, item.instructor_id];
                     }
-                    
+
                     db.all(query, params, (err, rows) => {
                         if (err) return reject(err);
                         if (rows && rows.length > 0) {
@@ -4984,12 +5014,12 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                                     hasConflict = true;
                                     break;
                                 }
-                                
+
                                 // For online PENDING attempts:
                                 const rEmail = (r.email || '').trim().toLowerCase();
                                 const rPhone = (r.phone || '').replace(/[^\d]/g, '');
                                 const isSameCustomer = (custEmail && rEmail === custEmail) || (custPhone && rPhone && rPhone === custPhone);
-                                
+
                                 if (isSameCustomer) {
                                     // It's the same customer's prior abandoned pending attempt! Allow them to supersede it
                                     continue;
@@ -5054,7 +5084,7 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                                                     break;
                                                 }
                                             }
-                                        } catch (e) {}
+                                        } catch (e) { }
                                         if (hasConflict) break;
                                     }
                                 }
@@ -5078,9 +5108,9 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
         if (hasConflict) {
             return res.status(409).json({ error: 'Sorry, one or more of your selected slots was just booked by someone else! Please select different slots.' });
         }
-        
+
         const orderAmount = parseFloat(amount).toFixed(2);
-        
+
         const dateParts = items[0].date.split(' ');
         let formattedDate = 'DATE';
         if (dateParts.length >= 2) {
@@ -5106,7 +5136,7 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
             `INSERT INTO online_checkout_holds (txn_id, customer_name, customer_email, customer_phone, amount, items_json, whatsapp_consent)
              VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [tempTxnId, customer_details.name || 'Customer', customer_details.email || '', customer_details.phone || '', orderAmount, JSON.stringify(items), whatsappConsentVal],
-            function(err) {
+            function (err) {
                 if (err) {
                     console.error("Hold Insert Error:", err);
                     return res.status(500).json({ error: 'Failed to hold selected slots for payment' });
@@ -5168,11 +5198,11 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                 });
 
                 const data = await response.json();
-                
+
                 if (data.responseCode !== "R1000") {
                     console.error('ICICI initiateSale error response:', data);
                     db.run("DELETE FROM online_checkout_holds WHERE txn_id = ?", [baseOrderId]);
-                    return res.status(500).json({ 
+                    return res.status(500).json({
                         error: data.responseDescription || 'Failed to initiate ICICI PG order',
                         code: data.responseCode,
                         details: data
@@ -5223,7 +5253,7 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                 const parts = baseOrderId.split('_');
                 const linkId = parts.length >= 3 ? `${parts[0]}_${parts[1]}` : baseOrderId;
 
-                db.run("UPDATE payment_links SET status = 'PAID', icici_txn_id = ?, paid_at = CURRENT_TIMESTAMP WHERE link_id = ?", [txnID, linkId], () => {
+                db.run("UPDATE payment_links SET status = 'PAID', icici_txn_id = ?, icici_merchant_txn = ?, paid_at = CURRENT_TIMESTAMP WHERE link_id = ?", [txnID, baseOrderId, linkId], () => {
                     db.get("SELECT * FROM payment_links WHERE link_id = ?", [linkId], (err, plRow) => {
                         if (!err && plRow) {
                             // If this payment link was created for specific booking orders (Desk Check-in)
@@ -5232,8 +5262,8 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                                 if (linkedOrders.length > 0) {
                                     const placeholders = linkedOrders.map(() => '?').join(',');
                                     db.run(
-                                        `UPDATE bookings SET status = 'ATTENDED', payment_ref = ? WHERE order_id IN (${placeholders})`,
-                                        [txnID || linkId, ...linkedOrders],
+                                        `UPDATE bookings SET status = 'ATTENDED', payment_ref = ?, icici_txn_id = ?, icici_merchant_txn = ? WHERE order_id IN (${placeholders})`,
+                                        [txnID || linkId, txnID, baseOrderId, ...linkedOrders],
                                         () => {
                                             console.log(`[Payment Link Success] Automatically marked linked bookings as ATTENDED for link ${linkId}:`, linkedOrders);
                                             // Send post-session Google review WhatsApp
@@ -5289,8 +5319,8 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                             }
 
                             db.run(
-                                `INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, whatsapp_consent, icici_txn_id)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PAID', ?, ?, ?, ?, ?)`,
+                                `INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, whatsapp_consent, icici_txn_id, icici_merchant_txn)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PAID', ?, ?, ?, ?, ?, ?)`,
                                 [
                                     rowOrderId,
                                     holdRow.customer_name,
@@ -5304,9 +5334,10 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                                     item.players || 1,
                                     item.player_two_name || null,
                                     holdRow.whatsapp_consent,
-                                    txnID
+                                    txnID,
+                                    baseOrderId
                                 ],
-                                function(insErr) {
+                                function (insErr) {
                                     if (insErr) console.error("Insert confirmed booking error:", insErr);
                                     insertedCount++;
 
@@ -5356,7 +5387,7 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                             const mailer = require('./mailer');
                             mailer.sendConfirmationEmail(rows);
                             dispatchBookingWhatsAppNotification(rows, 'Paid Online');
-                            
+
                             if (rows[0].instructor_id) {
                                 db.get("SELECT * FROM instructors WHERE id = ?", [rows[0].instructor_id], (err, inst) => {
                                     if (!err && inst && inst.email) {
@@ -5431,7 +5462,7 @@ app.post('/api/admin/payment-links', verifyToken, (req, res, next) => {
             `INSERT INTO payment_links (link_id, customer_name, customer_phone, customer_email, amount, description, order_ids, status)
              VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
             [linkId, finalName, finalPhone, finalEmail, numAmount, finalDesc, orderIdsStr],
-            async function(err) {
+            async function (err) {
                 if (err) {
                     console.error("Create payment link error:", err);
                     return res.status(500).json({ error: 'Failed to create payment link in database' });
@@ -5442,7 +5473,7 @@ app.post('/api/admin/payment-links', verifyToken, (req, res, next) => {
                 const payUrl = `${baseUrl}/pay.html?id=${linkId}`;
 
                 // Automatically attempt dispatch via Interakt WhatsApp
-                let waResult = { success: false, waMeUrl: `https://wa.me/91${finalPhone.replace(/\D/g,'')}?text=${encodeURIComponent(`Hi ${finalName}!\nHere is your payment link: ${payUrl}`)}` };
+                let waResult = { success: false, waMeUrl: `https://wa.me/91${finalPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Hi ${finalName}!\nHere is your payment link: ${payUrl}`)}` };
                 if (finalPhone) {
                     waResult = await sendPaymentLinkWhatsApp({
                         customerName: finalName,
@@ -5560,7 +5591,7 @@ app.post('/api/pay-link/:linkId/initiate', async (req, res) => {
             const data = await response.json();
             if (data.responseCode !== "R1000") {
                 console.error('ICICI initiateSale error response for pay link:', data);
-                return res.status(500).json({ 
+                return res.status(500).json({
                     error: data.responseDescription || 'Failed to initiate ICICI PG payment link',
                     code: data.responseCode
                 });
@@ -5645,11 +5676,11 @@ app.get('/', (req, res) => {
 // Auto-delete abandoned online pending bookings older than 2 minutes (runs every 60 seconds)
 setInterval(() => {
     const isProd = process.env.NODE_ENV === 'production';
-    const query = isProd 
+    const query = isProd
         ? `DELETE FROM bookings WHERE status = 'PENDING' AND order_id NOT LIKE 'PAYDUE%' AND created_at <= NOW() - INTERVAL '2 minutes'`
         : `DELETE FROM bookings WHERE status = 'PENDING' AND order_id NOT LIKE 'PAYDUE%' AND datetime(created_at) <= datetime('now', '-2 minutes')`;
-        
-    db.run(query, function(err) {
+
+    db.run(query, function (err) {
         if (err) console.error("Cleanup Job Error:", err);
         else if (this.changes > 0) {
             console.log(`[${new Date().toISOString()}] Cleanup: Auto-deleted ${this.changes} expired pending booking(s)`);
@@ -5660,7 +5691,7 @@ setInterval(() => {
     const holdCleanupQuery = isProd
         ? `DELETE FROM online_checkout_holds WHERE created_at <= NOW() - INTERVAL '2 minutes'`
         : `DELETE FROM online_checkout_holds WHERE datetime(created_at) <= datetime('now', '-2 minutes')`;
-    db.run(holdCleanupQuery, function(err) {
+    db.run(holdCleanupQuery, function (err) {
         if (err) console.error("Hold Cleanup Error:", err);
     });
 }, 60 * 1000); // Check every minute so abandoned slots release promptly
@@ -5691,7 +5722,7 @@ app.post('/api/upi/collect', async (req, res) => {
                         query = "SELECT id, status, email, phone, created_at, order_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND status IN ('PENDING', 'SUCCESS', 'PAID', 'CASH') AND (item_name = ? OR instructor_id = ?)";
                         params = [item.date, item.time, item.item_name, item.instructor_id];
                     }
-                    
+
                     db.all(query, params, (err, rows) => {
                         if (err) return reject(err);
                         if (rows && rows.length > 0) {
@@ -5701,12 +5732,12 @@ app.post('/api/upi/collect', async (req, res) => {
                                     hasConflict = true;
                                     break;
                                 }
-                                
+
                                 // For online PENDING attempts:
                                 const rEmail = (r.email || '').trim().toLowerCase();
                                 const rPhone = (r.phone || '').replace(/[^\d]/g, '');
                                 const isSameCustomer = (custEmail && rEmail === custEmail) || (custPhone && rPhone && rPhone === custPhone);
-                                
+
                                 if (isSameCustomer) {
                                     // It's the same customer's prior abandoned pending attempt! Allow them to supersede it
                                     continue;
@@ -5771,7 +5802,7 @@ app.post('/api/upi/collect', async (req, res) => {
                                                     break;
                                                 }
                                             }
-                                        } catch (e) {}
+                                        } catch (e) { }
                                         if (hasConflict) break;
                                     }
                                 }
@@ -5801,29 +5832,29 @@ app.post('/api/upi/collect', async (req, res) => {
         const baseOrderId = `UPI_${shortCode}`;
 
         let insertedCount = 0;
-        
+
         const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
 
         items.forEach((item, index) => {
             const rowOrderId = items.length > 1 ? `${baseOrderId}_${index}` : baseOrderId;
-            
+
             let itemPrice = (parseFloat(amount) / items.length).toFixed(2);
             if (totalBaseCost > 0) {
                 const itemRatio = ((Number(item.base_price) || 0) + (Number(item.instructor_fee) || 0)) / totalBaseCost;
                 itemPrice = (parseFloat(amount) * itemRatio).toFixed(2);
             }
-            
+
             db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, 
-                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null, item.players || 1, item.player_two_name || null], 
-                function(err) {
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null, item.players || 1, item.player_two_name || null],
+                function (err) {
                     if (err) console.error("DB Insert Error:", err);
                     insertedCount++;
-                    
+
                     if (insertedCount === items.length) {
                         initiateUPICollect(baseOrderId, orderAmount, vpa);
                     }
-            });
+                });
         });
 
         async function initiateUPICollect(orderId, orderAmt, payerVa) {
@@ -5849,7 +5880,7 @@ app.post('/api/upi/collect', async (req, res) => {
 
                 const response = await SdkClient.execute("3007", "eazypay", payload);
                 console.log("UPI Collect Response:", response);
-                
+
                 if (response && response.success === "true") {
                     res.json({ success: true, order_id: orderId, message: 'Please approve the payment in your UPI app.' });
                 } else {
@@ -5915,22 +5946,22 @@ app.listen(PORT, () => {
 
     // Ensure payment_ref column exists on bookings table
     if (db.isPostgres) {
-        db.pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_ref TEXT", () => {});
+        db.pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_ref TEXT", () => { });
     } else {
-        db.run("ALTER TABLE bookings ADD COLUMN payment_ref TEXT", [], () => {});
+        db.run("ALTER TABLE bookings ADD COLUMN payment_ref TEXT", [], () => { });
     }
 
     // Optimize product images: replace heavy base64 strings with lightweight static URLs
     const optimizedProductData = [
-      { id: 1, image_url: "/assets/uploads/prod_1_main_1792739213277_763.png", images_json: "[\"/assets/uploads/prod_1_gallery_0_1792739213279_580.png\"]" },
-      { id: 2, image_url: "/assets/uploads/prod_2_main_1792739213283_460.png", images_json: "[\"/assets/uploads/prod_2_gallery_0_1792739213286_341.png\"]" },
-      { id: 3, image_url: "/assets/uploads/prod_3_main_1792739213288_391.jpg", images_json: "[\"/assets/uploads/prod_3_gallery_0_1792739213290_998.jpg\"]" },
-      { id: 4, image_url: "/assets/uploads/prod_4_main_1792739213293_279.jpg", images_json: "[\"/assets/uploads/prod_4_gallery_0_1792739213299_538.jpg\"]" },
-      { id: 5, image_url: "/assets/uploads/prod_5_main_1792739213301_600.png", images_json: "[\"/assets/uploads/prod_5_gallery_0_1792739213303_203.png\"]" },
-      { id: 6, image_url: "/assets/uploads/prod_6_main_1792739213304_82.png", images_json: "[\"/assets/uploads/prod_6_gallery_0_1792739213315_997.png\",\"/assets/uploads/prod_6_gallery_1_1792739213320_222.jpg\",\"/assets/uploads/prod_6_gallery_2_1792739213328_609.jpg\"]" },
-      { id: 7, image_url: "/assets/uploads/prod_7_main_1792739213330_32.png", images_json: "[\"/assets/uploads/prod_7_gallery_0_1792739213331_965.png\"]" },
-      { id: 10, image_url: "/assets/uploads/prod_10_main_1792739213333_509.jpg", images_json: "[\"/assets/uploads/prod_10_gallery_0_1792739213349_204.jpg\",\"/assets/uploads/prod_10_gallery_1_1792739213355_404.jpg\",\"/assets/uploads/prod_10_gallery_2_1792739213361_322.jpg\",\"/assets/uploads/prod_10_gallery_3_1792739213368_32.jpg\"]" },
-      { id: 12, image_url: "/assets/uploads/prod_12_main_1792739213370_372.jpg", images_json: "[\"/assets/uploads/prod_12_gallery_0_1792739213385_142.jpg\",\"/assets/uploads/prod_12_gallery_1_1792739213390_962.jpg\",\"/assets/uploads/prod_12_gallery_2_1792739213397_39.jpg\",\"/assets/uploads/prod_12_gallery_3_1792739213404_671.jpg\"]" }
+        { id: 1, image_url: "/assets/uploads/prod_1_main_1792739213277_763.png", images_json: "[\"/assets/uploads/prod_1_gallery_0_1792739213279_580.png\"]" },
+        { id: 2, image_url: "/assets/uploads/prod_2_main_1792739213283_460.png", images_json: "[\"/assets/uploads/prod_2_gallery_0_1792739213286_341.png\"]" },
+        { id: 3, image_url: "/assets/uploads/prod_3_main_1792739213288_391.jpg", images_json: "[\"/assets/uploads/prod_3_gallery_0_1792739213290_998.jpg\"]" },
+        { id: 4, image_url: "/assets/uploads/prod_4_main_1792739213293_279.jpg", images_json: "[\"/assets/uploads/prod_4_gallery_0_1792739213299_538.jpg\"]" },
+        { id: 5, image_url: "/assets/uploads/prod_5_main_1792739213301_600.png", images_json: "[\"/assets/uploads/prod_5_gallery_0_1792739213303_203.png\"]" },
+        { id: 6, image_url: "/assets/uploads/prod_6_main_1792739213304_82.png", images_json: "[\"/assets/uploads/prod_6_gallery_0_1792739213315_997.png\",\"/assets/uploads/prod_6_gallery_1_1792739213320_222.jpg\",\"/assets/uploads/prod_6_gallery_2_1792739213328_609.jpg\"]" },
+        { id: 7, image_url: "/assets/uploads/prod_7_main_1792739213330_32.png", images_json: "[\"/assets/uploads/prod_7_gallery_0_1792739213331_965.png\"]" },
+        { id: 10, image_url: "/assets/uploads/prod_10_main_1792739213333_509.jpg", images_json: "[\"/assets/uploads/prod_10_gallery_0_1792739213349_204.jpg\",\"/assets/uploads/prod_10_gallery_1_1792739213355_404.jpg\",\"/assets/uploads/prod_10_gallery_2_1792739213361_322.jpg\",\"/assets/uploads/prod_10_gallery_3_1792739213368_32.jpg\"]" },
+        { id: 12, image_url: "/assets/uploads/prod_12_main_1792739213370_372.jpg", images_json: "[\"/assets/uploads/prod_12_gallery_0_1792739213385_142.jpg\",\"/assets/uploads/prod_12_gallery_1_1792739213390_962.jpg\",\"/assets/uploads/prod_12_gallery_2_1792739213397_39.jpg\",\"/assets/uploads/prod_12_gallery_3_1792739213404_671.jpg\"]" }
     ];
     // Enforce permanent git-tracked static image paths for standard products
     optimizedProductData.forEach(p => {
