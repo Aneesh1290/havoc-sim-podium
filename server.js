@@ -5248,25 +5248,10 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                                 }
                             }
 
-                            if (plRow.customer_email) {
-                                try {
-                                    const mailer = require('./mailer');
-                                    // Send payment receipt email if email exists
-                                    mailer.sendConfirmationEmail([{
-                                        order_id: plRow.link_id,
-                                        name: plRow.customer_name || 'Customer',
-                                        email: plRow.customer_email,
-                                        phone: plRow.customer_phone,
-                                        item_name: plRow.description || 'Custom Payment',
-                                        price: plRow.amount,
-                                        booking_date: new Date().toLocaleDateString('en-GB'),
-                                        booking_time: 'Completed',
-                                        status: 'PAID'
-                                    }]);
-                                } catch (e) {
-                                    console.error("Payment link email failed:", e);
-                                }
-                            }
+                            // For custom payment links (especially Desk Check-in links), suppress the automated
+                            // "New Booking Alert" confirmation email so staff/customer don't get unwanted booking alerts.
+                            // The customer already receives their ICICI transaction receipt and WhatsApp session review.
+                            console.log(`[Payment Link Success] Payment confirmed for link ${linkId}. Booking alert email suppressed.`);
                         }
                     });
                 });

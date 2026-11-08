@@ -5025,6 +5025,7 @@ window.openDeskOtpModal = () => {
 };
 
 window.closeDeskOtpModal = () => {
+    window.stopDeskPaymentPolling();
     const modal = document.getElementById('deskOtpModal');
     if (modal) modal.style.display = 'none';
     currentDeskCustomer = null;
@@ -5044,6 +5045,7 @@ window.closeDeskOtpModal = () => {
 };
 
 window.backToStep1 = () => {
+    window.stopDeskPaymentPolling();
     document.getElementById('deskOtpStep1').style.display = 'block';
     document.getElementById('deskOtpStep2').style.display = 'none';
     document.getElementById('deskOtpStep3').style.display = 'none';
@@ -5706,7 +5708,7 @@ window.generateAndSendDeskPaymentLink = async function() {
             if (data.wa_sent) {
                 statusMsg.textContent = '✓ Payment Link Sent via WhatsApp Business!';
             } else {
-                statusMsg.textContent = '✓ Payment Link Created & Opening WhatsApp...';
+                statusMsg.textContent = '✓ Payment Link Ready! Waiting for customer to pay online...';
             }
             statusMsg.style.color = '#86efac';
         }
@@ -5722,13 +5724,13 @@ window.generateAndSendDeskPaymentLink = async function() {
         }
         window.updateDeskPaymentValidation();
 
-        // If not automatically delivered by Interakt API or user wants to re-open wa.me link
+        // Save last WhatsApp URL for manual re-open if needed, but do NOT automatically pop up WhatsApp web/app
         if (data.wa_me_url) {
             window._lastWaMeUrl = data.wa_me_url;
-            window.open(data.wa_me_url, '_blank');
-        } else {
-            window.reopenDeskPayLinkWhatsApp();
         }
+
+        // Start live polling to check if the payment goes through online
+        window.startDeskPaymentPolling(data.link_id, totalDue);
 
         if (btn) {
             btn.disabled = false;
@@ -5742,6 +5744,72 @@ window.generateAndSendDeskPaymentLink = async function() {
             btn.innerHTML = origHtml;
         }
     }
+};
+
+window._deskPayPollTimer = null;
+
+window.stopDeskPaymentPolling = function() {
+    if (window._deskPayPollTimer) {
+        clearInterval(window._deskPayPollTimer);
+        window._deskPayPollTimer = null;
+    }
+};
+
+window.startDeskPaymentPolling = function(linkId, expectedAmount) {
+    window.stopDeskPaymentPolling();
+    if (!linkId) return;
+
+    let pollCount = 0;
+    const maxPolls = 180; // Poll for ~6 minutes (every 2 seconds)
+
+    window._deskPayPollTimer = setInterval(async () => {
+        pollCount++;
+        if (pollCount > maxPolls) {
+            window.stopDeskPaymentPolling();
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/pay-link/${encodeURIComponent(linkId)}`);
+            if (!res.ok) return;
+            const linkData = await res.json();
+
+            if (linkData && linkData.status === 'PAID') {
+                window.stopDeskPaymentPolling();
+                console.log(`[Desk Payment Poll] Payment verified for ${linkId}!`, linkData);
+
+                // Update UI banner to show verified green status
+                const statusMsg = document.getElementById('deskPayLinkStatusMsg');
+                if (statusMsg) {
+                    statusMsg.innerHTML = '🎉 <strong>Payment Received Online!</strong> Customer has successfully completed payment.';
+                    statusMsg.style.color = '#4ade80';
+                }
+
+                // Update transaction reference and amount
+                const txnRefInput = document.getElementById('deskTxnRefInput');
+                if (txnRefInput) {
+                    txnRefInput.value = linkData.icici_txn_id || linkData.link_id;
+                }
+                const amtInput = document.getElementById('deskAmountCollectedInput');
+                if (amtInput) {
+                    amtInput.value = (linkData.amount || expectedAmount || window._deskUnpaidDue || 0).toFixed(2);
+                }
+
+                // Trigger validation to highlight ready-to-fulfill state
+                window.updateDeskPaymentValidation();
+
+                const indicator = document.getElementById('deskPaymentStatusIndicator');
+                if (indicator) {
+                    indicator.innerHTML = `<span>✅</span> <strong>Verified Online Payment (Txn #${linkData.icici_txn_id || linkId})!</strong> Click below to fulfill.`;
+                    indicator.style.color = '#10B981';
+                    indicator.style.background = 'rgba(16,185,129,0.18)';
+                    indicator.style.border = '1px solid rgba(16,185,129,0.5)';
+                }
+            }
+        } catch (e) {
+            console.warn('[Desk Payment Poll] Error checking status:', e);
+        }
+    }, 2000);
 };
 
 window.reopenDeskPayLinkWhatsApp = function() {
