@@ -75,32 +75,217 @@ app.set('trust proxy', 1);
 const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET || 'havoc-super-secret-key-123';
 
-// Ensure whatsapp_consent column exists in bookings table
-db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS whatsapp_consent INTEGER DEFAULT 1", [], (err) => {
-    if (err && !err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-        // Fallback for SQLite which doesn't support IF NOT EXISTS in ADD COLUMN
-        db.run("ALTER TABLE bookings ADD COLUMN whatsapp_consent INTEGER DEFAULT 1", [], () => {});
+// =========================================================================
+// AUTOMATIC SCHEMA INITIALIZATION (Ensures all tables exist on new DBs)
+// =========================================================================
+
+// 1. Admin Auth table
+db.run(`
+    CREATE TABLE IF NOT EXISTS admin_auth (
+        id SERIAL PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        password_hash TEXT NOT NULL,
+        totp_secret TEXT,
+        must_change_password INTEGER DEFAULT 0,
+        role TEXT DEFAULT 'super_admin',
+        permissions TEXT DEFAULT 'all'
+    )
+`, [], (err) => {
+    if (err) {
+        db.run(`
+            CREATE TABLE IF NOT EXISTS admin_auth (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                totp_secret TEXT,
+                must_change_password INTEGER DEFAULT 0,
+                role TEXT DEFAULT 'super_admin',
+                permissions TEXT DEFAULT 'all'
+            )
+        `, [], () => {});
+    }
+
+    // Seed default admin if table is empty
+    db.get("SELECT COUNT(1) as cnt FROM admin_auth", (cErr, cRow) => {
+        const count = cRow ? parseInt(cRow.cnt || cRow.count || 0) : 0;
+        if (!cErr && count === 0) {
+            console.log("[Auto-Init] Seeding default super admin 'admin' into admin_auth...");
+            const defaultHash = "$2b$10$Vlg/ykSj5/UnkFBNzwcYLeC6dCpyY992juavZDxERn6zRW0UA5JGC"; // sabharwal@65
+            db.run(
+                "INSERT INTO admin_auth (username, password_hash, role, permissions) VALUES (?, ?, ?, ?)",
+                ['admin', defaultHash, 'super_admin', 'all'],
+                (insErr) => {
+                    if (insErr) console.error("[Auto-Init] Error seeding admin:", insErr.message);
+                    else console.log("[Auto-Init] Default admin seeded successfully!");
+                }
+            );
+        }
+    });
+});
+
+// 2. Settings table
+db.run(`
+    CREATE TABLE IF NOT EXISTS settings (
+        key TEXT PRIMARY KEY,
+        value TEXT
+    )
+`, [], () => {});
+
+// 3. Coupons table
+db.run(`
+    CREATE TABLE IF NOT EXISTS coupons (
+        id SERIAL PRIMARY KEY,
+        code TEXT UNIQUE,
+        type TEXT,
+        value REAL,
+        active INTEGER DEFAULT 1,
+        expires_at TEXT,
+        max_uses INTEGER,
+        used_count INTEGER DEFAULT 0,
+        allowed_simulators TEXT,
+        max_sessions INTEGER
+    )
+`, [], (err) => {
+    if (err) {
+        db.run(`
+            CREATE TABLE IF NOT EXISTS coupons (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                code TEXT UNIQUE,
+                type TEXT,
+                value REAL,
+                active INTEGER DEFAULT 1,
+                expires_at TEXT,
+                max_uses INTEGER,
+                used_count INTEGER DEFAULT 0,
+                allowed_simulators TEXT,
+                max_sessions INTEGER
+            )
+        `, [], () => {});
     }
 });
 
-// Ensure allowed_simulators and max_sessions columns exist in coupons table
-db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS allowed_simulators TEXT", [], (err) => {
-    if (err && !err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-        db.run("ALTER TABLE coupons ADD COLUMN allowed_simulators TEXT", [], () => {});
-    }
-});
-db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_sessions INTEGER", [], (err) => {
-    if (err && !err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-        db.run("ALTER TABLE coupons ADD COLUMN max_sessions INTEGER", [], () => {});
+// 4. Products table
+db.run(`
+    CREATE TABLE IF NOT EXISTS products (
+        id SERIAL PRIMARY KEY,
+        name TEXT,
+        type TEXT,
+        price REAL,
+        compare_price REAL,
+        stock_quantity INTEGER DEFAULT 0,
+        description TEXT,
+        image_url TEXT,
+        options TEXT,
+        hide_suffix INTEGER DEFAULT 0,
+        images_json TEXT DEFAULT '[]',
+        two_player_price REAL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`, [], (err) => {
+    if (err) {
+        db.run(`
+            CREATE TABLE IF NOT EXISTS products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT,
+                type TEXT,
+                price REAL,
+                compare_price REAL,
+                stock_quantity INTEGER DEFAULT 0,
+                description TEXT,
+                image_url TEXT,
+                options TEXT,
+                hide_suffix INTEGER DEFAULT 0,
+                images_json TEXT DEFAULT '[]',
+                two_player_price REAL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `, [], () => {});
     }
 });
 
-// Ensure permissions column exists in admin_auth table
-db.run("ALTER TABLE admin_auth ADD COLUMN IF NOT EXISTS permissions TEXT DEFAULT 'bookings,availability'", [], (err) => {
-    if (err && !err.message.includes('already exists') && !err.message.includes('duplicate column')) {
-        db.run("ALTER TABLE admin_auth ADD COLUMN permissions TEXT DEFAULT 'bookings,availability'", [], () => {});
+// 5. Bookings table
+db.run(`
+    CREATE TABLE IF NOT EXISTS bookings (
+        id SERIAL PRIMARY KEY,
+        order_id TEXT UNIQUE,
+        name TEXT,
+        email TEXT,
+        phone TEXT,
+        item_name TEXT,
+        price REAL,
+        booking_date TEXT,
+        booking_time TEXT,
+        status TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        instructor_id INTEGER,
+        instructor_fee REAL DEFAULT 0,
+        players INTEGER DEFAULT 1,
+        player_two_name TEXT,
+        payment_ref TEXT,
+        wristband_number TEXT,
+        whatsapp_consent INTEGER DEFAULT 1
+    )
+`, [], (err) => {
+    if (err) {
+        db.run(`
+            CREATE TABLE IF NOT EXISTS bookings (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                order_id TEXT UNIQUE,
+                name TEXT,
+                email TEXT,
+                phone TEXT,
+                item_name TEXT,
+                price REAL,
+                booking_date TEXT,
+                booking_time TEXT,
+                status TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                instructor_id INTEGER,
+                instructor_fee REAL DEFAULT 0,
+                players INTEGER DEFAULT 1,
+                player_two_name TEXT,
+                payment_ref TEXT,
+                wristband_number TEXT,
+                whatsapp_consent INTEGER DEFAULT 1
+            )
+        `, [], () => {});
     }
 });
+
+// 6. Instructors table
+db.run(`
+    CREATE TABLE IF NOT EXISTS instructors (
+        id SERIAL PRIMARY KEY,
+        name TEXT,
+        age INTEGER,
+        role TEXT,
+        key_achievement TEXT,
+        status TEXT DEFAULT 'Available',
+        photo_url TEXT,
+        biography TEXT,
+        fee REAL DEFAULT 500,
+        email TEXT,
+        phone TEXT,
+        simulator_type TEXT DEFAULT 'All',
+        password_hash TEXT,
+        schedule_json TEXT,
+        username TEXT,
+        must_change_password INTEGER DEFAULT 1,
+        reset_otp TEXT,
+        reset_otp_expires_at BIGINT,
+        notice_hours INTEGER DEFAULT 0
+    )
+`, [], () => {});
+
+// Ensure columns exist on tables if created previously
+db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS whatsapp_consent INTEGER DEFAULT 1", [], () => {});
+db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_ref TEXT", [], () => {});
+db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS wristband_number TEXT", [], () => {});
+db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS allowed_simulators TEXT", [], () => {});
+db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_sessions INTEGER", [], () => {});
+db.run("ALTER TABLE admin_auth ADD COLUMN IF NOT EXISTS permissions TEXT DEFAULT 'all'", [], () => {});
+db.run("ALTER TABLE products ADD COLUMN IF NOT EXISTS images_json TEXT DEFAULT '[]'", [], () => {});
+db.run("ALTER TABLE products ADD COLUMN IF NOT EXISTS two_player_price REAL", [], () => {});
 
 // Ensure payment_links table exists for custom admin payment requests
 db.run(`
