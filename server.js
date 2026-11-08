@@ -1841,16 +1841,102 @@ app.get('/api/slots', (req, res) => {
 // BOOKINGS MANAGEMENT ROUTES
 // ==========================================
 
+// Helper: normalize time slot strings for insensitive comparison
+function normalizeTimeSlot(slotStr) {
+    if (!slotStr) return "";
+    let clean = String(slotStr).toLowerCase().replace(/\s+/g, "");
+    clean = clean.replace(/0(\d):/g, "$1:");
+    clean = clean.replace(/:00([ap]m)/g, "$1");
+    return clean;
+}
+
+// Helper: generate common date variants across YYYY-MM-DD, Mmm DD, Mmm DD (Ddd)
+function generateDateVariants(dateStr) {
+    if (!dateStr) return [];
+    const set = new Set();
+    const raw = String(dateStr).trim();
+    set.add(raw);
+
+    const withoutParen = raw.replace(/\s*\([A-Za-z]+\)$/, '').trim();
+    set.add(withoutParen);
+
+    const monthMap = {
+        jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+        jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+    };
+    const monthNamesLong = {
+        jan: 'January', feb: 'February', mar: 'March', apr: 'April', may: 'May', jun: 'June',
+        jul: 'July', aug: 'August', sep: 'September', oct: 'October', nov: 'November', dec: 'December'
+    };
+    const monthNamesShort = {
+        '01': 'Jan', '02': 'Feb', '03': 'Mar', '04': 'Apr', '05': 'May', '06': 'Jun',
+        '07': 'Jul', '08': 'Aug', '09': 'Sep', '10': 'Oct', '11': 'Nov', '12': 'Dec'
+    };
+
+    const isoMatch = withoutParen.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) {
+        const [_, y, m, d] = isoMatch;
+        const dNum = parseInt(d, 10);
+        const shortM = monthNamesShort[m];
+        const longM = monthNamesLong[shortM ? shortM.toLowerCase() : ''];
+        if (shortM) {
+            set.add(`${shortM} ${d}`);
+            set.add(`${shortM} ${dNum}`);
+            if (longM) {
+                set.add(`${longM} ${d}`);
+                set.add(`${longM} ${dNum}`);
+            }
+            const dt = new Date(parseInt(y, 10), parseInt(m, 10) - 1, dNum);
+            if (!isNaN(dt.getTime())) {
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const dayName = dayNames[dt.getDay()];
+                set.add(`${shortM} ${d} (${dayName})`);
+                set.add(`${shortM} ${dNum} (${dayName})`);
+                if (longM) {
+                    set.add(`${longM} ${d} (${dayName})`);
+                    set.add(`${longM} ${dNum} (${dayName})`);
+                }
+            }
+        }
+    }
+
+    const textMatch = withoutParen.match(/^([A-Za-z]+)\s+(\d{1,2})$/);
+    if (textMatch) {
+        const mPrefix = textMatch[1].toLowerCase().slice(0, 3);
+        const dNum = parseInt(textMatch[2], 10);
+        const dPad = String(dNum).padStart(2, '0');
+        const mNum = monthMap[mPrefix];
+        if (mNum) {
+            const year = new Date().getFullYear();
+            set.add(`${year}-${mNum}-${dPad}`);
+            set.add(`${textMatch[1]} ${dPad}`);
+            set.add(`${textMatch[1]} ${dNum}`);
+            const dt = new Date(year, parseInt(mNum, 10) - 1, dNum);
+            if (!isNaN(dt.getTime())) {
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const dayName = dayNames[dt.getDay()];
+                set.add(`${textMatch[1]} ${dPad} (${dayName})`);
+                set.add(`${textMatch[1]} ${dNum} (${dayName})`);
+            }
+        }
+    }
+
+    return Array.from(set);
+}
+
 // Get booked slots for a specific date (Public)
 app.get('/api/availability/:date', (req, res) => {
     const { date } = req.params;
     const { item } = req.query;
 
-    let query = "SELECT booking_time, status, order_id, created_at FROM bookings WHERE booking_date = ? AND status IN ('PAID', 'ATTENDED', 'CASH', 'PENDING')";
-    let params = [date];
+    const dateVariants = generateDateVariants(date);
+    const datePlaceholders = dateVariants.map(() => '?').join(',');
+
+    let query = `SELECT booking_time, status, order_id, created_at FROM bookings WHERE booking_date IN (${datePlaceholders}) AND status IN ('PAID', 'ATTENDED', 'CASH', 'PENDING', 'CONFIRMED')`;
+    let params = [...dateVariants];
 
     if (item) {
-        query += " AND item_name = ?";
+        query += " AND item_name ILIKE ?";
         params.push(item);
     }
 
@@ -1861,8 +1947,8 @@ app.get('/api/availability/:date', (req, res) => {
         const bookedSlots = [];
 
         (rows || []).forEach(r => {
-            // Keep hard bookings (PAID, ATTENDED, CASH, or PAYDUE desk reservations)
-            if (r.status === 'PAID' || r.status === 'ATTENDED' || r.status === 'CASH' || (r.order_id && r.order_id.startsWith('PAYDUE_'))) {
+            // Keep hard bookings (PAID, ATTENDED, CASH, CONFIRMED or PAYDUE desk reservations)
+            if (r.status === 'PAID' || r.status === 'ATTENDED' || r.status === 'CASH' || r.status === 'CONFIRMED' || (r.order_id && r.order_id.startsWith('PAYDUE_'))) {
                 if (!bookedSlots.includes(r.booking_time)) bookedSlots.push(r.booking_time);
             } else if (r.status === 'PENDING') {
                 // Online pending: only block if under 2 minutes old
@@ -1882,9 +1968,10 @@ app.get('/api/availability/:date', (req, res) => {
                         try {
                             const heldItems = JSON.parse(hr.items_json || '[]');
                             heldItems.forEach(hi => {
-                                const hiDateClean = (hi.date || '').replace(/ \([A-Za-z]+\)/, '');
-                                const qDateClean = date.replace(/ \([A-Za-z]+\)/, '');
-                                if (hiDateClean === qDateClean && (!item || hi.item_name === item)) {
+                                const hiDateVariants = generateDateVariants(hi.date);
+                                const dateMatches = hiDateVariants.some(v => dateVariants.includes(v));
+                                const itemMatches = !item || (hi.item_name && hi.item_name.toLowerCase() === item.toLowerCase());
+                                if (dateMatches && itemMatches) {
                                     if (hi.time && !bookedSlots.includes(hi.time)) {
                                         bookedSlots.push(hi.time);
                                     }
@@ -1895,51 +1982,49 @@ app.get('/api/availability/:date', (req, res) => {
                 });
             }
 
-            // Also merge slot locks from shared simulator_slot_locks table (including RC Fun Zone combo passes)
-            let lockQuery = "SELECT booking_time, status, source_order_id, created_at FROM simulator_slot_locks WHERE (booking_date = ? OR booking_date = ?) AND status IN ('PENDING', 'PAID', 'ATTENDED', 'CONFIRMED')";
-        let lockParams = [date, date.replace(/ \([A-Za-z]+\)/, '')];
-        if (item) {
-            lockQuery += " AND simulator_name = ?";
-            lockParams.push(item);
-        }
-
-        db.all(lockQuery, lockParams, (lockErr, lockRows) => {
-            if (!lockErr && lockRows) {
-                lockRows.forEach(lr => {
-                    if (lr.status === 'PAID' || lr.status === 'ATTENDED' || lr.status === 'CONFIRMED' || (lr.source_order_id && lr.source_order_id.startsWith('PAYDUE_'))) {
-                        if (!bookedSlots.includes(lr.booking_time)) bookedSlots.push(lr.booking_time);
-                    } else if (lr.status === 'PENDING') {
-                        const ageMs = now - new Date(lr.created_at).getTime();
-                        if (ageMs <= 5 * 60 * 1000) {
-                            if (!bookedSlots.includes(lr.booking_time)) bookedSlots.push(lr.booking_time);
-                        }
-                    }
-                });
-            }
-
-            // Also merge admin-blocked slots/dates from blocked_slots table
-            const altDate = date.replace(/ \([A-Za-z]+\)/, '');
-            let blockQuery = "SELECT time_slot, simulator_name FROM blocked_slots WHERE (booking_date = ? OR booking_date = ? OR booking_date = 'ALL')";
-            let blockParams = [date, altDate];
+            // Also check shared simulator_slot_locks table (locks from RC Fun Zone & cross-platform combos)
+            let lockQuery = `SELECT booking_time, booking_date, status, source_order_id, created_at FROM simulator_slot_locks WHERE booking_date IN (${datePlaceholders}) AND status IN ('CONFIRMED', 'PENDING', 'PAID', 'ATTENDED')`;
+            let lockParams = [...dateVariants];
             if (item) {
-                blockQuery += " AND (simulator_name = ? OR simulator_name = 'ALL')";
-                blockParams.push(item);
+                lockQuery += " AND simulator_name ILIKE ?";
+                lockParams.push(item);
             }
 
-            db.all(blockQuery, blockParams, (blockErr, blockRows) => {
-                if (!blockErr && blockRows) {
-                    blockRows.forEach(br => {
-                        if (br.time_slot === 'ALL_DAY') {
-                            // If entire day is blocked, add all standard slots or mark with ALL_DAY
-                            if (!bookedSlots.includes('ALL_DAY')) bookedSlots.push('ALL_DAY');
-                        } else {
-                            if (!bookedSlots.includes(br.time_slot)) bookedSlots.push(br.time_slot);
+            db.all(lockQuery, lockParams, (lockErr, lockRows) => {
+                if (!lockErr && lockRows) {
+                    lockRows.forEach(lr => {
+                        if (lr.status === 'PAID' || lr.status === 'ATTENDED' || lr.status === 'CONFIRMED' || (lr.source_order_id && lr.source_order_id.startsWith('PAYDUE_'))) {
+                            if (!bookedSlots.includes(lr.booking_time)) bookedSlots.push(lr.booking_time);
+                        } else if (lr.status === 'PENDING') {
+                            const ageMs = now - new Date(lr.created_at).getTime();
+                            if (ageMs <= 5 * 60 * 1000) {
+                                if (!bookedSlots.includes(lr.booking_time)) bookedSlots.push(lr.booking_time);
+                            }
                         }
                     });
                 }
-                res.json({ bookedSlots });
+
+                // Also merge admin-blocked slots/dates from blocked_slots table
+                let blockQuery = `SELECT time_slot, simulator_name FROM blocked_slots WHERE (booking_date IN (${datePlaceholders}) OR booking_date = 'ALL')`;
+                let blockParams = [...dateVariants];
+                if (item) {
+                    blockQuery += " AND (simulator_name ILIKE ? OR simulator_name = 'ALL')";
+                    blockParams.push(item);
+                }
+
+                db.all(blockQuery, blockParams, (blockErr, blockRows) => {
+                    if (!blockErr && blockRows) {
+                        blockRows.forEach(br => {
+                            if (br.time_slot === 'ALL_DAY') {
+                                if (!bookedSlots.includes('ALL_DAY')) bookedSlots.push('ALL_DAY');
+                            } else {
+                                if (!bookedSlots.includes(br.time_slot)) bookedSlots.push(br.time_slot);
+                            }
+                        });
+                    }
+                    res.json({ bookedSlots });
+                });
             });
-        });
         });
     });
 });

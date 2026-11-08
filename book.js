@@ -273,6 +273,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         const fullDateLabel = `${monthNames[dObj.getMonth()]} ${String(dObj.getDate()).padStart(2,'0')} (${dayNames[dObj.getDay()]})`;
 
+        // Helper: normalize time slot for insensitive comparison
+        const normalizeTimeSlot = (slotStr) => {
+            if (!slotStr) return "";
+            let clean = String(slotStr).toLowerCase().replace(/\s+/g, "");
+            clean = clean.replace(/0(\d):/g, "$1:");
+            clean = clean.replace(/:00([ap]m)/g, "$1");
+            return clean;
+        };
+
+        const normalizedBookedSlots = bookedSlots.map(s => normalizeTimeSlot(s));
+
         availableSlots.forEach(slot => {
             let isPast = false;
             if (isToday) {
@@ -281,9 +292,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (slotHour <= nowDecimal) isPast = true;
             }
 
-            // Check if slot is already booked or is an exception
-            let isBooked = bookedSlots.includes(slot);
-            if (!isBooked && slotExceptions.includes(`${fullDateLabel}|${slot}`)) {
+            // Check if slot is already booked or is an exception using normalized matching
+            const normSlot = normalizeTimeSlot(slot);
+            let isBooked = bookedSlots.includes(slot) || normalizedBookedSlots.includes(normSlot);
+            if (!isBooked && slotExceptions.some(ex => {
+                const parts = ex.split('|');
+                if (parts.length === 2) {
+                    return (parts[0] === fullDateLabel || parts[0] === selectedDate.label) && normalizeTimeSlot(parts[1]) === normSlot;
+                }
+                return false;
+            })) {
                 isBooked = true; // Treat exception as booked
             }
 
