@@ -112,6 +112,7 @@ db.run(`
         customer_email TEXT,
         amount REAL NOT NULL,
         description TEXT,
+        order_ids TEXT,
         status TEXT DEFAULT 'PENDING',
         icici_order_id TEXT,
         icici_txn_id TEXT,
@@ -130,12 +131,21 @@ db.run(`
                 customer_email TEXT,
                 amount REAL NOT NULL,
                 description TEXT,
+                order_ids TEXT,
+                status TEXT DEFAULT 'PENDING',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 paid_at TIMESTAMP
             )
         `, [], () => {});
     }
 });
+
+// Ensure order_ids column exists in payment_links if table was already created
+if (db.isPostgres) {
+    db.pool.query("ALTER TABLE payment_links ADD COLUMN IF NOT EXISTS order_ids TEXT", () => {});
+} else {
+    db.run("ALTER TABLE payment_links ADD COLUMN order_ids TEXT", [], () => {});
+}
 
 // Ensure blocked_slots table exists for global/date/simulator slot blocking
 db.run(`
@@ -577,32 +587,50 @@ app.post('/api/admin/settings/payment', verifyToken, verifySuperAdmin, (req, res
     });
 });
 
-// Feature switches (e.g. Band Inventory ON/OFF toggle per website)
+// Feature switches (e.g. Band Inventory & Desk Payment Link ON/OFF toggle per website)
 app.get('/api/settings/features', (req, res) => {
     db.get("SELECT value FROM settings WHERE key = 'feature_switches'", (err, row) => {
-        if (err || !row) return res.json({ band_inventory_enabled: true });
+        const defaults = { band_inventory_enabled: true, desk_payment_link_enabled: true };
+        if (err || !row) return res.json(defaults);
         try {
-            res.json(JSON.parse(row.value));
+            const parsed = JSON.parse(row.value);
+            res.json({
+                band_inventory_enabled: parsed.band_inventory_enabled !== false,
+                desk_payment_link_enabled: parsed.desk_payment_link_enabled !== false
+            });
         } catch (e) {
-            res.json({ band_inventory_enabled: true });
+            res.json(defaults);
         }
     });
 });
 
 app.post('/api/admin/settings/features', verifyToken, (req, res) => {
-    const { band_inventory_enabled } = req.body;
-    const value = JSON.stringify({ band_inventory_enabled: !!band_inventory_enabled });
-
-    db.run("UPDATE settings SET value = ? WHERE key = 'feature_switches'", [value], function(err) {
-        if (err) return res.status(500).json({ error: 'Failed to update feature settings.' });
-        if (this.changes === 0) {
-            db.run("INSERT INTO settings (key, value) VALUES ('feature_switches', ?)", [value], (insertErr) => {
-                if (insertErr) return res.status(500).json({ error: 'Failed to insert feature settings.' });
-                res.json({ success: true, band_inventory_enabled: !!band_inventory_enabled });
-            });
-        } else {
-            res.json({ success: true, band_inventory_enabled: !!band_inventory_enabled });
+    db.get("SELECT value FROM settings WHERE key = 'feature_switches'", (getErr, row) => {
+        let current = { band_inventory_enabled: true, desk_payment_link_enabled: true };
+        if (!getErr && row && row.value) {
+            try { current = { ...current, ...JSON.parse(row.value) }; } catch (e) {}
         }
+
+        if (req.body.band_inventory_enabled !== undefined) {
+            current.band_inventory_enabled = !!req.body.band_inventory_enabled;
+        }
+        if (req.body.desk_payment_link_enabled !== undefined) {
+            current.desk_payment_link_enabled = !!req.body.desk_payment_link_enabled;
+        }
+
+        const value = JSON.stringify(current);
+
+        db.run("UPDATE settings SET value = ? WHERE key = 'feature_switches'", [value], function(err) {
+            if (err) return res.status(500).json({ error: 'Failed to update feature settings.' });
+            if (this.changes === 0) {
+                db.run("INSERT INTO settings (key, value) VALUES ('feature_switches', ?)", [value], (insertErr) => {
+                    if (insertErr) return res.status(500).json({ error: 'Failed to insert feature settings.' });
+                    res.json({ success: true, ...current });
+                });
+            } else {
+                res.json({ success: true, ...current });
+            }
+        });
     });
 });
 
@@ -2592,6 +2620,74 @@ function dispatchBookingWhatsAppNotification(rows, paymentStatus) {
         totalAmount,
         paymentStatus
     }).catch(e => console.error('[Interakt WhatsApp] Unhandled rejection:', e));
+}
+
+// Automated Payment Link Notification via Interakt WhatsApp
+async function sendPaymentLinkWhatsApp({ customerName, customerPhone, amount, paymentUrl, venueName = "Havoc Sim Podium", orderSummary = "" }) {
+    const interaktApiKey = process.env.INTERAKT_API_KEY;
+    if (!customerPhone) {
+        return { success: false, reason: 'No customer phone provided' };
+    }
+
+    const { countryCode, phoneNumber } = parseInternationalPhone(customerPhone);
+    const cleanDigitsCountry = countryCode.replace(/\D/g, "") || "91";
+    const waNumber = `${cleanDigitsCountry}${phoneNumber}`;
+    const custName = (customerName || "Driver").trim();
+    const formattedAmt = parseFloat(amount).toFixed(2);
+
+    // Direct WhatsApp message text as standard fallback / manual wa.me link
+    const messageText = `Hi ${custName}! 🏁\n\nHere is your secure payment link for your session at ${venueName}:\n\n• Amount Due: ₹${formattedAmt}\n• Payment Link: ${paymentUrl}\n\nTap the link above to complete your payment online.`;
+    const waMeUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(messageText)}`;
+
+    const templateName = process.env.INTERAKT_PAYMENT_LINK_TEMPLATE || "havoc_payment_link";
+
+    if (!interaktApiKey) {
+        console.log(`[Payment Link WhatsApp] INTERAKT_API_KEY not configured. WhatsApp waMeUrl generated.`);
+        return { success: false, reason: 'INTERAKT_API_KEY not configured', waMeUrl, messageText };
+    }
+
+    if (!phoneNumber) {
+        console.warn(`[Payment Link WhatsApp] Invalid phone number: "${customerPhone}".`);
+        return { success: false, reason: 'Invalid phone number', waMeUrl, messageText };
+    }
+
+    try {
+        console.log(`[Payment Link WhatsApp] Dispatching via Interakt to ${countryCode}${phoneNumber} (Template: ${templateName})...`);
+        const response = await fetch('https://api.interakt.ai/v1/public/message/', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${interaktApiKey.trim()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                countryCode: countryCode,
+                phoneNumber: phoneNumber,
+                type: 'Template',
+                template: {
+                    name: templateName,
+                    languageCode: 'en',
+                    bodyValues: [
+                        custName,
+                        venueName,
+                        formattedAmt,
+                        paymentUrl
+                    ]
+                }
+            })
+        });
+
+        if (response.ok) {
+            console.log(`[Payment Link WhatsApp] Dispatched successfully via Interakt to ${countryCode}${phoneNumber}!`);
+            return { success: true, viaInterakt: true, waMeUrl, messageText };
+        } else {
+            const errText = await response.text();
+            console.warn(`[Payment Link WhatsApp] Interakt returned status ${response.status}:`, errText);
+            return { success: false, viaInterakt: false, reason: errText, waMeUrl, messageText };
+        }
+    } catch (err) {
+        console.error('[Payment Link WhatsApp] Error sending via Interakt:', err.message);
+        return { success: false, viaInterakt: false, reason: err.message, waMeUrl, messageText };
+    }
 }
 
 // Automated Google Review / Experience Feedback Notification via Interakt WhatsApp
@@ -4843,23 +4939,47 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
 
                 db.run("UPDATE payment_links SET status = 'PAID', icici_txn_id = ?, paid_at = CURRENT_TIMESTAMP WHERE link_id = ?", [txnID, linkId], () => {
                     db.get("SELECT * FROM payment_links WHERE link_id = ?", [linkId], (err, plRow) => {
-                        if (!err && plRow && plRow.customer_email) {
-                            try {
-                                const mailer = require('./mailer');
-                                // Send payment receipt email if email exists
-                                mailer.sendConfirmationEmail([{
-                                    order_id: plRow.link_id,
-                                    name: plRow.customer_name || 'Customer',
-                                    email: plRow.customer_email,
-                                    phone: plRow.customer_phone,
-                                    item_name: plRow.description || 'Custom Payment',
-                                    price: plRow.amount,
-                                    booking_date: new Date().toLocaleDateString('en-GB'),
-                                    booking_time: 'Completed',
-                                    status: 'PAID'
-                                }]);
-                            } catch (e) {
-                                console.error("Payment link email failed:", e);
+                        if (!err && plRow) {
+                            // If this payment link was created for specific booking orders (Desk Check-in)
+                            if (plRow.order_ids) {
+                                const linkedOrders = plRow.order_ids.split(',').map(s => s.trim()).filter(Boolean);
+                                if (linkedOrders.length > 0) {
+                                    const placeholders = linkedOrders.map(() => '?').join(',');
+                                    db.run(
+                                        `UPDATE bookings SET status = 'ATTENDED', payment_ref = ? WHERE order_id IN (${placeholders})`,
+                                        [txnID || linkId, ...linkedOrders],
+                                        () => {
+                                            console.log(`[Payment Link Success] Automatically marked linked bookings as ATTENDED for link ${linkId}:`, linkedOrders);
+                                            // Send post-session Google review WhatsApp
+                                            if (plRow.customer_phone) {
+                                                sendGoogleReviewWhatsApp({
+                                                    customerName: plRow.customer_name || 'Customer',
+                                                    customerPhone: plRow.customer_phone
+                                                }).catch(e => console.error('[Review WhatsApp] Send error:', e));
+                                            }
+                                        }
+                                    );
+                                }
+                            }
+
+                            if (plRow.customer_email) {
+                                try {
+                                    const mailer = require('./mailer');
+                                    // Send payment receipt email if email exists
+                                    mailer.sendConfirmationEmail([{
+                                        order_id: plRow.link_id,
+                                        name: plRow.customer_name || 'Customer',
+                                        email: plRow.customer_email,
+                                        phone: plRow.customer_phone,
+                                        item_name: plRow.description || 'Custom Payment',
+                                        price: plRow.amount,
+                                        booking_date: new Date().toLocaleDateString('en-GB'),
+                                        booking_time: 'Completed',
+                                        status: 'PAID'
+                                    }]);
+                                } catch (e) {
+                                    console.error("Payment link email failed:", e);
+                                }
                             }
                         }
                     });
@@ -5007,10 +5127,20 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
 // PAYMENT LINKS (Custom Admin Payment Requests)
 // ==========================================
 
-// Create a new Payment Link (Protected - requires 'payment_links' permission or Super Admin)
-app.post('/api/admin/payment-links', verifyToken, checkPermission('payment_links'), async (req, res) => {
+// Create a new Payment Link (Protected - requires 'payment_links' or 'bookings' permission or Super Admin)
+app.post('/api/admin/payment-links', verifyToken, (req, res, next) => {
+    // Check if user has either 'payment_links' or 'bookings' permission, or is Super Admin
+    if (req.user.username === 'admin' || req.user.role === 'super_admin' || req.user.permissions === 'all') {
+        return next();
+    }
+    const perms = (req.user.permissions || '').split(',').map(p => p.trim());
+    if (perms.includes('payment_links') || perms.includes('bookings')) {
+        return next();
+    }
+    return res.status(403).json({ error: "Access denied. Requires 'payment_links' or 'bookings' permission." });
+}, async (req, res) => {
     try {
-        const { amount, customer_name, customer_phone, customer_email, description } = req.body;
+        const { amount, customer_name, customer_phone, customer_email, description, order_ids } = req.body;
         const numAmount = parseFloat(amount);
         if (!numAmount || isNaN(numAmount) || numAmount <= 0) {
             return res.status(400).json({ error: 'Valid amount is required' });
@@ -5024,12 +5154,13 @@ app.post('/api/admin/payment-links', verifyToken, checkPermission('payment_links
         const finalPhone = (customer_phone || '').trim();
         const finalEmail = (customer_email || '').trim();
         const finalDesc = (description || 'Custom Payment').trim();
+        const orderIdsStr = Array.isArray(order_ids) ? order_ids.join(',') : (order_ids || null);
 
         db.run(
-            `INSERT INTO payment_links (link_id, customer_name, customer_phone, customer_email, amount, description, status)
-             VALUES (?, ?, ?, ?, ?, ?, 'PENDING')`,
-            [linkId, finalName, finalPhone, finalEmail, numAmount, finalDesc],
-            function(err) {
+            `INSERT INTO payment_links (link_id, customer_name, customer_phone, customer_email, amount, description, order_ids, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
+            [linkId, finalName, finalPhone, finalEmail, numAmount, finalDesc, orderIdsStr],
+            async function(err) {
                 if (err) {
                     console.error("Create payment link error:", err);
                     return res.status(500).json({ error: 'Failed to create payment link in database' });
@@ -5039,6 +5170,19 @@ app.post('/api/admin/payment-links', verifyToken, checkPermission('payment_links
                 const baseUrl = isProd ? 'https://www.havocsim.in' : `${req.protocol}://${req.get('host')}`;
                 const payUrl = `${baseUrl}/pay.html?id=${linkId}`;
 
+                // Automatically attempt dispatch via Interakt WhatsApp
+                let waResult = { success: false, waMeUrl: `https://wa.me/91${finalPhone.replace(/\D/g,'')}?text=${encodeURIComponent(`Hi ${finalName}!\nHere is your payment link: ${payUrl}`)}` };
+                if (finalPhone) {
+                    waResult = await sendPaymentLinkWhatsApp({
+                        customerName: finalName,
+                        customerPhone: finalPhone,
+                        amount: numAmount,
+                        paymentUrl: payUrl,
+                        venueName: "Havoc Sim Podium",
+                        orderSummary: finalDesc
+                    });
+                }
+
                 res.json({
                     success: true,
                     link_id: linkId,
@@ -5047,7 +5191,10 @@ app.post('/api/admin/payment-links', verifyToken, checkPermission('payment_links
                     customer_phone: finalPhone,
                     customer_email: finalEmail,
                     description: finalDesc,
-                    pay_url: payUrl
+                    order_ids: orderIdsStr,
+                    pay_url: payUrl,
+                    wa_sent: waResult.viaInterakt || false,
+                    wa_me_url: waResult.waMeUrl
                 });
             }
         );

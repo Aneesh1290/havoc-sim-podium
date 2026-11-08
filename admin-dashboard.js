@@ -4642,13 +4642,31 @@ async function loadSettings() {
         const res = await fetch(BACKEND_URL + "/api/settings/features");
         if (res.ok) {
             const data = await res.json();
-            const isEnabled = data.band_inventory_enabled !== false;
-            const toggle = document.getElementById("toggle-feature-bands");
-            if (toggle) toggle.checked = isEnabled;
-            applyBandInventoryFeatureVisibility(isEnabled);
+            const isBandEnabled = data.band_inventory_enabled !== false;
+            const isPayLinkEnabled = data.desk_payment_link_enabled !== false;
+
+            const bandToggle = document.getElementById("toggle-feature-bands");
+            if (bandToggle) bandToggle.checked = isBandEnabled;
+            applyBandInventoryFeatureVisibility(isBandEnabled);
+
+            const payLinkToggle = document.getElementById("toggle-feature-desk-paylink");
+            if (payLinkToggle) payLinkToggle.checked = isPayLinkEnabled;
+            applyDeskPaymentLinkFeatureVisibility(isPayLinkEnabled);
         }
     } catch (e) {
         console.error("Failed to load feature settings", e);
+    }
+}
+
+function applyDeskPaymentLinkFeatureVisibility(isEnabled) {
+    window._deskPaymentLinkEnabled = isEnabled;
+    const payLinkRow = document.getElementById('deskPayLinkRow');
+    if (payLinkRow) {
+        payLinkRow.style.display = isEnabled ? 'flex' : 'none';
+    }
+    const payLinkBanner = document.getElementById('deskPayLinkBanner');
+    if (payLinkBanner && !isEnabled) {
+        payLinkBanner.style.display = 'none';
     }
 }
 
@@ -4671,31 +4689,32 @@ function applyBandInventoryFeatureVisibility(isEnabled) {
         if (res.ok) {
             const data = await res.json();
             applyBandInventoryFeatureVisibility(data.band_inventory_enabled !== false);
+            applyDeskPaymentLinkFeatureVisibility(data.desk_payment_link_enabled !== false);
         }
     } catch (e) {}
 })();
 
 window.saveFeatureSettings = async () => {
     const btn = document.getElementById("saveFeatureSettingsBtn");
-    const origText = btn ? btn.textContent : "Save Feature Switch";
+    const origText = btn ? btn.textContent : "Save Feature Switches";
     if (btn) {
         btn.textContent = "Saving...";
         btn.disabled = true;
     }
 
     const band_inventory_enabled = document.getElementById("toggle-feature-bands")?.checked;
+    const desk_payment_link_enabled = document.getElementById("toggle-feature-desk-paylink")?.checked;
 
     try {
         const res = await fetchAuth('/api/admin/settings/features', {
             method: 'POST',
-            body: JSON.stringify({ band_inventory_enabled })
+            body: JSON.stringify({ band_inventory_enabled, desk_payment_link_enabled })
         });
         const data = await res.json();
         if (res.ok && data.success) {
             applyBandInventoryFeatureVisibility(band_inventory_enabled);
-            alert(band_inventory_enabled 
-                ? "Wristband Inventory module is now ENABLED on this website." 
-                : "Wristband Inventory module is now DISABLED and hidden from navigation.");
+            applyDeskPaymentLinkFeatureVisibility(desk_payment_link_enabled);
+            alert("Feature settings saved successfully!");
         } else {
             alert(data.error || "Failed to update feature settings.");
         }
@@ -5011,6 +5030,11 @@ window.closeDeskOtpModal = () => {
     currentDeskCustomer = null;
     window._deskUnpaidDue = 0;
     window._deskUnpaidOrderIds = [];
+    window._activeDeskPayUrl = null;
+    window._activeDeskPayPhone = null;
+    window._activeDeskPayAmount = null;
+    const payLinkBanner = document.getElementById('deskPayLinkBanner');
+    if (payLinkBanner) payLinkBanner.style.display = 'none';
     const paymentBox = document.getElementById('deskPaymentCollectionBox');
     if (paymentBox) paymentBox.style.display = 'none';
     const txnInput = document.getElementById('deskTxnRefInput');
@@ -5025,6 +5049,11 @@ window.backToStep1 = () => {
     document.getElementById('deskOtpStep3').style.display = 'none';
     window._deskUnpaidDue = 0;
     window._deskUnpaidOrderIds = [];
+    window._activeDeskPayUrl = null;
+    window._activeDeskPayPhone = null;
+    window._activeDeskPayAmount = null;
+    const payLinkBanner = document.getElementById('deskPayLinkBanner');
+    if (payLinkBanner) payLinkBanner.style.display = 'none';
     const paymentBox = document.getElementById('deskPaymentCollectionBox');
     if (paymentBox) paymentBox.style.display = 'none';
 };
@@ -5584,6 +5613,16 @@ function updateDeskPaymentUI(totalDue) {
     const dueDisplay = document.getElementById('deskTotalDueDisplay');
     const amtInput = document.getElementById('deskAmountCollectedInput');
 
+    // Reset payment link UI banner when customer changes or session re-renders
+    const payLinkRow = document.getElementById('deskPayLinkRow');
+    if (payLinkRow) {
+        payLinkRow.style.display = (window._deskPaymentLinkEnabled !== false && totalDue > 0) ? 'flex' : 'none';
+    }
+    const payLinkBanner = document.getElementById('deskPayLinkBanner');
+    if (payLinkBanner && !window._activeDeskPayUrl) {
+        payLinkBanner.style.display = 'none';
+    }
+
     if (totalDue > 0) {
         if (paymentBox) paymentBox.style.display = 'block';
         if (dueDisplay) dueDisplay.textContent = `₹${totalDue.toFixed(2)}`;
@@ -5602,6 +5641,145 @@ function updateDeskPaymentUI(totalDue) {
         }
     }
 }
+
+// Generate & send Payment Link via WhatsApp directly from Check-In modal
+window._activeDeskPayUrl = null;
+window._activeDeskPayPhone = null;
+window._activeDeskPayAmount = null;
+
+window.generateAndSendDeskPaymentLink = async function() {
+    const cust = window._lastVerifiedCustomer || {};
+    const totalDue = window._deskUnpaidDue || 0;
+    const btn = document.getElementById('deskSendPayLinkBtn');
+    const banner = document.getElementById('deskPayLinkBanner');
+    const urlInput = document.getElementById('deskPayLinkUrlInput');
+    const idText = document.getElementById('deskPayLinkIdText');
+    const statusMsg = document.getElementById('deskPayLinkStatusMsg');
+
+    if (totalDue <= 0) {
+        alert('No outstanding amount due for this customer.');
+        return;
+    }
+
+    const customerPhone = cust.phone || document.getElementById('deskCustomerPhone')?.value || '';
+    const countryCode = cust.country_code || document.getElementById('deskCustomerCountryCode')?.value || '+91';
+    const customerName = cust.name || 'Driver';
+    const customerEmail = cust.email || '';
+
+    const origHtml = btn ? btn.innerHTML : '';
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<span>⏳</span> Generating Link...';
+    }
+
+    try {
+        const orderSummary = (window._deskUnpaidOrderIds && window._deskUnpaidOrderIds.length > 0)
+            ? `Sim Session (${window._deskUnpaidOrderIds.join(', ')})`
+            : 'Sim Podium Session Payment';
+
+        const res = await fetchAuth('/api/admin/payment-links', {
+            method: 'POST',
+            body: JSON.stringify({
+                amount: totalDue,
+                customer_name: customerName,
+                customer_phone: customerPhone,
+                customer_email: customerEmail,
+                description: orderSummary,
+                order_ids: window._deskUnpaidOrderIds
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Failed to create payment link');
+        }
+
+        window._activeDeskPayUrl = data.pay_url;
+        window._activeDeskPayAmount = data.amount;
+        window._activeDeskPayPhone = customerPhone;
+
+        // Populate and display link banner
+        if (banner) banner.style.display = 'block';
+        if (urlInput) urlInput.value = data.pay_url;
+        if (idText) idText.textContent = `#${data.link_id}`;
+        if (statusMsg) {
+            if (data.wa_sent) {
+                statusMsg.textContent = '✓ Payment Link Sent via WhatsApp Business!';
+            } else {
+                statusMsg.textContent = '✓ Payment Link Created & Opening WhatsApp...';
+            }
+            statusMsg.style.color = '#86efac';
+        }
+
+        // Auto-fill transaction reference with payment link ID so staff can quickly confirm once customer pays
+        const txnRefInput = document.getElementById('deskTxnRefInput');
+        if (txnRefInput && !txnRefInput.value.trim()) {
+            txnRefInput.value = data.link_id;
+        }
+        const amtInput = document.getElementById('deskAmountCollectedInput');
+        if (amtInput && !amtInput.value) {
+            amtInput.value = totalDue.toFixed(2);
+        }
+        window.updateDeskPaymentValidation();
+
+        // If not automatically delivered by Interakt API or user wants to re-open wa.me link
+        if (data.wa_me_url) {
+            window._lastWaMeUrl = data.wa_me_url;
+            window.open(data.wa_me_url, '_blank');
+        } else {
+            window.reopenDeskPayLinkWhatsApp();
+        }
+
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<span>📲</span> Re-send Link via WhatsApp';
+        }
+    } catch (err) {
+        console.error('Check-in payment link error:', err);
+        alert('Error generating payment link: ' + err.message);
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = origHtml;
+        }
+    }
+};
+
+window.reopenDeskPayLinkWhatsApp = function() {
+    if (window._lastWaMeUrl) {
+        window.open(window._lastWaMeUrl, '_blank');
+        return;
+    }
+    if (!window._activeDeskPayUrl) {
+        alert('No payment link generated yet.');
+        return;
+    }
+
+    const phone = (window._activeDeskPayPhone || '').replace(/\D/g, '');
+    let phoneParam = phone;
+    if (phone.length === 10) {
+        phoneParam = `91${phone}`;
+    }
+
+    const custName = (window._lastVerifiedCustomer?.name || 'Driver').trim();
+    const amountStr = parseFloat(window._activeDeskPayAmount || 0).toFixed(2);
+
+    const msg = `Hi ${custName}! 🏁\n\nHere is your secure payment link for your session at Havoc Sim Podium:\n\n• Amount Due: ₹${amountStr}\n• Payment Link: ${window._activeDeskPayUrl}\n\nTap the link above to complete your payment online.`;
+
+    const waUrl = phoneParam 
+        ? `https://wa.me/${phoneParam}?text=${encodeURIComponent(msg)}`
+        : `https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`;
+
+    window.open(waUrl, '_blank');
+};
+
+window.copyDeskPayLinkUrl = function() {
+    const input = document.getElementById('deskPayLinkUrlInput');
+    if (input && input.value) {
+        navigator.clipboard.writeText(input.value).then(() => {
+            alert('✓ Payment Link copied to clipboard!');
+        });
+    }
+};
 
 window.updateDeskPaymentValidation = function() {
     const expected = window._deskUnpaidDue || 0;

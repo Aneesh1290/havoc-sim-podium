@@ -1805,6 +1805,33 @@
                             Amount Due: <span style="font-size: 1.2rem; color: #fff; font-weight: 800;" id="deskTotalDueDisplay">₹0.00</span>
                         </div>
                     </div>
+
+                    <!-- Option to send Payment Link directly via WhatsApp -->
+                    <div id="deskPayLinkRow" style="background: rgba(37,211,102,0.08); border: 1px solid rgba(37,211,102,0.25); border-radius: 10px; padding: 0.75rem 0.9rem; margin-bottom: 0.85rem; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.25rem;">💬</span>
+                            <div>
+                                <div style="font-size: 0.82rem; font-weight: 700; color: #fff;">Need customer to pay online on their phone?</div>
+                                <div style="font-size: 0.72rem; color: #86efac;">Generate and send secure payment link via WhatsApp</div>
+                            </div>
+                        </div>
+                        <button type="button" id="deskSendPayLinkBtn" onclick="generateAndSendDeskPaymentLink()" style="background: linear-gradient(135deg, #25D366, #128C7E); color: #fff; border: none; font-weight: 700; font-size: 0.8rem; padding: 0.5rem 0.95rem; border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(37,211,102,0.3); transition: all 0.2s;">
+                            <span>📲</span> Send Link via WhatsApp
+                        </button>
+                    </div>
+
+                    <!-- Payment Link Status / Output banner -->
+                    <div id="deskPayLinkBanner" style="display: none; background: rgba(0,0,0,0.35); border: 1px solid rgba(37,211,102,0.35); border-radius: 10px; padding: 0.75rem; margin-bottom: 0.85rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-size: 0.75rem; font-weight: 700; color: #86efac;" id="deskPayLinkStatusMsg">✓ Payment Link Created!</span>
+                            <span style="font-size: 0.72rem; color: var(--gold); font-family: monospace;" id="deskPayLinkIdText"></span>
+                        </div>
+                        <div style="display: flex; gap: 6px;">
+                            <input type="text" id="deskPayLinkUrlInput" readonly style="flex: 1; padding: 0.45rem 0.65rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 0.75rem; font-family: monospace; outline: none;">
+                            <button type="button" onclick="copyDeskPayLinkUrl()" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid var(--border); border-radius: 6px; padding: 0.45rem 0.75rem; font-size: 0.75rem; cursor: pointer; font-weight: 600;">📋 Copy</button>
+                            <button type="button" onclick="reopenDeskPayLinkWhatsApp()" style="background: rgba(37,211,102,0.2); color: #25D366; border: 1px solid rgba(37,211,102,0.4); border-radius: 6px; padding: 0.45rem 0.75rem; font-size: 0.75rem; cursor: pointer; font-weight: 700;">💬 Re-open</button>
+                        </div>
+                    </div>
                     
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 0.75rem;">
                         <div>
@@ -2802,8 +2829,23 @@
                     </label>
                 </div>
 
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-top: 1px solid rgba(255,255,255,0.08);">
+                    <div>
+                        <strong style="color: #fff; font-size: 1.05rem; display: flex; align-items: center; gap: 6px;">
+                            <span>💬</span> WhatsApp Payment Links at Desk Check-in
+                        </strong>
+                        <div style="color: var(--muted); font-size: 0.83rem; margin-top: 0.3rem;">
+                            Enables the option in the Desk Check-In panel to generate and send secure payment links to customers via WhatsApp.
+                        </div>
+                    </div>
+                    <label class="switch" style="position: relative; display: inline-block; width: 50px; height: 26px; flex-shrink: 0; margin-left: 1rem;">
+                        <input type="checkbox" id="toggle-feature-desk-paylink" checked style="opacity: 0; width: 0; height: 0;">
+                        <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px;"></span>
+                    </label>
+                </div>
+
                 <div style="margin-top: 1.5rem; text-align: right;">
-                    <button class="btn btn-gold" id="saveFeatureSettingsBtn" onclick="saveFeatureSettings()">Save Feature Switch</button>
+                    <button class="btn btn-gold" id="saveFeatureSettingsBtn" onclick="saveFeatureSettings()">Save Feature Switches</button>
                 </div>
             </div>
             
