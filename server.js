@@ -344,8 +344,12 @@ db.run(`
 // Ensure order_ids column exists in payment_links if table was already created
 if (db.isPostgres) {
     db.pool.query("ALTER TABLE payment_links ADD COLUMN IF NOT EXISTS order_ids TEXT", () => { });
+    db.pool.query("ALTER TABLE payment_links ADD COLUMN IF NOT EXISTS upgrade_data TEXT", () => { });
+    db.pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS advance_reminder_sent INTEGER DEFAULT 0", () => { });
 } else {
     db.run("ALTER TABLE payment_links ADD COLUMN order_ids TEXT", [], () => { });
+    db.run("ALTER TABLE payment_links ADD COLUMN upgrade_data TEXT", [], () => { });
+    db.run("ALTER TABLE bookings ADD COLUMN advance_reminder_sent INTEGER DEFAULT 0", [], () => { });
 }
 
 // Ensure blocked_slots table exists for global/date/simulator slot blocking
@@ -791,13 +795,14 @@ app.post('/api/admin/settings/payment', verifyToken, verifySuperAdmin, (req, res
 // Feature switches (e.g. Band Inventory & Desk Payment Link ON/OFF toggle per website)
 app.get('/api/settings/features', (req, res) => {
     db.get("SELECT value FROM settings WHERE key = 'feature_switches'", (err, row) => {
-        const defaults = { band_inventory_enabled: true, desk_payment_link_enabled: true };
+        const defaults = { band_inventory_enabled: true, desk_payment_link_enabled: true, advance_notifications_enabled: true };
         if (err || !row) return res.json(defaults);
         try {
             const parsed = JSON.parse(row.value);
             res.json({
                 band_inventory_enabled: parsed.band_inventory_enabled !== false,
-                desk_payment_link_enabled: parsed.desk_payment_link_enabled !== false
+                desk_payment_link_enabled: parsed.desk_payment_link_enabled !== false,
+                advance_notifications_enabled: parsed.advance_notifications_enabled !== false
             });
         } catch (e) {
             res.json(defaults);
@@ -807,7 +812,7 @@ app.get('/api/settings/features', (req, res) => {
 
 app.post('/api/admin/settings/features', verifyToken, (req, res) => {
     db.get("SELECT value FROM settings WHERE key = 'feature_switches'", (getErr, row) => {
-        let current = { band_inventory_enabled: true, desk_payment_link_enabled: true };
+        let current = { band_inventory_enabled: true, desk_payment_link_enabled: true, advance_notifications_enabled: true };
         if (!getErr && row && row.value) {
             try { current = { ...current, ...JSON.parse(row.value) }; } catch (e) { }
         }
@@ -817,6 +822,9 @@ app.post('/api/admin/settings/features', verifyToken, (req, res) => {
         }
         if (req.body.desk_payment_link_enabled !== undefined) {
             current.desk_payment_link_enabled = !!req.body.desk_payment_link_enabled;
+        }
+        if (req.body.advance_notifications_enabled !== undefined) {
+            current.advance_notifications_enabled = !!req.body.advance_notifications_enabled;
         }
 
         const value = JSON.stringify(current);
@@ -3844,6 +3852,117 @@ app.post('/api/admin/bookings', verifyToken, (req, res) => {
     );
 });
 
+// Update booking details (package/simulator, date, time slot, players, co-player, price)
+app.put('/api/admin/bookings/:id/update-details', verifyToken, checkPermission('edit_orders'), (req, res) => {
+    const bookingId = parseInt(req.params.id, 10);
+    if (!bookingId) {
+        return res.status(400).json({ error: 'Valid booking ID is required.' });
+    }
+
+    const { item_name, booking_date, booking_time, players, player_two_name, price, status, instructor_id } = req.body;
+
+    db.get("SELECT * FROM bookings WHERE id = ?", [bookingId], (err, existing) => {
+        if (err || !existing) {
+            return res.status(404).json({ error: 'Booking not found.' });
+        }
+
+        const updates = [];
+        const params = [];
+
+        if (item_name !== undefined) { updates.push('item_name = ?'); params.push(item_name); }
+        if (booking_date !== undefined) { updates.push('booking_date = ?'); params.push(booking_date); }
+        if (booking_time !== undefined) { updates.push('booking_time = ?'); params.push(booking_time); }
+        if (players !== undefined) { updates.push('players = ?'); params.push(parseInt(players, 10) || 1); }
+        if (player_two_name !== undefined) { updates.push('player_two_name = ?'); params.push(player_two_name); }
+        if (price !== undefined) { updates.push('price = ?'); params.push(parseFloat(price) || 0); }
+        if (status !== undefined) { updates.push('status = ?'); params.push(status); }
+        if (instructor_id !== undefined) { updates.push('instructor_id = ?'); params.push(instructor_id); }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No fields provided for update.' });
+        }
+
+        params.push(bookingId);
+
+        db.run("UPDATE bookings SET " + updates.join(', ') + " WHERE id = ?", params, function (uErr) {
+            if (uErr) {
+                console.error('Error updating booking details:', uErr);
+                return res.status(500).json({ error: 'Database error updating booking.' });
+            }
+
+            // Sync with simulator_slot_locks if simulator, date, or time changed
+            const finalItem = item_name !== undefined ? item_name : existing.item_name;
+            const finalDate = booking_date !== undefined ? booking_date : existing.booking_date;
+            const finalTime = booking_time !== undefined ? booking_time : existing.booking_time;
+            const finalStatus = status !== undefined ? status : existing.status;
+            const orderId = existing.order_id;
+
+            if (orderId && (item_name !== undefined || booking_date !== undefined || booking_time !== undefined || status !== undefined)) {
+                const lockUpd = [];
+                const lockParams = [];
+                if (item_name !== undefined) { lockUpd.push('simulator_name = ?'); lockParams.push(finalItem); }
+                if (booking_date !== undefined) { lockUpd.push('booking_date = ?'); lockParams.push(finalDate); }
+                if (booking_time !== undefined) { lockUpd.push('booking_time = ?'); lockParams.push(finalTime); }
+                if (status !== undefined) { lockUpd.push('status = ?'); lockParams.push(finalStatus); }
+
+                if (lockUpd.length > 0) {
+                    lockParams.push(orderId, orderId + '%');
+                    db.run("UPDATE simulator_slot_locks SET " + lockUpd.join(', ') + " WHERE source_order_id = ? OR source_order_id LIKE ?", lockParams, () => {});
+                }
+            }
+
+            res.json({
+                success: true,
+                message: 'Booking details updated successfully.',
+                booking_id: bookingId,
+                updated: { item_name: finalItem, booking_date: finalDate, booking_time: finalTime, players, price }
+            });
+        });
+    });
+});
+
+// Update booking details by order_id (bulk update all items in order)
+app.put('/api/admin/bookings/order/:order_id/update-details', verifyToken, checkPermission('edit_orders'), (req, res) => {
+    let orderId = req.params.order_id;
+    if (!orderId) return res.status(400).json({ error: 'Order ID is required' });
+    orderId = decodeURIComponent(orderId).trim();
+
+    const { booking_date, booking_time, name, phone, email } = req.body;
+
+    const updates = [];
+    const params = [];
+    if (booking_date !== undefined) { updates.push('booking_date = ?'); params.push(booking_date); }
+    if (booking_time !== undefined) { updates.push('booking_time = ?'); params.push(booking_time); }
+    if (name !== undefined) { updates.push('name = ?'); params.push(name); }
+    if (phone !== undefined) { updates.push('phone = ?'); params.push(phone); }
+    if (email !== undefined) { updates.push('email = ?'); params.push(email); }
+
+    if (updates.length === 0) {
+        return res.status(400).json({ error: 'No fields provided for update.' });
+    }
+
+    params.push(orderId, orderId + '%');
+
+    db.run("UPDATE bookings SET " + updates.join(', ') + " WHERE order_id = ? OR order_id LIKE ?", params, function (uErr) {
+        if (uErr) {
+            console.error('Error updating order details:', uErr);
+            return res.status(500).json({ error: 'Database error updating order.' });
+        }
+
+        // Sync simulator_slot_locks
+        if (booking_date !== undefined || booking_time !== undefined) {
+            const lockUpd = [];
+            const lockParams = [];
+            if (booking_date !== undefined) { lockUpd.push('booking_date = ?'); lockParams.push(booking_date); }
+            if (booking_time !== undefined) { lockUpd.push('booking_time = ?'); lockParams.push(booking_time); }
+            lockParams.push(orderId, orderId + '%');
+            db.run("UPDATE simulator_slot_locks SET " + lockUpd.join(', ') + " WHERE source_order_id = ? OR source_order_id LIKE ?", lockParams, () => {});
+        }
+
+        res.json({ success: true, message: 'Order bookings updated successfully.', order_id: orderId });
+    });
+});
+
 // Update order_id for a booking (Admin only)
 app.put('/api/admin/bookings/:order_id/update-order-id', verifyToken, (req, res) => {
     let oldOrderId = req.params.order_id;
@@ -5290,6 +5409,54 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                                         `UPDATE bookings SET status = 'ATTENDED', payment_ref = ?, icici_txn_id = ?, icici_merchant_txn = ? WHERE order_id IN (${placeholders})`,
                                         [txnID || linkId, txnID, baseOrderId, ...linkedOrders],
                                         () => {
+                                            // Process package/slot upgrade if attached to payment link
+                                            if (plRow.upgrade_data) {
+                                                try {
+                                                    const upg = typeof plRow.upgrade_data === 'string' ? JSON.parse(plRow.upgrade_data) : plRow.upgrade_data;
+                                                    if (upg && (upg.booking_id || upg.order_id)) {
+                                                        const targetId = upg.booking_id;
+                                                        const targetOrderId = upg.order_id;
+                                                        const updates = [];
+                                                        const params = [];
+                                                        if (upg.item_name) { updates.push('item_name = ?'); params.push(upg.item_name); }
+                                                        if (upg.price !== undefined) { updates.push('price = ?'); params.push(parseFloat(upg.price)); }
+                                                        if (upg.players !== undefined) { updates.push('players = ?'); params.push(parseInt(upg.players, 10)); }
+                                                        if (upg.player_two_name !== undefined) { updates.push('player_two_name = ?'); params.push(upg.player_two_name); }
+                                                        if (upg.booking_date) { updates.push('booking_date = ?'); params.push(upg.booking_date); }
+                                                        if (upg.booking_time) { updates.push('booking_time = ?'); params.push(upg.booking_time); }
+                                                        if (updates.length > 0) {
+                                                            let whereSql = '';
+                                                            if (targetId) {
+                                                                whereSql = 'WHERE id = ?';
+                                                                params.push(targetId);
+                                                            } else {
+                                                                whereSql = 'WHERE order_id = ?';
+                                                                params.push(targetOrderId);
+                                                            }
+                                                            db.run("UPDATE bookings SET " + updates.join(', ') + " " + whereSql, params, (upgErr) => {
+                                                                if (!upgErr) {
+                                                                    console.log('[Payment Link Upgrade Applied] Updated booking details:', upg);
+                                                                    if (upg.booking_date || upg.booking_time || upg.item_name) {
+                                                                        const lockUpd = [];
+                                                                        const lockParams = [];
+                                                                        if (upg.item_name) { lockUpd.push('simulator_name = ?'); lockParams.push(upg.item_name); }
+                                                                        if (upg.booking_date) { lockUpd.push('booking_date = ?'); lockParams.push(upg.booking_date); }
+                                                                        if (upg.booking_time) { lockUpd.push('booking_time = ?'); lockParams.push(upg.booking_time); }
+                                                                        if (lockUpd.length > 0 && targetOrderId) {
+                                                                            lockParams.push(targetOrderId, targetOrderId + '%');
+                                                                            db.run("UPDATE simulator_slot_locks SET " + lockUpd.join(', ') + " WHERE source_order_id = ? OR source_order_id LIKE ?", lockParams, () => {});
+                                                                        }
+                                                                    }
+                                                                } else {
+                                                                    console.error('[Payment Link Upgrade Error]:', upgErr);
+                                                                }
+                                                            });
+                                                        }
+                                                    }
+                                                } catch (e) {
+                                                    console.error('[Payment Link Upgrade Parse Error]:', e);
+                                                }
+                                            }
                                             console.log(`[Payment Link Success] Automatically marked linked bookings as ATTENDED for link ${linkId}:`, linkedOrders);
                                             // Send post-session Google review WhatsApp
                                             if (plRow.customer_phone) {
@@ -5467,7 +5634,7 @@ app.post('/api/admin/payment-links', verifyToken, (req, res, next) => {
     return res.status(403).json({ error: "Access denied. Requires 'payment_links' or 'bookings' permission." });
 }, async (req, res) => {
     try {
-        const { amount, customer_name, customer_phone, customer_email, description, order_ids } = req.body;
+        const { amount, customer_name, customer_phone, customer_email, description, order_ids, upgrade_data } = req.body;
         const numAmount = parseFloat(amount);
         if (!numAmount || isNaN(numAmount) || numAmount <= 0) {
             return res.status(400).json({ error: 'Valid amount is required' });
@@ -5482,11 +5649,12 @@ app.post('/api/admin/payment-links', verifyToken, (req, res, next) => {
         const finalEmail = (customer_email || '').trim();
         const finalDesc = (description || 'Custom Payment').trim();
         const orderIdsStr = Array.isArray(order_ids) ? order_ids.join(',') : (order_ids || null);
+        const upgradeDataStr = upgrade_data ? (typeof upgrade_data === 'string' ? upgrade_data : JSON.stringify(upgrade_data)) : null;
 
         db.run(
-            `INSERT INTO payment_links (link_id, customer_name, customer_phone, customer_email, amount, description, order_ids, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
-            [linkId, finalName, finalPhone, finalEmail, numAmount, finalDesc, orderIdsStr],
+            `INSERT INTO payment_links (link_id, customer_name, customer_phone, customer_email, amount, description, order_ids, upgrade_data, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
+            [linkId, finalName, finalPhone, finalEmail, numAmount, finalDesc, orderIdsStr, upgradeDataStr],
             async function (err) {
                 if (err) {
                     console.error("Create payment link error:", err);
@@ -5720,6 +5888,287 @@ setInterval(() => {
         if (err) console.error("Hold Cleanup Error:", err);
     });
 }, 60 * 1000); // Check every minute so abandoned slots release promptly
+
+// ==========================================
+// ADVANCE BOOKING NOTIFICATIONS WITH PAYMENT LINKS
+// ==========================================
+
+// Helper to parse booking date string (e.g. 'Nov 11 (Wed)', 'Nov 11', '2026-11-11') and time slot into a UTC timestamp
+function parseBookingDateTimeIST(dateStr, timeStr) {
+    if (!dateStr) return null;
+    let cleanDate = String(dateStr).trim().replace(/\s*\([A-Za-z]+\)$/, '').trim();
+    const isoMatch = cleanDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    let year, month, day;
+    if (isoMatch) {
+        year = parseInt(isoMatch[1], 10);
+        month = parseInt(isoMatch[2], 10) - 1;
+        day = parseInt(isoMatch[3], 10);
+    } else {
+        const parts = cleanDate.split(/\s+/);
+        if (parts.length >= 2) {
+            const mStr = parts[0].toLowerCase();
+            const monthMap = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+            month = monthMap[mStr.slice(0, 3)];
+            day = parseInt(parts[1], 10);
+            year = parts[2] ? parseInt(parts[2], 10) : new Date().getFullYear();
+        }
+    }
+    if (year === undefined || month === undefined || isNaN(day)) return null;
+
+    let hour = 11, minute = 0;
+    if (timeStr) {
+        const startPart = timeStr.split('-')[0].trim();
+        const m = startPart.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
+        if (m) {
+            hour = parseInt(m[1], 10);
+            minute = m[2] ? parseInt(m[2], 10) : 0;
+            const meridiem = m[3].toLowerCase();
+            if (meridiem === 'pm' && hour < 12) hour += 12;
+            if (meridiem === 'am' && hour === 12) hour = 0;
+        }
+    }
+    // IST is UTC+5:30 -> UTC = IST - 5h 30m
+    return new Date(Date.UTC(year, month, day, hour - 5, minute - 30));
+}
+
+// Core helper: generates a payment link for an order (or reuse existing pending one) and dispatches advance notification WhatsApp
+async function dispatchAdvanceBookingNotification(orderId, hostReq = null) {
+    return new Promise((resolve) => {
+        db.all("SELECT * FROM bookings WHERE order_id = ? OR order_id LIKE ?", [orderId, `${orderId}%`], async (err, rows) => {
+            if (err || !rows || rows.length === 0) {
+                return resolve({ success: false, reason: 'No bookings found for order ' + orderId });
+            }
+
+            const primary = rows[0];
+            const customerName = (primary.name || 'Driver').trim();
+            const customerPhone = (primary.phone || '').trim();
+            const customerEmail = (primary.email || '').trim();
+
+            if (!customerPhone) {
+                return resolve({ success: false, reason: 'No phone number for customer' });
+            }
+
+            // Exclude already cancelled bookings
+            const activeRows = rows.filter(r => r.status !== 'CANCELLED' && r.status !== 'REFUNDED');
+            if (activeRows.length === 0) {
+                return resolve({ success: false, reason: 'All bookings in order are cancelled' });
+            }
+
+            const isAllPaid = activeRows.every(r => r.status === 'PAID' || r.status === 'ATTENDED' || r.status === 'CASH');
+            const totalDue = activeRows
+                .filter(r => r.status !== 'PAID' && r.status !== 'ATTENDED' && r.status !== 'CASH')
+                .reduce((sum, r) => sum + (parseFloat(r.price) || 0), 0);
+
+            const isProd = process.env.NODE_ENV === 'production' || ICICI_ENV === 'live';
+            let baseUrl = 'https://www.havocsim.in';
+            if (hostReq && hostReq.protocol && hostReq.get) {
+                baseUrl = isProd ? 'https://www.havocsim.in' : `${hostReq.protocol}://${hostReq.get('host')}`;
+            }
+
+            let payUrl = '';
+            let linkId = '';
+
+            if (totalDue > 0) {
+                // Check if a pending payment link already exists for these order_ids
+                const existingLink = await new Promise(resLink => {
+                    db.get("SELECT * FROM payment_links WHERE order_ids LIKE ? AND status = 'PENDING' ORDER BY id DESC LIMIT 1", [`%${orderId}%`], (lErr, row) => {
+                        resLink(row || null);
+                    });
+                });
+
+                if (existingLink) {
+                    linkId = existingLink.link_id;
+                    payUrl = `${baseUrl}/pay.html?id=${linkId}`;
+                } else {
+                    // Create a new dedicated payment link
+                    const shortCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+                    linkId = `PL_${shortCode}`;
+                    payUrl = `${baseUrl}/pay.html?id=${linkId}`;
+
+                    const sessionDesc = activeRows.map(r => r.item_name).join(', ') || 'Simulator Session';
+                    const orderIdsStr = activeRows.map(r => r.order_id).join(',');
+
+                    await new Promise(resIns => {
+                        db.run(
+                            `INSERT INTO payment_links (link_id, customer_name, customer_phone, customer_email, amount, description, order_ids, status)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
+                            [linkId, customerName, customerPhone, customerEmail, totalDue, `Advance Payment: ${sessionDesc} (${orderId})`, orderIdsStr],
+                            () => resIns()
+                        );
+                    });
+                }
+            }
+
+            // Compose Advance Booking Notification WhatsApp Message
+            const sessionSummary = activeRows.map(r => {
+                const isDuo = (Number(r.players) === 2 || r.player_two_name);
+                return `${r.item_name || 'Simulator'}${isDuo ? ' (2-Player Combo)' : ''}`;
+            }).join(' + ');
+
+            const dateStr = primary.booking_date || '';
+            const timeSlotStr = activeRows.map(r => r.booking_time).filter(Boolean).join(', ') || '';
+
+            const { countryCode, phoneNumber } = parseInternationalPhone(customerPhone);
+            const cleanDigitsCountry = countryCode.replace(/\D/g, "") || "91";
+            const waNumber = `${cleanDigitsCountry}${phoneNumber}`;
+
+            let waMessageText = '';
+            if (totalDue > 0 && payUrl) {
+                waMessageText = `Hi ${customerName}! 🏎️🏁\n\nThis is an advance reminder from Havoc Sim Podium for your upcoming simulator booking!\n\n📋 *Booking Details:*\n• Order ID: #${orderId}\n• Experience: ${sessionSummary}\n• Date: ${dateStr}\n• Time Slot: ${timeSlotStr}\n• Amount Due: ₹${totalDue.toFixed(2)}\n\n💳 *Complete Payment Before Arrival:*\nTo skip the desk check-in queue, please complete your payment using this secure link:\n${payUrl}\n\nSee you on the podium! 🚀`;
+            } else {
+                waMessageText = `Hi ${customerName}! 🏎️🏁\n\nThis is an advance reminder from Havoc Sim Podium for your upcoming simulator booking!\n\n📋 *Booking Details:*\n• Order ID: #${orderId}\n• Experience: ${sessionSummary}\n• Date: ${dateStr}\n• Time Slot: ${timeSlotStr}\n• Status: Confirmed & Paid ✓\n\nPlease arrive 10 minutes prior to your slot time. See you on the podium! 🚀`;
+            }
+
+            const waMeUrl = `https://wa.me/${waNumber}?text=${encodeURIComponent(waMessageText)}`;
+
+            // Attempt WhatsApp dispatch via Interakt API if configured
+            const interaktApiKey = process.env.INTERAKT_API_KEY;
+            let waSent = false;
+            let interaktError = null;
+
+            if (interaktApiKey && phoneNumber) {
+                try {
+                    // Try using configured payment link template or advance reminder template
+                    const templateName = process.env.INTERAKT_PAYMENT_LINK_TEMPLATE || "havoc_payment_link";
+                    const formattedAmt = totalDue.toFixed(2);
+
+                    const response = await fetch('https://api.interakt.ai/v1/public/message/', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Basic ${interaktApiKey.trim()}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            countryCode: cleanDigitsCountry ? `+${cleanDigitsCountry}` : "+91",
+                            phoneNumber: phoneNumber,
+                            type: "Template",
+                            template: {
+                                name: templateName,
+                                languageCode: "en",
+                                bodyValues: [
+                                    customerName,
+                                    formattedAmt,
+                                    payUrl || "Paid Online",
+                                    `Havoc Sim Podium - ${sessionSummary} (${dateStr} @ ${timeSlotStr})`
+                                ]
+                            }
+                        })
+                    });
+
+                    const resData = await response.json();
+                    if (resData.result === true || response.status === 200 || response.status === 201) {
+                        waSent = true;
+                        console.log(`[Advance Notification] Interakt WhatsApp sent successfully to ${phoneNumber} for order #${orderId}`);
+                    } else {
+                        interaktError = resData.message || 'Interakt API returned non-success';
+                        console.warn(`[Advance Notification] Interakt response:`, resData);
+                    }
+                } catch (apiErr) {
+                    interaktError = apiErr.message;
+                    console.error(`[Advance Notification] Interakt dispatch error:`, apiErr);
+                }
+            }
+
+            // Mark advance_reminder_sent = 1 on all rows in this order
+            db.run("UPDATE bookings SET advance_reminder_sent = 1 WHERE order_id = ? OR order_id LIKE ?", [orderId, `${orderId}%`], () => { });
+
+            resolve({
+                success: true,
+                order_id: orderId,
+                customer_phone: customerPhone,
+                total_due: totalDue,
+                pay_url: payUrl,
+                link_id: linkId,
+                wa_sent: waSent,
+                wa_me_url: waMeUrl,
+                message_text: waMessageText,
+                interakt_error: interaktError
+            });
+        });
+    });
+}
+
+// Background Cron Job: Runs every 10 minutes to auto-send advance notifications to prior bookings
+// Targets bookings occurring in the next 1 to 24 hours that haven't received an advance reminder yet
+setInterval(async () => {
+    try {
+        // First check feature switch from settings
+        db.get("SELECT value FROM settings WHERE key = 'feature_switches'", async (err, row) => {
+            let advanceEnabled = true;
+            if (!err && row && row.value) {
+                try {
+                    const parsed = JSON.parse(row.value);
+                    if (parsed.advance_notifications_enabled === false) {
+                        advanceEnabled = false;
+                    }
+                } catch (e) { }
+            }
+
+            if (!advanceEnabled) {
+                return; // Feature toggle is disabled in admin
+            }
+
+            // Query active bookings where reminder not sent yet
+            db.all(
+                "SELECT * FROM bookings WHERE (advance_reminder_sent IS NULL OR advance_reminder_sent = 0) AND status NOT IN ('CANCELLED', 'REFUNDED', 'ATTENDED') ORDER BY id ASC LIMIT 50",
+                [],
+                async (bErr, rows) => {
+                    if (bErr || !rows || rows.length === 0) return;
+
+                    const now = new Date();
+                    // Group by base order ID so customer gets 1 consolidated notification
+                    const orderGroups = new Map();
+                    rows.forEach(r => {
+                        let base = r.order_id || '';
+                        const parts = base.split('_');
+                        if (parts[1] === 'SP' && parts.length >= 4) {
+                            base = parts.slice(0, 3).join('_');
+                        } else if (parts.length >= 4) {
+                            base = parts.slice(0, 3).join('_');
+                        }
+                        if (!orderGroups.has(base)) orderGroups.set(base, []);
+                        orderGroups.get(base).push(r);
+                    });
+
+                    for (const [orderId, items] of orderGroups) {
+                        const first = items[0];
+                        const slotTime = parseBookingDateTimeIST(first.booking_date, first.booking_time);
+                        if (!slotTime || isNaN(slotTime.getTime())) continue;
+
+                        const diffHours = (slotTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+                        // If session is within the upcoming 24 hours (and at least 15 mins away)
+                        if (diffHours >= 0.25 && diffHours <= 24) {
+                            console.log(`[Advance Cron] Dispatching advance reminder for order #${orderId} (slot in ${diffHours.toFixed(1)} hrs)...`);
+                            await dispatchAdvanceBookingNotification(orderId);
+                        }
+                    }
+                }
+            );
+        });
+    } catch (cronErr) {
+        console.error('[Advance Cron Job Error]:', cronErr);
+    }
+}, 10 * 60 * 1000); // Check every 10 minutes
+
+// Admin Endpoint: Manual one-click trigger to send advance reminder + payment link
+app.post('/api/admin/bookings/:order_id/send-advance-reminder', verifyToken, checkPermission('edit_orders'), async (req, res) => {
+    let orderId = req.params.order_id;
+    if (!orderId) return res.status(400).json({ error: 'Order ID is required' });
+    orderId = decodeURIComponent(orderId).trim();
+
+    try {
+        const result = await dispatchAdvanceBookingNotification(orderId, req);
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+        res.json(result);
+    } catch (e) {
+        console.error('Error dispatching manual advance reminder:', e);
+        res.status(500).json({ error: e.message || 'Internal server error sending reminder' });
+    }
+});
+
 
 // ==========================================
 // ICICI UPI PAYMENT ROUTES

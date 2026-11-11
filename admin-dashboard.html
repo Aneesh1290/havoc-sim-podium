@@ -1873,6 +1873,237 @@
         </div>
     </div>
 
+    
+    <!-- Upgrade Package / Simulator Modal -->
+    <div class="modal-overlay" id="upgradeBookingModal" style="display:none; z-index: 10006; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);">
+        <div class="modal-box" style="max-width: 580px; width: 94%; text-align: left; background: #1c1d26; border: 1.5px solid rgba(229,184,105,0.4); border-radius: 18px; padding: 1.8rem; box-shadow: 0 25px 60px rgba(0,0,0,0.7), 0 0 30px rgba(229,184,105,0.15); max-height: 94vh; overflow-y: auto;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.9rem;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.5rem; background: rgba(229,184,105,0.15); width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid rgba(229,184,105,0.3);">🚀</span>
+                    <div>
+                        <h2 style="font-size: 1.25rem; margin: 0; color: #fff;">Upgrade Simulator / Package</h2>
+                        <p style="font-size: 0.78rem; color: var(--muted); margin: 2px 0 0;" id="upgModalSubtitle">Select a higher package or add co-player with live difference calculation</p>
+                    </div>
+                </div>
+                <button type="button" class="modal-close" onclick="closeUpgradeModal()">&times;</button>
+            </div>
+
+            <!-- Current Package Summary Card -->
+            <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem;">
+                <div style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); font-weight: 700; margin-bottom: 0.4rem;">Current Booking</div>
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                        <div style="font-weight: 800; font-size: 1.05rem; color: #fff;" id="upgCurrentPackageName">-</div>
+                        <div style="font-size: 0.78rem; color: var(--gold); margin-top: 2px;" id="upgCurrentDateTime">-</div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 0.75rem; color: var(--muted);">Paid / Base Value</div>
+                        <div style="font-size: 1.15rem; font-weight: 800; color: #10B981;" id="upgCurrentPriceDisplay">₹0.00</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Target Package Selection Form -->
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.25rem;">
+                
+                <div>
+                    <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.4rem;">
+                        Select Upgraded Simulator / Package *
+                    </label>
+                    <select id="upgTargetProductSelect" onchange="recalculateUpgradeDiff()" style="width: 100%; padding: 0.85rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+                        <!-- Options injected by JS -->
+                    </select>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.4rem;">
+                            Player Mode
+                        </label>
+                        <select id="upgPlayersSelect" onchange="recalculateUpgradeDiff()" style="width: 100%; padding: 0.85rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+                            <option value="1">1 Player (Solo)</option>
+                            <option value="2">2 Players (Combo Duo)</option>
+                        </select>
+                    </div>
+
+                    <div id="upgP2FieldBox" style="display: none;">
+                        <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.4rem;">
+                            Co-Player (P2) Name
+                        </label>
+                        <input type="text" id="upgP2NameInput" placeholder="Friend's Name" style="width: 100%; padding: 0.85rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+                    </div>
+                </div>
+
+                <!-- Custom Override / Total Final Price -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.4rem;">
+                            New Package Total Price (₹)
+                        </label>
+                        <input type="number" step="0.01" id="upgTargetPriceInput" oninput="recalculateUpgradeDiff(true)" style="width: 100%; padding: 0.85rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 1.05rem; font-weight: 700; outline: none;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.4rem;">
+                            Price Difference to Collect
+                        </label>
+                        <div style="padding: 0.85rem; background: rgba(229,184,105,0.08); border: 1px solid rgba(229,184,105,0.3); border-radius: 10px; font-weight: 800; font-size: 1.15rem; color: var(--gold);" id="upgPriceDiffDisplay">
+                            +₹0.00
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Payment Collection Options for Difference -->
+            <div id="upgPaymentOptionsBox" style="background: rgba(0,0,0,0.35); border: 1.5px solid rgba(229,184,105,0.3); border-radius: 12px; padding: 1rem; margin-bottom: 1.25rem;">
+                <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.75rem;">
+                    Confirm &amp; Collect Difference
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-bottom: 0.85rem;">
+                    <label style="flex: 1; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); padding: 0.65rem 0.85rem; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; font-size: 0.85rem; font-weight: 600;">
+                        <input type="radio" name="upgPaymentMethod" value="cash" checked onchange="toggleUpgPayMethod()">
+                        <span>💵 Cash / POS Card at Desk</span>
+                    </label>
+                    <label style="flex: 1; display: flex; align-items: center; gap: 8px; background: rgba(255,255,255,0.04); padding: 0.65rem 0.85rem; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; font-size: 0.85rem; font-weight: 600;">
+                        <input type="radio" name="upgPaymentMethod" value="link" onchange="toggleUpgPayMethod()">
+                        <span>💬 WhatsApp Pay Link</span>
+                    </label>
+                </div>
+
+                <!-- Custom ref for cash/pos -->
+                <div id="upgCashRefBox">
+                    <input type="text" id="upgPaymentNoteInput" placeholder="Payment Reference / Note (e.g. CASH / UPI / POS)" style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit'; font-size: 0.88rem; outline: none;">
+                </div>
+
+                <!-- Payment Link Banner if created -->
+                <div id="upgPayLinkOutputBox" style="display: none; margin-top: 0.75rem; background: rgba(37,211,102,0.1); border: 1px solid rgba(37,211,102,0.3); border-radius: 8px; padding: 0.75rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="color: #86efac; font-weight: 700; font-size: 0.8rem;">✓ Upgrade Payment Link Sent!</span>
+                        <span id="upgPayLinkId" style="font-family: monospace; color: var(--gold); font-size: 0.75rem;"></span>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="text" id="upgPayLinkUrl" readonly style="flex: 1; background: #000; border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; color: #aaa; font-size: 0.75rem; font-family: monospace;">
+                        <button type="button" onclick="copyUpgPayLink()" style="background: rgba(255,255,255,0.1); border: 1px solid var(--border); color: #fff; border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.75rem;">Copy</button>
+                    </div>
+                    <div style="font-size: 0.72rem; color: #86efac; margin-top: 4px;">
+                        Booking details will automatically update once the customer completes payment!
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button type="button" onclick="closeUpgradeModal()" class="btn" style="flex: 1; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid var(--border); padding: 0.85rem; font-weight: 600; border-radius: 10px; cursor: pointer;">
+                    Cancel
+                </button>
+                <button type="button" id="btnSubmitUpgrade" onclick="submitUpgradeBooking()" class="btn" style="flex: 1.5; background: linear-gradient(135deg, #e5b869, #c9952f); color: #000; border: none; padding: 0.85rem; font-weight: 800; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(229,184,105,0.3);">
+                    <span>✓</span> Confirm Upgrade
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Edit Booking / Reschedule Date & Slot Modal -->
+    <div class="modal-overlay" id="editBookingModal" style="display:none; z-index: 10006; align-items: center; justify-content: center; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px);">
+        <div class="modal-box" style="max-width: 580px; width: 94%; text-align: left; background: #1c1d26; border: 1.5px solid rgba(59,130,246,0.4); border-radius: 18px; padding: 1.8rem; box-shadow: 0 25px 60px rgba(0,0,0,0.7), 0 0 30px rgba(59,130,246,0.15); max-height: 94vh; overflow-y: auto;">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.9rem;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.5rem; background: rgba(59,130,246,0.15); width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid rgba(59,130,246,0.3);">📅</span>
+                    <div>
+                        <h2 style="font-size: 1.25rem; margin: 0; color: #fff;">Edit Booking &amp; Reschedule</h2>
+                        <p style="font-size: 0.78rem; color: var(--muted); margin: 2px 0 0;">Update simulator, date, session time slot, and guest information</p>
+                    </div>
+                </div>
+                <button type="button" class="modal-close" onclick="closeEditBookingModal()">&times;</button>
+            </div>
+
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.25rem;">
+                
+                <!-- Simulator selection -->
+                <div>
+                    <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.4rem;">
+                        Simulator Experience
+                    </label>
+                    <select id="editItemSelect" style="width: 100%; padding: 0.85rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+                        <!-- Injected by JS -->
+                    </select>
+                </div>
+
+                <!-- Date & Slot Grid -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.4rem;">
+                            Booking Date *
+                        </label>
+                        <input type="text" id="editBookingDateInput" placeholder="e.g. Nov 10 (Tue) or YYYY-MM-DD" style="width: 100%; padding: 0.85rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.4rem;">
+                            Time Slot *
+                        </label>
+                        <select id="editBookingTimeSelect" style="width: 100%; padding: 0.85rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+                            <!-- Injected by JS -->
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Player Count & Co-player -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.4rem;">
+                            Player Count
+                        </label>
+                        <select id="editPlayersSelect" onchange="toggleEditP2Field()" style="width: 100%; padding: 0.85rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+                            <option value="1">1 Player</option>
+                            <option value="2">2 Players (Combo Duo)</option>
+                        </select>
+                    </div>
+                    <div id="editP2Box" style="display: none;">
+                        <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.4rem;">
+                            Co-Player (P2) Name
+                        </label>
+                        <input type="text" id="editPlayerTwoNameInput" placeholder="Co-Player Name" style="width: 100%; padding: 0.85rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+                    </div>
+                </div>
+
+                <!-- Price and Status -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div>
+                        <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.4rem;">
+                            Price Charged (₹)
+                        </label>
+                        <input type="number" step="0.01" id="editPriceInput" style="width: 100%; padding: 0.85rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 1rem; font-weight: 700; outline: none;">
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted); margin-bottom: 0.4rem;">
+                            Session Status
+                        </label>
+                        <select id="editStatusSelect" style="width: 100%; padding: 0.85rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 10px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+                            <option value="PAID">PAID</option>
+                            <option value="ATTENDED">ATTENDED</option>
+                            <option value="PENDING">PENDING (Unpaid)</option>
+                            <option value="CANCELLED">CANCELLED</option>
+                        </select>
+                    </div>
+                </div>
+
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <button type="button" onclick="closeEditBookingModal()" class="btn" style="flex: 1; background: rgba(255,255,255,0.06); color: #fff; border: 1px solid var(--border); padding: 0.85rem; font-weight: 600; border-radius: 10px; cursor: pointer;">
+                    Cancel
+                </button>
+                <button type="button" id="btnSubmitEditBooking" onclick="submitEditBookingDetails()" class="btn" style="flex: 1.5; background: linear-gradient(135deg, #3B82F6, #1D4ED8); color: #fff; border: none; padding: 0.85rem; font-weight: 800; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 4px 15px rgba(59,130,246,0.3);">
+                    <span>✓</span> Save Changes
+                </button>
+            </div>
+
+        </div>
+    </div>
+
     <!-- Modals End -->
     <main class="main">
 
@@ -2840,6 +3071,21 @@
                     </div>
                     <label class="switch" style="position: relative; display: inline-block; width: 50px; height: 26px; flex-shrink: 0; margin-left: 1rem;">
                         <input type="checkbox" id="toggle-feature-desk-paylink" checked style="opacity: 0; width: 0; height: 0;">
+                        <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px;"></span>
+                    </label>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem 0; border-top: 1px solid rgba(255,255,255,0.08);">
+                    <div>
+                        <strong style="color: #fff; font-size: 1.05rem; display: flex; align-items: center; gap: 6px;">
+                            <span>🔔</span> Advance Booking Notifications &amp; Pre-Arrival Payment Links
+                        </strong>
+                        <div style="color: var(--muted); font-size: 0.83rem; margin-top: 0.3rem;">
+                            Automatically sends WhatsApp advance reminders with instant payment links to prior bookings before arrival, allowing guests to complete payment beforehand.
+                        </div>
+                    </div>
+                    <label class="switch" style="position: relative; display: inline-block; width: 50px; height: 26px; flex-shrink: 0; margin-left: 1rem;">
+                        <input type="checkbox" id="toggle-feature-advance-notifications" checked style="opacity: 0; width: 0; height: 0;">
                         <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #444; transition: .4s; border-radius: 34px;"></span>
                     </label>
                 </div>

@@ -645,10 +645,20 @@ window.openOrderDetails = (baseOrderId) => {
                             ${item.instructor_name ? `<div style="font-size: 0.8rem; color: var(--gold); margin-top: 0.3rem; font-weight: 500;">Assigned Instructor: ${item.instructor_name}</div>` : ''}
                         </div>
                     </div>
-                    <div style="display: flex; gap: 2rem; align-items: center;">
-                        <span style="color: var(--muted);">₹${itemBaseCost}</span>
-                        <span style="color: var(--muted);">X 1</span>
-                        <span style="font-weight: 600;">₹${itemBaseCost}</span>
+                    <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
+                        <div style="display: flex; gap: 1.5rem; align-items: center;">
+                            <span style="color: var(--muted);">₹${itemBaseCost}</span>
+                            <span style="color: var(--muted);">X 1</span>
+                            <span style="font-weight: 600;">₹${itemBaseCost}</span>
+                        </div>
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                            <button type="button" onclick="openUpgradeBookingModal(${item.id})" title="Upgrade Simulator or Combo Package" style="background: rgba(229,184,105,0.12); border: 1px solid rgba(229,184,105,0.35); color: var(--gold); font-size: 0.72rem; font-weight: 700; padding: 4px 8px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                                <span>🚀</span> Upgrade
+                            </button>
+                            <button type="button" onclick="openEditBookingModal(${item.id})" title="Edit Simulator, Date, or Time Slot" style="background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.35); color: #60a5fa; font-size: 0.72rem; font-weight: 700; padding: 4px 8px; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                                <span>📅</span> Edit / Reschedule
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -669,6 +679,9 @@ window.openOrderDetails = (baseOrderId) => {
                 <div class="custom-dropdown-item" onclick="markOrderAsFulfilled('${baseOrderId}')">✓ Mark as fulfilled</div>
                 <div class="custom-dropdown-item" onclick="markOrderAsUnfulfilled('${baseOrderId}')">✗ Mark as unfulfilled</div>
                 <div class="custom-dropdown-item" onclick="cancelOrder('${baseOrderId}')">✗ Cancel order</div>
+                <div class="custom-dropdown-item" style="color: var(--gold);" onclick="if(items.length) openUpgradeBookingModal(items[0].id)">🚀 Upgrade package</div>
+                <div class="custom-dropdown-item" style="color: #60a5fa;" onclick="if(items.length) openEditBookingModal(items[0].id)">📅 Edit date / reschedule</div>
+                <div class="custom-dropdown-item" style="color: #38bdf8;" onclick="sendAdvanceReminderOrder('${baseOrderId}')">🔔 Send advance reminder (WhatsApp)</div>
             `;
         }
         if (canDelete) {
@@ -4644,6 +4657,7 @@ async function loadSettings() {
             const data = await res.json();
             const isBandEnabled = data.band_inventory_enabled !== false;
             const isPayLinkEnabled = data.desk_payment_link_enabled !== false;
+            const isAdvanceEnabled = data.advance_notifications_enabled !== false;
 
             const bandToggle = document.getElementById("toggle-feature-bands");
             if (bandToggle) bandToggle.checked = isBandEnabled;
@@ -4652,6 +4666,9 @@ async function loadSettings() {
             const payLinkToggle = document.getElementById("toggle-feature-desk-paylink");
             if (payLinkToggle) payLinkToggle.checked = isPayLinkEnabled;
             applyDeskPaymentLinkFeatureVisibility(isPayLinkEnabled);
+
+            const advanceToggle = document.getElementById("toggle-feature-advance-notifications");
+            if (advanceToggle) advanceToggle.checked = isAdvanceEnabled;
         }
     } catch (e) {
         console.error("Failed to load feature settings", e);
@@ -4704,11 +4721,12 @@ window.saveFeatureSettings = async () => {
 
     const band_inventory_enabled = document.getElementById("toggle-feature-bands")?.checked;
     const desk_payment_link_enabled = document.getElementById("toggle-feature-desk-paylink")?.checked;
+    const advance_notifications_enabled = document.getElementById("toggle-feature-advance-notifications")?.checked;
 
     try {
         const res = await fetchAuth('/api/admin/settings/features', {
             method: 'POST',
-            body: JSON.stringify({ band_inventory_enabled, desk_payment_link_enabled })
+            body: JSON.stringify({ band_inventory_enabled, desk_payment_link_enabled, advance_notifications_enabled })
         });
         const data = await res.json();
         if (res.ok && data.success) {
@@ -5530,6 +5548,16 @@ window.renderDeskVerifiedBookings = function() {
                                 <div style="font-size: 0.95rem; font-weight: 800; color: #fff;">₹${priceNum.toFixed(2)}</div>
                                 <div style="font-size: 0.68rem; color: var(--muted);">${playersCount > 0 ? `(₹${(priceNum / playersCount).toFixed(0)}/ea)` : 'Cancelled'}</div>
                             </div>
+
+                            <!-- Upgrade Button -->
+                            <button type="button" onclick="openUpgradeBookingModal(${b.id})" title="Upgrade Simulator or Player Combo" style="background: rgba(229,184,105,0.12); border: 1px solid rgba(229,184,105,0.35); color: var(--gold); border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" onmouseover="this.style.background='rgba(229,184,105,0.2)'" onmouseout="this.style.background='rgba(229,184,105,0.12)'">
+                                <span>🚀</span> Upgrade
+                            </button>
+
+                            <!-- Edit / Reschedule Button -->
+                            <button type="button" onclick="openEditBookingModal(${b.id})" title="Change Simulator, Date or Time Slot" style="background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.35); color: #60a5fa; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" onmouseover="this.style.background='rgba(59,130,246,0.2)'" onmouseout="this.style.background='rgba(59,130,246,0.12)'">
+                                <span>📅</span> Edit / Reschedule
+                            </button>
 
                             <!-- Release / Walkout Button -->
                             <button type="button" onclick="cancelDeskBookingSlot(${b.id})" title="Release Simulator Slot (Walkout / Not Interested)" style="background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: #f87171; border-radius: 8px; padding: 6px 10px; cursor: pointer; font-size: 0.75rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;" onmouseover="this.style.background='rgba(239,68,68,0.2)'" onmouseout="this.style.background='rgba(239,68,68,0.1)'">
@@ -7563,3 +7591,506 @@ document.getElementById('nav-block-slots')?.addEventListener('click', () => {
 
 
 
+
+
+// ==========================================
+// UPGRADE & EDIT BOOKINGS / RESCHEDULING MODULE
+// ==========================================
+
+window._upgradeBookingState = null;
+window._editBookingState = null;
+window._adminAvailableProducts = [];
+window._adminAvailableSlots = [];
+
+// Load products for upgrade / edit selections
+async function loadProductsForUpgrade() {
+    if (window._adminAvailableProducts && window._adminAvailableProducts.length > 0) {
+        return window._adminAvailableProducts;
+    }
+    try {
+        const res = await fetch('/api/products');
+        if (res.ok) {
+            const data = await res.json();
+            window._adminAvailableProducts = Array.isArray(data) ? data : [];
+            return window._adminAvailableProducts;
+        }
+    } catch (e) {
+        console.warn('Could not fetch products for upgrade:', e);
+    }
+    return [];
+}
+
+// Load time slots for edit / rescheduling
+async function loadSlotsForEdit() {
+    if (window._adminAvailableSlots && window._adminAvailableSlots.length > 0) {
+        return window._adminAvailableSlots;
+    }
+    try {
+        const res = await fetch('/api/slots');
+        if (res.ok) {
+            const data = await res.json();
+            window._adminAvailableSlots = Array.isArray(data) ? data : [];
+            return window._adminAvailableSlots;
+        }
+    } catch (e) {
+        console.warn('Could not fetch slots for edit:', e);
+    }
+    return [];
+}
+
+// Open Upgrade Modal for a specific booking
+window.openUpgradeBookingModal = async function(bookingId) {
+    let booking = (window.allBookings || []).find(b => b.id === bookingId);
+    if (!booking && window._deskVerifiedBookings) {
+        booking = window._deskVerifiedBookings.find(b => b.id === bookingId);
+    }
+    if (!booking) {
+        alert('Booking not found.');
+        return;
+    }
+
+    window._upgradeBookingState = {
+        booking: { ...booking },
+        originalPrice: parseFloat(booking.price) || 0
+    };
+
+    const modal = document.getElementById('upgradeBookingModal');
+    if (!modal) return;
+
+    // Display current booking details
+    document.getElementById('upgCurrentPackageName').textContent = booking.item_name || 'Simulator';
+    document.getElementById('upgCurrentDateTime').textContent = `📅 ${booking.booking_date || '-'} | ⏰ ${booking.booking_time || '-'}`;
+    document.getElementById('upgCurrentPriceDisplay').textContent = `₹${parseFloat(booking.price || 0).toFixed(2)}`;
+
+    // Populate products dropdown
+    const prods = await loadProductsForUpgrade();
+    const select = document.getElementById('upgTargetProductSelect');
+    select.innerHTML = '';
+
+    if (prods.length === 0) {
+        select.innerHTML = `
+            <option value="RC Flying Sim" data-price="354">RC Flying Sim (₹354)</option>
+            <option value="Flight Sim Pro (Airbus Edition)" data-price="1770">Flight Sim Pro (Airbus Edition) (₹1770)</option>
+            <option value="F1 Simulator Pro" data-price="1500">F1 Simulator Pro (₹1500)</option>
+        `;
+    } else {
+        prods.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.name;
+            opt.dataset.price = p.price;
+            opt.dataset.twoPlayerPrice = p.two_player_price || (p.price * 1.5);
+            opt.textContent = `${p.name} — ₹${p.price}${p.two_player_price ? ` (2P: ₹${p.two_player_price})` : ''}`;
+            if (p.name === booking.item_name) {
+                opt.selected = true;
+            }
+            select.appendChild(opt);
+        });
+    }
+
+    // Set player count
+    const playersSelect = document.getElementById('upgPlayersSelect');
+    playersSelect.value = String(booking.players || 1);
+    const p2Box = document.getElementById('upgP2FieldBox');
+    const p2Input = document.getElementById('upgP2NameInput');
+    if (String(booking.players) === '2') {
+        p2Box.style.display = 'block';
+        p2Input.value = booking.player_two_name || '';
+    } else {
+        p2Box.style.display = 'none';
+        p2Input.value = '';
+    }
+
+    // Reset payment method to cash
+    const cashRadio = document.querySelector('input[name="upgPaymentMethod"][value="cash"]');
+    if (cashRadio) cashRadio.checked = true;
+    toggleUpgPayMethod();
+
+    const outputBox = document.getElementById('upgPayLinkOutputBox');
+    if (outputBox) outputBox.style.display = 'none';
+
+    // Recalculate price diff
+    recalculateUpgradeDiff();
+
+    modal.style.display = 'flex';
+};
+
+// Recalculate upgrade price difference
+window.recalculateUpgradeDiff = function(manualPriceEdit = false) {
+    if (!window._upgradeBookingState) return;
+
+    const select = document.getElementById('upgTargetProductSelect');
+    const playersSelect = document.getElementById('upgPlayersSelect');
+    const p2Box = document.getElementById('upgP2FieldBox');
+    const priceInput = document.getElementById('upgTargetPriceInput');
+    const diffDisplay = document.getElementById('upgPriceDiffDisplay');
+
+    const is2P = playersSelect.value === '2';
+    if (p2Box) p2Box.style.display = is2P ? 'block' : 'none';
+
+    let targetTotal = parseFloat(priceInput.value) || 0;
+
+    if (!manualPriceEdit) {
+        const selectedOpt = select.options[select.selectedIndex];
+        if (selectedOpt) {
+            const soloPrice = parseFloat(selectedOpt.dataset.price) || 0;
+            const duoPrice = parseFloat(selectedOpt.dataset.twoPlayerPrice) || (soloPrice * 1.5);
+            targetTotal = is2P ? duoPrice : soloPrice;
+            priceInput.value = targetTotal.toFixed(2);
+        }
+    }
+
+    const originalPrice = window._upgradeBookingState.originalPrice;
+    const diff = targetTotal - originalPrice;
+
+    window._upgradeBookingState.targetPrice = targetTotal;
+    window._upgradeBookingState.priceDifference = diff;
+
+    if (diff > 0) {
+        diffDisplay.textContent = `+₹${diff.toFixed(2)}`;
+        diffDisplay.style.color = 'var(--gold)';
+    } else if (diff === 0) {
+        diffDisplay.textContent = `₹0.00 (No extra charge)`;
+        diffDisplay.style.color = '#10B981';
+    } else {
+        diffDisplay.textContent = `-₹${Math.abs(diff).toFixed(2)} (Downgrade)`;
+        diffDisplay.style.color = '#f87171';
+    }
+};
+
+window.toggleUpgPayMethod = function() {
+    const isLink = document.querySelector('input[name="upgPaymentMethod"][value="link"]')?.checked;
+    const cashBox = document.getElementById('upgCashRefBox');
+    const btn = document.getElementById('btnSubmitUpgrade');
+    if (cashBox) cashBox.style.display = isLink ? 'none' : 'block';
+    if (btn) {
+        btn.innerHTML = isLink ? '<span>📲</span> Send Upgrade Link via WhatsApp' : '<span>✓</span> Confirm Upgrade & Mark Paid';
+    }
+};
+
+window.closeUpgradeModal = function() {
+    const modal = document.getElementById('upgradeBookingModal');
+    if (modal) modal.style.display = 'none';
+    window._upgradeBookingState = null;
+};
+
+// Submit Upgrade Booking
+window.submitUpgradeBooking = async function() {
+    if (!window._upgradeBookingState) return;
+
+    const { booking, targetPrice, priceDifference } = window._upgradeBookingState;
+    const targetProduct = document.getElementById('upgTargetProductSelect').value;
+    const players = parseInt(document.getElementById('upgPlayersSelect').value, 10) || 1;
+    const p2Name = document.getElementById('upgP2NameInput')?.value || '';
+    const isLink = document.querySelector('input[name="upgPaymentMethod"][value="link"]')?.checked;
+    const paymentNote = document.getElementById('upgPaymentNoteInput')?.value || 'UPGRADE_DIFF_COLLECTED';
+    const btn = document.getElementById('btnSubmitUpgrade');
+
+    const origBtnHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳</span> Processing...';
+
+    try {
+        if (isLink && priceDifference > 0) {
+            // Generate WhatsApp Payment Link for the price difference
+            const upgData = {
+                booking_id: booking.id,
+                order_id: booking.order_id,
+                item_name: targetProduct,
+                price: targetPrice,
+                players: players,
+                player_two_name: players === 2 ? p2Name : null
+            };
+
+            const linkRes = await fetchAuth('/api/admin/payment-links', {
+                method: 'POST',
+                body: JSON.stringify({
+                    amount: priceDifference,
+                    customer_name: booking.name,
+                    customer_phone: booking.phone,
+                    customer_email: booking.email,
+                    description: `Upgrade to ${targetProduct} (Order #${booking.order_id})`,
+                    order_ids: [booking.order_id],
+                    upgrade_data: upgData
+                })
+            });
+
+            const linkData = await linkRes.json();
+            if (!linkRes.ok || !linkData.success) {
+                throw new Error(linkData.error || 'Failed to generate upgrade payment link');
+            }
+
+            // Display success banner in modal
+            const outputBox = document.getElementById('upgPayLinkOutputBox');
+            const urlInput = document.getElementById('upgPayLinkUrl');
+            const idSpan = document.getElementById('upgPayLinkId');
+            if (outputBox) outputBox.style.display = 'block';
+            if (urlInput) urlInput.value = linkData.pay_url;
+            if (idSpan) idSpan.textContent = `#${linkData.link_id}`;
+
+            alert(`Upgrade Payment Link created for ₹${priceDifference.toFixed(2)} and sent via WhatsApp to ${booking.phone}! Once paid, booking will automatically update.`);
+            return;
+        }
+
+        // Cash / Immediate Desk Upgrade
+        const updateRes = await fetchAuth(`/api/admin/bookings/${booking.id}/update-details`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                item_name: targetProduct,
+                price: targetPrice,
+                players: players,
+                player_two_name: players === 2 ? p2Name : null,
+                status: 'PAID'
+            })
+        });
+
+        const updateData = await updateRes.json();
+        if (!updateRes.ok || !updateData.success) {
+            throw new Error(updateData.error || 'Failed to apply upgrade to booking');
+        }
+
+        alert(`✓ Upgrade successful! Package updated to "${targetProduct}" (₹${targetPrice.toFixed(2)}).`);
+        closeUpgradeModal();
+
+        // Refresh views
+        if (typeof loadBookings === 'function') await loadBookings();
+        if (typeof openOrderDetails === 'function') openOrderDetails(booking.order_id);
+        if (window._deskVerifiedBookings && typeof renderDeskVerifiedBookings === 'function') {
+            const deskItem = window._deskVerifiedBookings.find(b => b.id === booking.id);
+            if (deskItem) {
+                deskItem.item_name = targetProduct;
+                deskItem.price = targetPrice;
+                deskItem.players = players;
+                deskItem.player_two_name = players === 2 ? p2Name : null;
+            }
+            renderDeskVerifiedBookings();
+        }
+
+    } catch (err) {
+        console.error('Upgrade submission error:', err);
+        alert(err.message || 'Error processing upgrade');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origBtnHtml;
+    }
+};
+
+window.copyUpgPayLink = function() {
+    const urlInput = document.getElementById('upgPayLinkUrl');
+    if (urlInput) {
+        urlInput.select();
+        navigator.clipboard.writeText(urlInput.value).then(() => {
+            alert('Payment link copied to clipboard!');
+        });
+    }
+};
+
+// ==========================================
+// EDIT BOOKING & RESCHEDULING (DATE & SLOT)
+// ==========================================
+
+window.openEditBookingModal = async function(bookingId) {
+    let booking = (window.allBookings || []).find(b => b.id === bookingId);
+    if (!booking && window._deskVerifiedBookings) {
+        booking = window._deskVerifiedBookings.find(b => b.id === bookingId);
+    }
+    if (!booking) {
+        alert('Booking not found.');
+        return;
+    }
+
+    window._editBookingState = { ...booking };
+
+    const modal = document.getElementById('editBookingModal');
+    if (!modal) return;
+
+    // Load products
+    const prods = await loadProductsForUpgrade();
+    const itemSelect = document.getElementById('editItemSelect');
+    itemSelect.innerHTML = '';
+    if (prods.length === 0) {
+        itemSelect.innerHTML = `
+            <option value="RC Flying Sim">RC Flying Sim</option>
+            <option value="Flight Sim Pro (Airbus Edition)">Flight Sim Pro (Airbus Edition)</option>
+            <option value="F1 Simulator Pro">F1 Simulator Pro</option>
+        `;
+    } else {
+        prods.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.name;
+            opt.textContent = p.name;
+            if (p.name === booking.item_name) opt.selected = true;
+            itemSelect.appendChild(opt);
+        });
+    }
+
+    // Load slots
+    const slots = await loadSlotsForEdit();
+    const timeSelect = document.getElementById('editBookingTimeSelect');
+    timeSelect.innerHTML = '';
+    if (slots.length === 0) {
+        const defaultSlots = [
+            '11:00 AM - 11:30 AM', '11:30 AM - 12:00 PM', '12:00 PM - 12:30 PM', '12:30 PM - 01:00 PM',
+            '01:00 PM - 01:30 PM', '01:30 PM - 02:00 PM', '02:00 PM - 02:30 PM', '02:30 PM - 03:00 PM',
+            '03:00 PM - 03:30 PM', '03:30 PM - 04:00 PM', '04:00 PM - 04:30 PM', '04:30 PM - 05:00 PM',
+            '05:00 PM - 05:30 PM', '05:30 PM - 06:00 PM', '06:00 PM - 06:30 PM', '06:30 PM - 07:00 PM',
+            '07:00 PM - 07:30 PM', '07:30 PM - 08:00 PM', '08:00 PM - 08:30 PM', '08:30 PM - 09:00 PM',
+            '09:00 PM - 09:30 PM', '09:30 PM - 10:00 PM'
+        ];
+        defaultSlots.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s;
+            opt.textContent = s;
+            if (s === booking.booking_time) opt.selected = true;
+            timeSelect.appendChild(opt);
+        });
+    } else {
+        slots.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.time_range || s.label;
+            opt.textContent = s.time_range || s.label;
+            if (opt.value === booking.booking_time) opt.selected = true;
+            timeSelect.appendChild(opt);
+        });
+    }
+
+    // Set Date input
+    document.getElementById('editBookingDateInput').value = booking.booking_date || '';
+
+    // Set Players & P2
+    const playersSelect = document.getElementById('editPlayersSelect');
+    playersSelect.value = String(booking.players || 1);
+    const p2Box = document.getElementById('editP2Box');
+    const p2Input = document.getElementById('editPlayerTwoNameInput');
+    if (String(booking.players) === '2') {
+        p2Box.style.display = 'block';
+        p2Input.value = booking.player_two_name || '';
+    } else {
+        p2Box.style.display = 'none';
+        p2Input.value = '';
+    }
+
+    // Price & Status
+    document.getElementById('editPriceInput').value = parseFloat(booking.price || 0).toFixed(2);
+    document.getElementById('editStatusSelect').value = (booking.status || 'PAID').toUpperCase();
+
+    modal.style.display = 'flex';
+};
+
+window.toggleEditP2Field = function() {
+    const is2P = document.getElementById('editPlayersSelect').value === '2';
+    const p2Box = document.getElementById('editP2Box');
+    if (p2Box) p2Box.style.display = is2P ? 'block' : 'none';
+};
+
+window.closeEditBookingModal = function() {
+    const modal = document.getElementById('editBookingModal');
+    if (modal) modal.style.display = 'none';
+    window._editBookingState = null;
+};
+
+// Submit Edit / Reschedule
+window.submitEditBookingDetails = async function() {
+    if (!window._editBookingState) return;
+
+    const booking = window._editBookingState;
+    const itemName = document.getElementById('editItemSelect').value;
+    const bookingDate = document.getElementById('editBookingDateInput').value.trim();
+    const bookingTime = document.getElementById('editBookingTimeSelect').value;
+    const players = parseInt(document.getElementById('editPlayersSelect').value, 10) || 1;
+    const playerTwoName = document.getElementById('editPlayerTwoNameInput').value.trim();
+    const price = parseFloat(document.getElementById('editPriceInput').value) || 0;
+    const status = document.getElementById('editStatusSelect').value;
+    const btn = document.getElementById('btnSubmitEditBooking');
+
+    if (!bookingDate) {
+        alert('Booking date cannot be empty.');
+        return;
+    }
+
+    const origText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span>⏳</span> Saving...';
+
+    try {
+        const res = await fetchAuth(`/api/admin/bookings/${booking.id}/update-details`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                item_name: itemName,
+                booking_date: bookingDate,
+                booking_time: bookingTime,
+                players: players,
+                player_two_name: players === 2 ? playerTwoName : null,
+                price: price,
+                status: status
+            })
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+            throw new Error(data.error || 'Failed to update booking details');
+        }
+
+        alert('✓ Booking & slot details updated successfully!');
+        closeEditBookingModal();
+
+        // Refresh views
+        if (typeof loadBookings === 'function') await loadBookings();
+        if (typeof openOrderDetails === 'function') openOrderDetails(booking.order_id);
+        if (window._deskVerifiedBookings && typeof renderDeskVerifiedBookings === 'function') {
+            const deskItem = window._deskVerifiedBookings.find(b => b.id === booking.id);
+            if (deskItem) {
+                deskItem.item_name = itemName;
+                deskItem.booking_date = bookingDate;
+                deskItem.booking_time = bookingTime;
+                deskItem.players = players;
+                deskItem.player_two_name = players === 2 ? playerTwoName : null;
+                deskItem.price = price;
+                deskItem.status = status;
+            }
+            renderDeskVerifiedBookings();
+        }
+
+    } catch (err) {
+        console.error('Error saving booking changes:', err);
+        alert(err.message || 'Failed to save changes.');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = origText;
+    }
+};
+
+
+
+// Manual Send Advance Reminder & Payment Link
+window.sendAdvanceReminderOrder = async function(orderId) {
+    if (!orderId) return;
+    document.querySelectorAll('.custom-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+
+    if (!confirm(`Send advance booking reminder with pre-arrival payment link to customer for Order #${orderId} via WhatsApp?`)) {
+        return;
+    }
+
+    try {
+        const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}/send-advance-reminder`, {
+            method: 'POST'
+        });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+            alert(data.error || data.reason || 'Failed to dispatch advance notification.');
+            return;
+        }
+
+        if (data.wa_sent) {
+            alert(`✓ Advance reminder and payment link successfully sent to ${data.customer_phone} via WhatsApp!`);
+        } else {
+            // Prompt fallback link if Interakt wasn't live
+            if (confirm(`Advance reminder prepared! WhatsApp direct sending status: ${data.interakt_error || 'Manual WhatsApp dispatch'}.\n\nWould you like to open WhatsApp Web / App to send now?`)) {
+                window.open(data.wa_me_url, '_blank');
+            }
+        }
+    } catch (e) {
+        console.error('Error sending advance reminder:', e);
+        alert(e.message || 'Server error sending advance reminder.');
+    }
+};
