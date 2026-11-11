@@ -475,7 +475,11 @@ db.run(`
     });
 
     // Ensure wristband_number column exists on bookings table
-    db.run("ALTER TABLE bookings ADD COLUMN wristband_number TEXT", [], () => { });
+    if (db.isPostgres) {
+        db.pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS wristband_number TEXT", () => { });
+    } else {
+        db.run("ALTER TABLE bookings ADD COLUMN wristband_number TEXT", [], () => { });
+    }
 });
 
 // Ensure common shared band_transactions audit log table exists (Shared with Havoc RC Fun Zone)
