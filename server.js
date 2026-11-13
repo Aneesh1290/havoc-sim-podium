@@ -6032,9 +6032,11 @@ async function dispatchAdvanceBookingNotification(orderId, hostReq = null) {
 
             if (interaktApiKey && phoneNumber) {
                 try {
-                    // Try using configured payment link template or advance reminder template
-                    const templateName = process.env.INTERAKT_PAYMENT_LINK_TEMPLATE || "havoc_payment_link";
+                    // Shared Advance Notification Template (Havoc Sim Podium & Havoc RC Fun Zone)
+                    const templateName = process.env.INTERAKT_ADVANCE_NOTIFICATION_TEMPLATE || process.env.INTERAKT_PAYMENT_LINK_TEMPLATE || "havoc_advance_booking_reminder";
                     const formattedAmt = totalDue.toFixed(2);
+                    const venueTitle = process.env.VENUE_NAME || "Havoc Sim Podium";
+                    const dateTimeDisplay = `${dateStr} • ${timeSlotStr}`;
 
                     const response = await fetch('https://api.interakt.ai/v1/public/message/', {
                         method: 'POST',
@@ -6048,12 +6050,15 @@ async function dispatchAdvanceBookingNotification(orderId, hostReq = null) {
                             type: "Template",
                             template: {
                                 name: templateName,
-                                languageCode: "en",
+                                languageCode: process.env.INTERAKT_ADVANCE_NOTIFICATION_LANG || "en",
                                 bodyValues: [
                                     customerName,
+                                    venueTitle,
+                                    orderId,
+                                    sessionSummary,
+                                    dateTimeDisplay,
                                     formattedAmt,
-                                    payUrl || "Paid Online",
-                                    `Havoc Sim Podium - ${sessionSummary} (${dateStr} @ ${timeSlotStr})`
+                                    payUrl || "Paid Online / Confirmed"
                                 ]
                             }
                         })
