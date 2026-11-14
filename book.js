@@ -462,12 +462,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     playerBtn1?.classList.add("active");
                     playerBtn2?.classList.remove("active");
                     if (playerBtn1) {
-                        playerBtn1.style.border = "1.5px solid var(--accent-gold, #e5b869)";
-                        playerBtn1.style.background = "rgba(229,184,105,0.12)";
+                        playerBtn1.style.border = "2px solid var(--accent-red, #e11d24)";
+                        playerBtn1.style.background = "rgba(225,29,36,0.06)";
                     }
                     if (playerBtn2) {
-                        playerBtn2.style.border = "1.5px solid rgba(255,255,255,0.15)";
-                        playerBtn2.style.background = "rgba(255,255,255,0.03)";
+                        playerBtn2.style.border = "1.5px solid #e2e8f0";
+                        playerBtn2.style.background = "#f8fafc";
                     }
                     if (playerTwoNameBox) playerTwoNameBox.style.display = "none";
                     document.getElementById("modalProductPrice").innerText = `₹${singlePrice.toFixed(2)}`;
@@ -476,12 +476,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     playerBtn2?.classList.add("active");
                     playerBtn1?.classList.remove("active");
                     if (playerBtn2) {
-                        playerBtn2.style.border = "1.5px solid var(--accent-gold, #e5b869)";
-                        playerBtn2.style.background = "rgba(229,184,105,0.12)";
+                        playerBtn2.style.border = "2px solid var(--accent-red, #e11d24)";
+                        playerBtn2.style.background = "rgba(225,29,36,0.06)";
                     }
                     if (playerBtn1) {
-                        playerBtn1.style.border = "1.5px solid rgba(255,255,255,0.15)";
-                        playerBtn1.style.background = "rgba(255,255,255,0.03)";
+                        playerBtn1.style.border = "1.5px solid #e2e8f0";
+                        playerBtn1.style.background = "#f8fafc";
                     }
                     if (playerTwoNameBox) playerTwoNameBox.style.display = "block";
                     document.getElementById("modalProductPrice").innerText = `₹${twoPrice.toFixed(2)}`;
@@ -541,7 +541,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (galleryImages.length > 1) {
                 thumbStrip.style.display = "flex";
                 thumbStrip.innerHTML = galleryImages.map((src, idx) => `
-                    <img src="${src}" alt="Angle ${idx + 1}" style="width:44px; height:44px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid ${idx === 0 ? 'var(--accent-gold, #e5b869)' : 'rgba(255,255,255,0.15)'}; transition:border-color 0.2s;" data-idx="${idx}">
+                    <img src="${src}" alt="Angle ${idx + 1}" style="width:44px; height:44px; object-fit:cover; border-radius:6px; cursor:pointer; border:2px solid ${idx === 0 ? 'var(--accent-red, #e11d24)' : '#e2e8f0'}; transition:border-color 0.2s;" data-idx="${idx}">
                 `).join('');
 
                 const thumbs = thumbStrip.querySelectorAll("img");
@@ -549,8 +549,8 @@ document.addEventListener("DOMContentLoaded", () => {
                     t.addEventListener("click", () => {
                         const idx = parseInt(t.getAttribute("data-idx"), 10);
                         document.getElementById("modalProductImg").src = galleryImages[idx];
-                        thumbs.forEach(other => other.style.borderColor = "rgba(255,255,255,0.15)");
-                        t.style.borderColor = "var(--accent-gold, #e5b869)";
+                        thumbs.forEach(other => other.style.borderColor = "#e2e8f0");
+                        t.style.borderColor = "var(--accent-red, #e11d24)";
                     });
                 });
             } else {
@@ -647,13 +647,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 <img src="${imgSrc}" alt="Sim" id="cartItemImage_${index}">
                 <div class="cart-item-details" style="width: 100%;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:1rem;">
-                        <h4 style="margin:0; flex:1; line-height:1.3;">${item.itemName}</h4>
-                        <button class="remove-item-btn" data-index="${index}" aria-label="Remove item" style="background:transparent;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-size:1.8rem;line-height:0.8;padding:0;transition:0.2s;">&times;</button>
+                        <h4 style="margin:0; flex:1; line-height:1.3; color:#0f172a; font-weight:700;">${item.itemName}</h4>
+                        <button class="remove-item-btn" data-index="${index}" aria-label="Remove item" style="background:transparent;border:none;color:#94a3b8;cursor:pointer;font-size:1.8rem;line-height:0.8;padding:0;transition:0.2s;">&times;</button>
                     </div>
-                    <p class="cart-item-slot" style="margin:0.2rem 0; color:#888; font-size:0.85rem;">${item.dateLabel}  •  ${item.slot}</p>
-                    ${item.players === 2 ? `<div style="display:flex; align-items:center; gap:0.4rem; margin:0.3rem 0;"><span style="color:var(--gold); font-size:0.75rem; background:rgba(229,184,105,0.12); border:1px solid rgba(229,184,105,0.3); padding:2px 8px; border-radius:12px; font-weight:600;">👥 2 Players (Combo)</span>${item.playerTwoName ? `<span style="font-size:0.75rem; color:#aaa;">P2: ${item.playerTwoName}</span>` : ''}</div>` : ''}
-                    ${item.instructor ? `<div style="display:flex; justify-content:space-between; align-items:center; margin:0.4rem 0;"><span style="color:var(--gold); font-size:0.85rem; font-weight:500; margin:0;">👨‍✈️ Instructor: ${item.instructor.name}</span><span style="color:var(--gold); font-size:0.85rem; font-weight:500;">+₹${instFee.toFixed(2)}</span></div>` : ''}
-                    <div class="cart-price" style="margin-top: 0.5rem; font-weight: 600; font-size: 1.1rem; color: #fff;">₹${itemTotal.toFixed(2)}</div>
+                    <p class="cart-item-slot" style="margin:0.2rem 0; color:#64748b; font-size:0.85rem;">${item.dateLabel}  •  ${item.slot}</p>
+                    ${item.players === 2 ? `<div style="display:flex; align-items:center; gap:0.4rem; margin:0.3rem 0;"><span style="color:var(--accent-red, #e11d24); font-size:0.75rem; background:rgba(225,29,36,0.08); border:1px solid rgba(225,29,36,0.25); padding:2px 8px; border-radius:12px; font-weight:700;">👥 2 Players (Combo)</span>${item.playerTwoName ? `<span style="font-size:0.75rem; color:#64748b;">P2: ${item.playerTwoName}</span>` : ''}</div>` : ''}
+                    ${item.instructor ? `<div style="display:flex; justify-content:space-between; align-items:center; margin:0.4rem 0;"><span style="color:var(--accent-red, #e11d24); font-size:0.85rem; font-weight:600; margin:0;">👨‍✈️ Instructor: ${item.instructor.name}</span><span style="color:var(--accent-red, #e11d24); font-size:0.85rem; font-weight:700;">+₹${instFee.toFixed(2)}</span></div>` : ''}
+                    <div class="cart-price" style="margin-top: 0.5rem; font-weight: 800; font-size: 1.15rem; color: #0f172a;">₹${itemTotal.toFixed(2)}</div>
                 </div>
             `;
             cartItemsContainer.appendChild(div);
@@ -1111,16 +1111,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 
                 if (available.length > 0) {
                     instructorContainerInPrompt.innerHTML = available.map(inst => `
-                        <div class="pill instructor-pill" style="display:flex; flex-direction:column; align-items:center; gap:0.4rem; padding:1rem 0.8rem; border:1px solid var(--border); border-radius:12px; cursor:pointer; color:#fff; text-align:center; transition: all 0.2s; box-sizing: border-box; width: 100%; min-width: 0;" data-id="${inst.id}">
-                            ${inst.photo_url ? `<img src="${inst.photo_url}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div class="no-photo" style="width:70px;height:70px;border-radius:50%;background:#383b4d;flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.75rem; color:#aaa;">No Photo</div>`}
+                        <div class="pill instructor-pill" style="display:flex; flex-direction:column; align-items:center; gap:0.4rem; padding:1rem 0.8rem; border:1.5px solid #e2e8f0; border-radius:14px; cursor:pointer; color:#0f172a; text-align:center; transition: all 0.2s; box-sizing: border-box; width: 100%; min-width: 0; background:#f8fafc;" data-id="${inst.id}">
+                            ${inst.photo_url ? `<img src="${inst.photo_url}" style="width:70px;height:70px;border-radius:50%;object-fit:cover;flex-shrink:0;">` : `<div class="no-photo" style="width:70px;height:70px;border-radius:50%;background:#e2e8f0;flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:0.75rem; color:#64748b;">No Photo</div>`}
                             <div style="flex:1; margin-top:0.3rem; width: 100%;">
-                                <div class="inst-name" style="font-weight:600; font-size:1rem; line-height:1.25; word-break: break-word;">${inst.name}</div>
-                                <div class="inst-role" style="font-size:0.78rem; color:var(--muted); margin-top:3px; word-break: break-word;">${inst.role || 'Instructor'}</div>
-                                ${inst.notice_hours > 0 ? `<div class="inst-badge" style="display:inline-block; margin-top:4px; font-size:0.68rem; color:var(--gold); background:rgba(229,184,105,0.12); border:1px solid rgba(229,184,105,0.3); padding:1px 6px; border-radius:10px;">🌟 ${inst.notice_hours}h Prior</div>` : ''}
+                                <div class="inst-name" style="font-weight:700; font-size:1rem; line-height:1.25; word-break: break-word; color:#0f172a;">${inst.name}</div>
+                                <div class="inst-role" style="font-size:0.78rem; color:#64748b; margin-top:3px; word-break: break-word;">${inst.role || 'Instructor'}</div>
+                                ${inst.notice_hours > 0 ? `<div class="inst-badge" style="display:inline-block; margin-top:4px; font-size:0.68rem; color:var(--accent-red, #e11d24); background:rgba(225,29,36,0.08); border:1px solid rgba(225,29,36,0.25); padding:1px 6px; border-radius:10px; font-weight:700;">🌟 ${inst.notice_hours}h Prior</div>` : ''}
                             </div>
-                            <div class="inst-price" style="font-weight:700; color:var(--gold); font-size:1rem; margin-top:0.2rem;">+ ₹${inst.fee != null ? inst.fee : 500}</div>
-                            ${inst.biography ? `<div class="inst-bio-toggle" style="margin-top: 0.6rem; font-size: 0.8rem; color: #aaa; text-decoration: underline; z-index: 2; position: relative;" onclick="event.stopPropagation(); const content = this.nextElementSibling; if(content.style.display === 'none'){content.style.display = 'block'; this.innerText = 'Hide Details';} else {content.style.display = 'none'; this.innerText = 'View Details';}">View Details</div>
-                            <div class="inst-bio-content" style="display:none; font-size:0.8rem; color:rgba(255,255,255,0.8); line-height:1.4; border-top:1px solid rgba(255,255,255,0.1); padding-top:0.6rem; margin-top:0.6rem; white-space:normal; text-align:left; width:100%; word-break: break-word;">${inst.biography}</div>` : ''}
+                            <div class="inst-price" style="font-weight:800; color:var(--accent-red, #e11d24); font-size:1.05rem; margin-top:0.2rem;">+ ₹${inst.fee != null ? inst.fee : 500}</div>
+                            ${inst.biography ? `<div class="inst-bio-toggle" style="margin-top: 0.6rem; font-size: 0.8rem; color: #64748b; text-decoration: underline; z-index: 2; position: relative;" onclick="event.stopPropagation(); const content = this.nextElementSibling; if(content.style.display === 'none'){content.style.display = 'block'; this.innerText = 'Hide Details';} else {content.style.display = 'none'; this.innerText = 'View Details';}">View Details</div>
+                            <div class="inst-bio-content" style="display:none; font-size:0.8rem; color:#334155; line-height:1.4; border-top:1px solid #e2e8f0; padding-top:0.6rem; margin-top:0.6rem; white-space:normal; text-align:left; width:100%; word-break: break-word;">${inst.biography}</div>` : ''}
                         </div>
 
                     `).join("");
