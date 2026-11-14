@@ -192,7 +192,11 @@ if (DB_URL) {
 
             pool.query(q.text, q.values, async (err, res) => {
                 if (err) {
-                    console.error('[PG Error in run()]', err.message, q.text, q.values);
+                    // Suppress benign migration errors (column or relation already exists)
+                    const isBenign = (err.code === '42701' || err.message?.includes('already exists'));
+                    if (!isBenign) {
+                        console.error('[PG Error in run()]', err.message, q.text, q.values);
+                    }
                     if (callback) callback.call(context, err);
                     return;
                 }

@@ -318,7 +318,7 @@ function renderBookings(bookingsToRender) {
             <td>
                 <input type="checkbox" class="row-checkbox" value="${b.order_id}" onclick="toggleBookingSelection(event, '${b.order_id}')">
             </td>
-            <td style="font-weight: 500; font-size: 0.85rem; color: var(--muted);">#${b.order_id}</td>
+            <td style="font-weight: 500; font-size: 0.85rem; color: var(--muted);">#${String(b.order_id || '').replace(/^#+/, '')}</td>
             <td style="color: var(--muted); font-size: 0.85rem;">${placedDateStr}</td>
             <td>
                 <div style="font-weight: 500; font-size: 0.85rem; color: var(--muted);">${b.name}</div>
@@ -714,14 +714,16 @@ window.openOrderDetails = (baseOrderId) => {
             </div>
         ` : '';
 
+        const cleanOrderId = String(baseOrderId || '').replace(/^#+/, '');
+
         view.innerHTML = `
     <div class="od-breadcrumb" onclick="closeOrderDetails()" style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
         <span style="color: #60a5fa; font-weight: 500;">← Back to Bookings</span>
-        <span style="color: var(--muted);">/ Order #${baseOrderId}</span>
+        <span style="color: var(--muted);">/ Order #${cleanOrderId}</span>
     </div>
     <div class="od-header">
         <div class="od-title-area">
-            <h2>Order #${baseOrderId}</h2>
+            <h2>Order #${cleanOrderId}</h2>
             <span class="od-badge ${getBadgeClass(paymentBadge)}">${paymentBadge}</span>
             <span class="od-badge ${getBadgeClass(fulfillBadge)}">${fulfillBadge}</span>
             <div class="od-date">Placed on ${placedDateStr}</div>

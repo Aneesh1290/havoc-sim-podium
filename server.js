@@ -475,10 +475,10 @@ db.run(`
     });
 
     // Ensure wristband_number column exists on bookings table
-    if (db.isPostgres) {
+    if (db.isPostgres && db.pool) {
         db.pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS wristband_number TEXT", () => { });
     } else {
-        db.run("ALTER TABLE bookings ADD COLUMN wristband_number TEXT", [], () => { });
+        db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS wristband_number TEXT", [], () => { });
     }
 });
 
@@ -2630,6 +2630,7 @@ app.put('/api/admin/bookings/:order_id/attend', verifyToken, checkPermission('ed
 app.put('/api/admin/bookings/:order_id/status', verifyToken, checkPermission('edit_orders'), (req, res) => {
     let { order_id } = req.params;
     order_id = decodeURIComponent(order_id).trim();
+    const cleanId = order_id.replace(/^#+/, '');
     const { status } = req.body;
 
     const validStatuses = ['PENDING', 'PAID', 'ATTENDED', 'CANCELLED', 'CASH', 'REFUNDED'];
@@ -2639,17 +2640,26 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, checkPermission('ed
 
     const targetStatus = status.toUpperCase();
 
-    db.run("UPDATE bookings SET status = ? WHERE order_id = ? OR order_id LIKE ?", [targetStatus, order_id, `${order_id}%`], function (err) {
-        if (err) return res.status(500).json({ error: 'Database error' });
-        const bookingsUpdated = this?.changes || 0;
+    db.run(
+        `UPDATE bookings SET status = ? 
+         WHERE order_id = ? OR order_id = ? OR order_id = ? 
+            OR order_id LIKE ? OR order_id LIKE ? OR order_id LIKE ?`,
+        [targetStatus, cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`],
+        function (err) {
+            if (err) return res.status(500).json({ error: 'Database error' });
+            const bookingsUpdated = this?.changes || 0;
 
-        // Also sync status on simulator_slot_locks (e.g. Fun Zone combo passes)
-        const lockAction = (targetStatus === 'CANCELLED' || targetStatus === 'REFUNDED')
-            ? "DELETE FROM simulator_slot_locks WHERE source_order_id = ? OR source_order_id LIKE ?"
-            : "UPDATE simulator_slot_locks SET status = ? WHERE source_order_id = ? OR source_order_id LIKE ?";
-        const lockParams = (targetStatus === 'CANCELLED' || targetStatus === 'REFUNDED')
-            ? [order_id, `${order_id}%`]
-            : [targetStatus, order_id, `${order_id}%`];
+            // Also sync status on simulator_slot_locks (e.g. Fun Zone combo passes)
+            const lockAction = (targetStatus === 'CANCELLED' || targetStatus === 'REFUNDED')
+                ? `DELETE FROM simulator_slot_locks 
+                   WHERE source_order_id = ? OR source_order_id = ? OR source_order_id = ? 
+                      OR source_order_id LIKE ? OR source_order_id LIKE ? OR source_order_id LIKE ?`
+                : `UPDATE simulator_slot_locks SET status = ? 
+                   WHERE source_order_id = ? OR source_order_id = ? OR source_order_id = ? 
+                      OR source_order_id LIKE ? OR source_order_id LIKE ? OR source_order_id LIKE ?`;
+            const lockParams = (targetStatus === 'CANCELLED' || targetStatus === 'REFUNDED')
+                ? [cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`]
+                : [targetStatus, cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`];
 
         db.run(lockAction, lockParams, function (lockErr) {
             const locksUpdated = this?.changes || 0;
