@@ -2618,12 +2618,33 @@ app.post('/api/admin/purge-test-orders', verifyToken, verifySuperAdmin, (req, re
 
 // Mark booking as attended (Protected - requires 'edit_orders' permission or Super Admin)
 app.put('/api/admin/bookings/:order_id/attend', verifyToken, checkPermission('edit_orders'), (req, res) => {
-    const { order_id } = req.params;
-    db.run("UPDATE bookings SET status = 'ATTENDED' WHERE order_id LIKE ?", [`${order_id}%`], function (err) {
-        if (err) return res.status(500).json({ error: 'Database error' });
-        if (this.changes === 0) return res.status(404).json({ error: 'Booking not found' });
-        res.json({ success: true });
-    });
+    let { order_id } = req.params;
+    order_id = decodeURIComponent(order_id).trim();
+    const cleanId = order_id.replace(/^#+/, '');
+    const rawNum = cleanId.replace(/^PAYDUE_FZ_/, '').replace(/^PAYDUE_SP_/, '');
+
+    db.run(
+        `UPDATE bookings SET status = 'ATTENDED' 
+         WHERE order_id = ? OR order_id = ? OR order_id = ?
+            OR order_id LIKE ? OR order_id LIKE ? OR order_id LIKE ?
+            OR order_id LIKE ? OR order_id LIKE ?`,
+        [cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`, `%FZ_${rawNum}%`, `%FZ_${rawNum}_%`],
+        function (err) {
+            if (err) return res.status(500).json({ error: 'Database error' });
+            const bookingsUpdated = this?.changes || 0;
+
+            db.run(
+                `UPDATE simulator_slot_locks SET status = 'ATTENDED' 
+                 WHERE source_order_id = ? OR source_order_id = ? OR source_order_id = ?
+                    OR source_order_id LIKE ? OR source_order_id LIKE ? OR source_order_id LIKE ?
+                    OR source_order_id LIKE ? OR source_order_id LIKE ?`,
+                [cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`, `%FZ_${rawNum}%`, `%FZ_${rawNum}_%`],
+                function (lockErr) {
+                    res.json({ success: true, bookingsUpdated, locksUpdated: this?.changes || 0 });
+                }
+            );
+        }
+    );
 });
 
 // Manually override booking status (Protected - requires 'edit_orders' permission or Super Admin)
@@ -2631,6 +2652,7 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, checkPermission('ed
     let { order_id } = req.params;
     order_id = decodeURIComponent(order_id).trim();
     const cleanId = order_id.replace(/^#+/, '');
+    const rawNum = cleanId.replace(/^PAYDUE_FZ_/, '').replace(/^PAYDUE_SP_/, '');
     const { status } = req.body;
 
     const validStatuses = ['PENDING', 'PAID', 'ATTENDED', 'CANCELLED', 'CASH', 'REFUNDED'];
@@ -2643,8 +2665,9 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, checkPermission('ed
     db.run(
         `UPDATE bookings SET status = ? 
          WHERE order_id = ? OR order_id = ? OR order_id = ? 
-            OR order_id LIKE ? OR order_id LIKE ? OR order_id LIKE ?`,
-        [targetStatus, cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`],
+            OR order_id LIKE ? OR order_id LIKE ? OR order_id LIKE ?
+            OR order_id LIKE ? OR order_id LIKE ?`,
+        [targetStatus, cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`, `%FZ_${rawNum}%`, `%FZ_${rawNum}_%`],
         function (err) {
             if (err) return res.status(500).json({ error: 'Database error' });
             const bookingsUpdated = this?.changes || 0;
@@ -2653,13 +2676,15 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, checkPermission('ed
             const lockAction = (targetStatus === 'CANCELLED' || targetStatus === 'REFUNDED')
                 ? `DELETE FROM simulator_slot_locks 
                    WHERE source_order_id = ? OR source_order_id = ? OR source_order_id = ? 
-                      OR source_order_id LIKE ? OR source_order_id LIKE ? OR source_order_id LIKE ?`
+                      OR source_order_id LIKE ? OR source_order_id LIKE ? OR source_order_id LIKE ?
+                      OR source_order_id LIKE ? OR source_order_id LIKE ?`
                 : `UPDATE simulator_slot_locks SET status = ? 
                    WHERE source_order_id = ? OR source_order_id = ? OR source_order_id = ? 
-                      OR source_order_id LIKE ? OR source_order_id LIKE ? OR source_order_id LIKE ?`;
+                      OR source_order_id LIKE ? OR source_order_id LIKE ? OR source_order_id LIKE ?
+                      OR source_order_id LIKE ? OR source_order_id LIKE ?`;
             const lockParams = (targetStatus === 'CANCELLED' || targetStatus === 'REFUNDED')
-                ? [cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`]
-                : [targetStatus, cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`];
+                ? [cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`, `%FZ_${rawNum}%`, `%FZ_${rawNum}_%`]
+                : [targetStatus, cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`, `%FZ_${rawNum}%`, `%FZ_${rawNum}_%`];
 
         db.run(lockAction, lockParams, function (lockErr) {
             const locksUpdated = this?.changes || 0;
