@@ -2722,6 +2722,334 @@ app.put('/api/admin/bookings/:id/wristband', verifyToken, checkPermission('edit_
     );
 });
 
+// ==========================================
+// QUICKBILL INTEGRATION API (SECURE PULL MODEL)
+// ==========================================
+const quickbillLimiterState = new Map();
+const QUICKBILL_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
+const QUICKBILL_RATE_LIMIT_MAX = 60; // 60 requests per minute
+
+function quickbillRateLimiter(req, res, next) {
+    const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const clientIp = String(rawIp).split(',')[0].trim();
+    const now = Date.now();
+
+    const record = quickbillLimiterState.get(clientIp) || { count: 0, resetTime: now + QUICKBILL_RATE_LIMIT_WINDOW_MS };
+
+    if (now > record.resetTime) {
+        record.count = 1;
+        record.resetTime = now + QUICKBILL_RATE_LIMIT_WINDOW_MS;
+    } else {
+        record.count++;
+    }
+
+    quickbillLimiterState.set(clientIp, record);
+
+    if (quickbillLimiterState.size > 10000) {
+        for (const [ipKey, val] of quickbillLimiterState.entries()) {
+            if (now > val.resetTime) quickbillLimiterState.delete(ipKey);
+        }
+    }
+
+    res.setHeader('X-RateLimit-Limit', QUICKBILL_RATE_LIMIT_MAX);
+    res.setHeader('X-RateLimit-Remaining', Math.max(0, QUICKBILL_RATE_LIMIT_MAX - record.count));
+    res.setHeader('X-RateLimit-Reset', Math.ceil(record.resetTime / 1000));
+
+    if (record.count > QUICKBILL_RATE_LIMIT_MAX) {
+        return res.status(429).json({
+            success: false,
+            error: 'Too Many Requests',
+            message: 'Rate limit exceeded. Please wait before making more requests.'
+        });
+    }
+
+    next();
+}
+
+function verifyQuickbillAuth(req, res, next) {
+    // 1. IP Whitelist check (if configured)
+    const allowedIpsStr = process.env.QUICKBILL_ALLOWED_IPS;
+    if (allowedIpsStr && allowedIpsStr.trim()) {
+        const allowedIps = allowedIpsStr.split(',').map(s => s.trim()).filter(Boolean);
+        const rawIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
+        const clientIp = String(rawIp).split(',')[0].trim();
+        if (allowedIps.length > 0 && !allowedIps.includes(clientIp)) {
+            return res.status(403).json({
+                success: false,
+                error: 'Forbidden',
+                message: 'Client IP address is not authorized to access this endpoint.'
+            });
+        }
+    }
+
+    // 2. Secret Key authentication (Bearer token or x-api-key)
+    const expectedKey = process.env.QUICKBILL_API_KEY || 'havoc_qb_live_sec_99a8b7c6d5e4f3a2b1';
+    const authHeader = req.headers['authorization'] || '';
+    const xApiKey = req.headers['x-api-key'] || '';
+
+    let providedKey = '';
+    if (authHeader.startsWith('Bearer ')) {
+        providedKey = authHeader.substring(7).trim();
+    } else if (authHeader.startsWith('ApiKey ')) {
+        providedKey = authHeader.substring(7).trim();
+    } else if (xApiKey) {
+        providedKey = String(xApiKey).trim();
+    }
+
+    if (!providedKey) {
+        return res.status(401).json({
+            success: false,
+            error: 'Unauthorized',
+            message: 'Missing QuickBill API key. Pass via Authorization header (Bearer <key>) or x-api-key header.'
+        });
+    }
+
+    // Timing-safe comparison to prevent timing attacks
+    const expBuf = Buffer.from(expectedKey);
+    const provBuf = Buffer.from(providedKey);
+
+    if (expBuf.length !== provBuf.length || !crypto.timingSafeEqual(expBuf, provBuf)) {
+        return res.status(401).json({
+            success: false,
+            error: 'Unauthorized',
+            message: 'Invalid API key provided.'
+        });
+    }
+
+    next();
+}
+
+function formatGroupedBookingForQuickbill(groupedOrder) {
+    const items = groupedOrder.items || [];
+    const firstItem = items[0] || {};
+
+    const rawTotal = groupedOrder.total_price || 0;
+    // GST 18%: Price includes 18% GST (Taxable = Total / 1.18)
+    const totalAmount = Math.round(rawTotal * 100) / 100;
+    const taxableAmount = Math.round((totalAmount / 1.18) * 100) / 100;
+    const totalGst = Math.round((totalAmount - taxableAmount) * 100) / 100;
+    const cgstAmount = Math.round((totalGst / 2) * 100) / 100;
+    const sgstAmount = Math.round((totalGst - cgstAmount) * 100) / 100;
+
+    let paymentMode = 'ONLINE';
+    if (firstItem.payment_ref && firstItem.payment_ref.toUpperCase().includes('CASH')) {
+        paymentMode = 'CASH';
+    } else if (firstItem.payment_ref && firstItem.payment_ref.toUpperCase().includes('POS')) {
+        paymentMode = 'CARD_POS';
+    } else if (firstItem.payment_ref && firstItem.payment_ref.toUpperCase().includes('UPI')) {
+        paymentMode = 'UPI_DESK';
+    } else if (firstItem.icici_txn_id) {
+        paymentMode = 'ICICI_GATEWAY';
+    }
+
+    const lineItems = items.map((it, idx) => {
+        const itemPrice = Math.round((parseFloat(it.price) || 0) * 100) / 100;
+        const itemTaxable = Math.round((itemPrice / 1.18) * 100) / 100;
+        const itemGst = Math.round((itemPrice - itemTaxable) * 100) / 100;
+        const itemCgst = Math.round((itemGst / 2) * 100) / 100;
+        const itemSgst = Math.round((itemGst - itemCgst) * 100) / 100;
+
+        return {
+            item_index: idx + 1,
+            item_id: it.id,
+            name: it.item_name || 'Simulator Session',
+            sac_code: '9996', // SAC code for amusement & recreational services
+            players: it.players || 1,
+            player_two_name: it.player_two_name || null,
+            booking_date: it.booking_date,
+            booking_time: it.booking_time,
+            quantity: 1,
+            unit_price_inclusive_tax: itemPrice,
+            taxable_amount: itemTaxable,
+            gst_rate: 18.0,
+            cgst_amount: itemCgst,
+            sgst_amount: itemSgst,
+            total_amount: itemPrice,
+            wristband_number: it.wristband_number || null,
+            status: it.status
+        };
+    });
+
+    return {
+        receipt_no: groupedOrder.order_id,
+        order_id: groupedOrder.order_id,
+        created_at: firstItem.created_at,
+        customer: {
+            name: groupedOrder.name || 'Valued Customer',
+            phone: groupedOrder.phone || '',
+            email: groupedOrder.email || ''
+        },
+        billing: {
+            subtotal_taxable: taxableAmount,
+            gst_rate: 18.0,
+            cgst_amount: cgstAmount,
+            sgst_amount: sgstAmount,
+            total_gst_amount: totalGst,
+            total_amount: totalAmount,
+            currency: 'INR'
+        },
+        payment: {
+            status: groupedOrder.status,
+            payment_mode: paymentMode,
+            payment_ref: firstItem.payment_ref || null,
+            icici_txn_id: firstItem.icici_txn_id || null,
+            icici_merchant_txn: firstItem.icici_merchant_txn || null
+        },
+        venue: {
+            name: 'HAVOC SIM PODIUM',
+            unit_of: 'Havoc Hobby Center Pvt. Ltd',
+            sac_code: '9996'
+        },
+        items: lineItems
+    };
+}
+
+// 1. Health check & status endpoint for QuickBill
+app.get('/api/v1/quickbill/ping', quickbillRateLimiter, verifyQuickbillAuth, (req, res) => {
+    res.json({
+        success: true,
+        service: 'Havoc Sim Podium - QuickBill Receipt Sync API',
+        version: '1.0.0',
+        timestamp: new Date().toISOString(),
+        status: 'UP'
+    });
+});
+
+// 2. Fetch completed/paid sales receipts within date range (Pull Model)
+app.get('/api/v1/quickbill/sales', quickbillRateLimiter, verifyQuickbillAuth, (req, res) => {
+    const { from_date, to_date, status, limit, offset } = req.query;
+
+    const maxLimit = Math.min(parseInt(limit, 10) || 100, 500);
+    const startOffset = Math.max(parseInt(offset, 10) || 0, 0);
+
+    const targetStatuses = status
+        ? String(status).split(',').map(s => s.trim().toUpperCase())
+        : ['PAID', 'ATTENDED', 'SUCCESS'];
+
+    let whereClause = "WHERE status IN (" + targetStatuses.map(() => '?').join(',') + ")";
+    const queryParams = [...targetStatuses];
+
+    if (from_date) {
+        whereClause += " AND DATE(created_at) >= DATE(?)";
+        queryParams.push(from_date);
+    }
+    if (to_date) {
+        whereClause += " AND DATE(created_at) <= DATE(?)";
+        queryParams.push(to_date);
+    }
+
+    const countSql = `SELECT COUNT(id) as total_count FROM bookings ${whereClause}`;
+    const dataSql = `SELECT * FROM bookings ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+
+    db.get(countSql, queryParams, (cntErr, cntRow) => {
+        if (cntErr) {
+            console.error('[QuickBill API Error] Count query failed:', cntErr);
+            return res.status(500).json({ success: false, error: 'Database error fetching receipts count' });
+        }
+
+        const totalRecords = (cntRow && cntRow.total_count) || 0;
+
+        db.all(dataSql, [...queryParams, maxLimit, startOffset], (err, rows) => {
+            if (err) {
+                console.error('[QuickBill API Error] Data query failed:', err);
+                return res.status(500).json({ success: false, error: 'Database error fetching receipts' });
+            }
+
+            // Group multi-session line items under their base order_id
+            const groupedMap = new Map();
+            (rows || []).forEach(b => {
+                let baseId = b.order_id || `ORD_${b.id}`;
+                const parts = baseId.split('_');
+                if (parts[1] === 'SP' && parts.length >= 4) {
+                    baseId = parts.slice(0, 3).join('_');
+                } else if (parts.length >= 4 && !baseId.startsWith('PAYDUE_FZ_')) {
+                    baseId = parts.slice(0, 3).join('_');
+                }
+
+                if (!groupedMap.has(baseId)) {
+                    groupedMap.set(baseId, {
+                        order_id: baseId,
+                        name: b.name,
+                        email: b.email,
+                        phone: b.phone,
+                        status: b.status,
+                        created_at: b.created_at,
+                        items: [],
+                        total_price: 0
+                    });
+                }
+                const g = groupedMap.get(baseId);
+                g.items.push(b);
+                g.total_price += (parseFloat(b.price) || 0);
+            });
+
+            const formattedReceipts = Array.from(groupedMap.values()).map(formatGroupedBookingForQuickbill);
+
+            res.json({
+                success: true,
+                metadata: {
+                    total_records: totalRecords,
+                    returned_orders: formattedReceipts.length,
+                    limit: maxLimit,
+                    offset: startOffset,
+                    from_date: from_date || null,
+                    to_date: to_date || null
+                },
+                receipts: formattedReceipts
+            });
+        });
+    });
+});
+
+// 3. Fetch single receipt / invoice by order ID (Pull Model)
+app.get('/api/v1/quickbill/receipt/:order_id', quickbillRateLimiter, verifyQuickbillAuth, (req, res) => {
+    let orderId = req.params.order_id;
+    if (!orderId) {
+        return res.status(400).json({ success: false, error: 'Missing order_id parameter' });
+    }
+    orderId = decodeURIComponent(orderId).trim();
+    const cleanId = orderId.replace(/^#+/, '');
+
+    const query = `
+        SELECT * FROM bookings 
+        WHERE order_id = ? OR order_id = ? OR order_id = ?
+           OR order_id LIKE ? OR order_id LIKE ? OR order_id LIKE ?
+        ORDER BY id ASC
+    `;
+    const params = [cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`];
+
+    db.all(query, params, (err, rows) => {
+        if (err) {
+            console.error('[QuickBill API Error] Single receipt lookup error:', err);
+            return res.status(500).json({ success: false, error: 'Database error fetching receipt' });
+        }
+
+        if (!rows || rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'Not Found',
+                message: `No order found matching #${orderId}`
+            });
+        }
+
+        const first = rows[0];
+        const baseOrder = {
+            order_id: cleanId,
+            name: first.name,
+            email: first.email,
+            phone: first.phone,
+            status: first.status,
+            created_at: first.created_at,
+            items: rows,
+            total_price: rows.reduce((sum, r) => sum + (parseFloat(r.price) || 0), 0)
+        };
+
+        const receiptData = formatGroupedBookingForQuickbill(baseOrder);
+        res.json({ success: true, receipt: receiptData });
+    });
+});
+
+
 // Process ICICI Refund for a Booking (Protected - requires 'refunds' permission or Super Admin)
 app.post('/api/admin/bookings/:order_id/refund', verifyToken, checkPermission('refunds'), async (req, res) => {
     const { order_id } = req.params;
