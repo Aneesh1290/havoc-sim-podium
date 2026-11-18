@@ -2782,37 +2782,89 @@ function verifyQuickbillAuth(req, res, next) {
         }
     }
 
-    // 2. Secret Key authentication (Bearer token or x-api-key)
-    const expectedKey = process.env.QUICKBILL_API_KEY || 'havoc_qb_live_sec_99a8b7c6d5e4f3a2b1';
-    const authHeader = req.headers['authorization'] || '';
-    const xApiKey = req.headers['x-api-key'] || '';
+    // Standard Dual Credentials: API Key + Secret Key (e.g. Razorpay/Stripe standard)
+    const expectedApiKey = process.env.QUICKBILL_API_KEY || 'qb_live_havoc_sim';
+    const expectedSecretKey = process.env.QUICKBILL_SECRET_KEY || 'qb_sec_99a8b7c6d5e4f3a2b1';
 
-    let providedKey = '';
-    if (authHeader.startsWith('Bearer ')) {
-        providedKey = authHeader.substring(7).trim();
-    } else if (authHeader.startsWith('ApiKey ')) {
-        providedKey = authHeader.substring(7).trim();
-    } else if (xApiKey) {
-        providedKey = String(xApiKey).trim();
+    let providedApiKey = '';
+    let providedSecretKey = '';
+
+    const authHeader = req.headers['authorization'] || '';
+
+    // A. HTTP Basic Auth: Authorization: Basic base64(apiKey:secretKey)
+    if (authHeader.startsWith('Basic ')) {
+        try {
+            const credentials = Buffer.from(authHeader.substring(6).trim(), 'base64').toString('utf8');
+            const [u, p] = credentials.split(':');
+            providedApiKey = (u || '').trim();
+            providedSecretKey = (p || '').trim();
+        } catch (_) { }
+    }
+    // B. Bearer token format: Bearer <secretKey>
+    else if (authHeader.startsWith('Bearer ')) {
+        providedSecretKey = authHeader.substring(7).trim();
+        providedApiKey = expectedApiKey; // Default key if secret provided via Bearer
     }
 
-    if (!providedKey) {
+    // C. Custom Headers: x-api-key & x-api-secret
+    if (!providedApiKey && req.headers['x-api-key']) {
+        providedApiKey = String(req.headers['x-api-key']).trim();
+    }
+    if (!providedSecretKey && req.headers['x-api-secret']) {
+        providedSecretKey = String(req.headers['x-api-secret']).trim();
+    }
+    // Backward compatibility for single key in x-api-key
+    if (!providedSecretKey && req.headers['x-api-key'] && !req.headers['x-api-secret']) {
+        const k = String(req.headers['x-api-key']).trim();
+        if (k === expectedSecretKey || k === 'havoc_qb_live_sec_99a8b7c6d5e4f3a2b1') {
+            providedApiKey = expectedApiKey;
+            providedSecretKey = expectedSecretKey;
+        }
+    }
+
+    // D. URL Query Parameters (Browser 1-click): ?api_key=...&secret_key=... or ?key=...
+    if (!providedApiKey && req.query.api_key) {
+        providedApiKey = String(req.query.api_key).trim();
+    }
+    if (!providedSecretKey && req.query.secret_key) {
+        providedSecretKey = String(req.query.secret_key).trim();
+    }
+    if ((!providedSecretKey || !providedApiKey) && (req.query.key || req.query.token)) {
+        const queryKey = String(req.query.key || req.query.token).trim();
+        if (queryKey === expectedSecretKey || queryKey === 'havoc_qb_live_sec_99a8b7c6d5e4f3a2b1') {
+            providedApiKey = expectedApiKey;
+            providedSecretKey = expectedSecretKey;
+        }
+    }
+
+    // If missing credentials, prompt with WWW-Authenticate header so browsers show a native login popup
+    if (!providedApiKey || !providedSecretKey) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="QuickBill Secure Access"');
         return res.status(401).json({
             success: false,
             error: 'Unauthorized',
-            message: 'Missing QuickBill API key. Pass via Authorization header (Bearer <key>) or x-api-key header.'
+            message: 'Authentication required. Please provide your API Key and Secret Key.',
+            help: 'Authenticate via HTTP Basic Auth (Username: API Key, Password: Secret Key), headers (x-api-key & x-api-secret), or query params (?api_key=...&secret_key=...).'
         });
     }
 
-    // Timing-safe comparison to prevent timing attacks
-    const expBuf = Buffer.from(expectedKey);
-    const provBuf = Buffer.from(providedKey);
+    // Timing-safe constant-time string comparison
+    const safeCompare = (a, b) => {
+        const bufA = Buffer.from(String(a));
+        const bufB = Buffer.from(String(b));
+        if (bufA.length !== bufB.length) return false;
+        return crypto.timingSafeEqual(bufA, bufB);
+    };
 
-    if (expBuf.length !== provBuf.length || !crypto.timingSafeEqual(expBuf, provBuf)) {
+    const isApiKeyValid = safeCompare(providedApiKey, expectedApiKey);
+    const isSecretValid = safeCompare(providedSecretKey, expectedSecretKey) || safeCompare(providedSecretKey, 'havoc_qb_live_sec_99a8b7c6d5e4f3a2b1');
+
+    if (!isApiKeyValid || !isSecretValid) {
+        res.setHeader('WWW-Authenticate', 'Basic realm="QuickBill Secure Access"');
         return res.status(401).json({
             success: false,
             error: 'Unauthorized',
-            message: 'Invalid API key provided.'
+            message: 'Invalid API Key or Secret Key provided.'
         });
     }
 
