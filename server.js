@@ -2725,6 +2725,27 @@ app.put('/api/admin/bookings/:id/wristband', verifyToken, checkPermission('edit_
 // ==========================================
 // QUICKBILL INTEGRATION API (SECURE PULL MODEL)
 // ==========================================
+// Ensure quickbill_sync_state table exists to automatically track last synced order ID
+db.run(`
+    CREATE TABLE IF NOT EXISTS quickbill_sync_state (
+        id SERIAL PRIMARY KEY,
+        last_synced_id INTEGER DEFAULT 0,
+        last_synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        total_synced_count INTEGER DEFAULT 0
+    )
+`, [], (err) => {
+    if (err) {
+        db.run(`
+            CREATE TABLE IF NOT EXISTS quickbill_sync_state (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                last_synced_id INTEGER DEFAULT 0,
+                last_synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                total_synced_count INTEGER DEFAULT 0
+            )
+        `, [], () => { });
+    }
+});
+
 const quickbillLimiterState = new Map();
 const QUICKBILL_RATE_LIMIT_WINDOW_MS = 60 * 1000; // 1 minute
 const QUICKBILL_RATE_LIMIT_MAX = 60; // 60 requests per minute
@@ -2964,123 +2985,150 @@ app.get('/api/v1/quickbill/ping', quickbillRateLimiter, verifyQuickbillAuth, (re
     });
 });
 
-// 2. Fetch completed/paid sales receipts with range, status, or incremental sync (Pull Model)
+// 2. Fetch completed/paid sales receipts (Supports auto-incremental sync, manual cursor, or date range)
 app.get('/api/v1/quickbill/sales', quickbillRateLimiter, verifyQuickbillAuth, (req, res) => {
-    const { from_date, to_date, since_id, since_time, status, include_cancelled, limit, offset } = req.query;
+    let { from_date, to_date, since_id, since_time, status, include_cancelled, auto_increment, limit, offset } = req.query;
 
     const maxLimit = Math.min(parseInt(limit, 10) || 100, 500);
     const startOffset = Math.max(parseInt(offset, 10) || 0, 0);
 
-    let targetStatuses = status
-        ? String(status).split(',').map(s => s.trim().toUpperCase())
-        : ['PAID', 'ATTENDED', 'SUCCESS'];
+    // If auto_increment mode is requested or no query parameters are provided at all,
+    // automatically look up the last synced record ID from our database so QuickBill has to do ZERO work!
+    const isAutoIncrement = auto_increment === 'true' || auto_increment === '1' || (!from_date && !to_date && !since_id && !since_time && !offset);
 
-    if (String(include_cancelled) === 'true' || String(include_cancelled) === '1') {
-        if (!targetStatuses.includes('CANCELLED')) targetStatuses.push('CANCELLED');
-        if (!targetStatuses.includes('REFUNDED')) targetStatuses.push('REFUNDED');
-    }
+    const executeFetch = (effectiveSinceId) => {
+        let targetStatuses = status
+            ? String(status).split(',').map(s => s.trim().toUpperCase())
+            : ['PAID', 'ATTENDED', 'SUCCESS'];
 
-    let whereClause = "WHERE status IN (" + targetStatuses.map(() => '?').join(',') + ")";
-    const queryParams = [...targetStatuses];
+        if (String(include_cancelled) === 'true' || String(include_cancelled) === '1') {
+            if (!targetStatuses.includes('CANCELLED')) targetStatuses.push('CANCELLED');
+            if (!targetStatuses.includes('REFUNDED')) targetStatuses.push('REFUNDED');
+        }
 
-    // Incremental cursor 1: since_id (only orders with primary ID greater than since_id)
-    if (since_id) {
-        const numId = parseInt(since_id, 10);
-        if (!isNaN(numId)) {
+        let whereClause = "WHERE status IN (" + targetStatuses.map(() => '?').join(',') + ")";
+        const queryParams = [...targetStatuses];
+
+        // Apply since_id filter
+        if (effectiveSinceId && effectiveSinceId > 0) {
             whereClause += " AND id > ?";
-            queryParams.push(numId);
-        }
-    }
-
-    // Incremental cursor 2: since_time (only orders created after ISO / SQL timestamp)
-    if (since_time) {
-        whereClause += " AND created_at > ?";
-        queryParams.push(since_time);
-    }
-
-    // Date range filters
-    if (from_date) {
-        whereClause += " AND DATE(created_at) >= DATE(?)";
-        queryParams.push(from_date);
-    }
-    if (to_date) {
-        whereClause += " AND DATE(created_at) <= DATE(?)";
-        queryParams.push(to_date);
-    }
-
-    const countSql = `SELECT COUNT(id) as total_count FROM bookings ${whereClause}`;
-    // When using since_id / incremental cursor, sort ascending so client can continuously stream new records
-    const sortOrder = (since_id || since_time) ? 'ASC' : 'DESC';
-    const dataSql = `SELECT * FROM bookings ${whereClause} ORDER BY id ${sortOrder} LIMIT ? OFFSET ?`;
-
-    db.get(countSql, queryParams, (cntErr, cntRow) => {
-        if (cntErr) {
-            console.error('[QuickBill API Error] Count query failed:', cntErr);
-            return res.status(500).json({ success: false, error: 'Database error fetching receipts count' });
+            queryParams.push(effectiveSinceId);
         }
 
-        const totalRecords = (cntRow && cntRow.total_count) || 0;
+        // Incremental cursor 2: since_time
+        if (since_time) {
+            whereClause += " AND created_at > ?";
+            queryParams.push(since_time);
+        }
 
-        db.all(dataSql, [...queryParams, maxLimit, startOffset], (err, rows) => {
-            if (err) {
-                console.error('[QuickBill API Error] Data query failed:', err);
-                return res.status(500).json({ success: false, error: 'Database error fetching receipts' });
+        // Date range filters
+        if (from_date) {
+            whereClause += " AND DATE(created_at) >= DATE(?)";
+            queryParams.push(from_date);
+        }
+        if (to_date) {
+            whereClause += " AND DATE(created_at) <= DATE(?)";
+            queryParams.push(to_date);
+        }
+
+        const countSql = `SELECT COUNT(id) as total_count FROM bookings ${whereClause}`;
+        // Sort ascending when doing incremental sync so records flow sequentially
+        const sortOrder = (effectiveSinceId || since_time) ? 'ASC' : 'DESC';
+        const dataSql = `SELECT * FROM bookings ${whereClause} ORDER BY id ${sortOrder} LIMIT ? OFFSET ?`;
+
+        db.get(countSql, queryParams, (cntErr, cntRow) => {
+            if (cntErr) {
+                console.error('[QuickBill API Error] Count query failed:', cntErr);
+                return res.status(500).json({ success: false, error: 'Database error fetching receipts count' });
             }
 
-            let maxIdInBatch = 0;
-            let lastTimestampInBatch = null;
+            const totalRecords = (cntRow && cntRow.total_count) || 0;
 
-            // Group multi-session line items under their base order_id
-            const groupedMap = new Map();
-            (rows || []).forEach(b => {
-                if (b.id && b.id > maxIdInBatch) maxIdInBatch = b.id;
-                if (b.created_at) lastTimestampInBatch = b.created_at;
-
-                let baseId = b.order_id || `ORD_${b.id}`;
-                const parts = baseId.split('_');
-                if (parts[1] === 'SP' && parts.length >= 4) {
-                    baseId = parts.slice(0, 3).join('_');
-                } else if (parts.length >= 4 && !baseId.startsWith('PAYDUE_FZ_')) {
-                    baseId = parts.slice(0, 3).join('_');
+            db.all(dataSql, [...queryParams, maxLimit, startOffset], (err, rows) => {
+                if (err) {
+                    console.error('[QuickBill API Error] Data query failed:', err);
+                    return res.status(500).json({ success: false, error: 'Database error fetching receipts' });
                 }
 
-                if (!groupedMap.has(baseId)) {
-                    groupedMap.set(baseId, {
-                        order_id: baseId,
-                        name: b.name,
-                        email: b.email,
-                        phone: b.phone,
-                        status: b.status,
-                        created_at: b.created_at,
-                        items: [],
-                        total_price: 0
-                    });
+                let maxIdInBatch = effectiveSinceId || 0;
+                let lastTimestampInBatch = null;
+
+                // Group multi-session line items under their base order_id
+                const groupedMap = new Map();
+                (rows || []).forEach(b => {
+                    if (b.id && b.id > maxIdInBatch) maxIdInBatch = b.id;
+                    if (b.created_at) lastTimestampInBatch = b.created_at;
+
+                    let baseId = b.order_id || `ORD_${b.id}`;
+                    const parts = baseId.split('_');
+                    if (parts[1] === 'SP' && parts.length >= 4) {
+                        baseId = parts.slice(0, 3).join('_');
+                    } else if (parts.length >= 4 && !baseId.startsWith('PAYDUE_FZ_')) {
+                        baseId = parts.slice(0, 3).join('_');
+                    }
+
+                    if (!groupedMap.has(baseId)) {
+                        groupedMap.set(baseId, {
+                            order_id: baseId,
+                            name: b.name,
+                            email: b.email,
+                            phone: b.phone,
+                            status: b.status,
+                            created_at: b.created_at,
+                            items: [],
+                            total_price: 0
+                        });
+                    }
+                    const g = groupedMap.get(baseId);
+                    g.items.push(b);
+                    g.total_price += (parseFloat(b.price) || 0);
+                });
+
+                const formattedReceipts = Array.from(groupedMap.values()).map(formatGroupedBookingForQuickbill);
+
+                // If in auto_increment mode and we returned new records, advance our state bookmark automatically
+                if (isAutoIncrement && maxIdInBatch > (effectiveSinceId || 0)) {
+                    db.run(
+                        "UPDATE quickbill_sync_state SET last_synced_id = ?, last_synced_at = CURRENT_TIMESTAMP, total_synced_count = total_synced_count + ? WHERE id = 1",
+                        [maxIdInBatch, formattedReceipts.length],
+                        () => { }
+                    );
                 }
-                const g = groupedMap.get(baseId);
-                g.items.push(b);
-                g.total_price += (parseFloat(b.price) || 0);
-            });
 
-            const formattedReceipts = Array.from(groupedMap.values()).map(formatGroupedBookingForQuickbill);
-
-            res.json({
-                success: true,
-                metadata: {
-                    total_records: totalRecords,
-                    returned_orders: formattedReceipts.length,
-                    limit: maxLimit,
-                    offset: startOffset,
-                    from_date: from_date || null,
-                    to_date: to_date || null,
-                    since_id: since_id ? parseInt(since_id, 10) : null,
-                    since_time: since_time || null,
-                    next_since_id: maxIdInBatch > 0 ? maxIdInBatch : null,
-                    next_since_time: lastTimestampInBatch || null
-                },
-                receipts: formattedReceipts
+                res.json({
+                    success: true,
+                    mode: isAutoIncrement ? 'auto_incremental' : 'query',
+                    metadata: {
+                        total_records: totalRecords,
+                        returned_orders: formattedReceipts.length,
+                        limit: maxLimit,
+                        offset: startOffset,
+                        last_synced_checkpoint_id: effectiveSinceId || 0,
+                        next_synced_checkpoint_id: maxIdInBatch,
+                        from_date: from_date || null,
+                        to_date: to_date || null
+                    },
+                    receipts: formattedReceipts
+                });
             });
         });
-    });
+    };
+
+    if (isAutoIncrement) {
+        db.get("SELECT last_synced_id FROM quickbill_sync_state WHERE id = 1", (stateErr, stateRow) => {
+            if (!stateRow) {
+                // Initialize default state row if not present
+                db.run("INSERT INTO quickbill_sync_state (id, last_synced_id) VALUES (1, 0)", () => {
+                    executeFetch(0);
+                });
+            } else {
+                executeFetch(stateRow.last_synced_id || 0);
+            }
+        });
+    } else {
+        const manualId = since_id ? parseInt(since_id, 10) : 0;
+        executeFetch(isNaN(manualId) ? 0 : manualId);
+    }
 });
 
 // 3. Fetch single receipt / invoice by order ID (Pull Model)
