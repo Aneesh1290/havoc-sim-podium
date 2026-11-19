@@ -2967,20 +2967,41 @@ app.get('/api/v1/quickbill/ping', quickbillRateLimiter, verifyQuickbillAuth, (re
     });
 });
 
-// 2. Fetch completed/paid sales receipts within date range (Pull Model)
+// 2. Fetch completed/paid sales receipts with range, status, or incremental sync (Pull Model)
 app.get('/api/v1/quickbill/sales', quickbillRateLimiter, verifyQuickbillAuth, (req, res) => {
-    const { from_date, to_date, status, limit, offset } = req.query;
+    const { from_date, to_date, since_id, since_time, status, include_cancelled, limit, offset } = req.query;
 
     const maxLimit = Math.min(parseInt(limit, 10) || 100, 500);
     const startOffset = Math.max(parseInt(offset, 10) || 0, 0);
 
-    const targetStatuses = status
+    let targetStatuses = status
         ? String(status).split(',').map(s => s.trim().toUpperCase())
         : ['PAID', 'ATTENDED', 'SUCCESS'];
+
+    if (String(include_cancelled) === 'true' || String(include_cancelled) === '1') {
+        if (!targetStatuses.includes('CANCELLED')) targetStatuses.push('CANCELLED');
+        if (!targetStatuses.includes('REFUNDED')) targetStatuses.push('REFUNDED');
+    }
 
     let whereClause = "WHERE status IN (" + targetStatuses.map(() => '?').join(',') + ")";
     const queryParams = [...targetStatuses];
 
+    // Incremental cursor 1: since_id (only orders with primary ID greater than since_id)
+    if (since_id) {
+        const numId = parseInt(since_id, 10);
+        if (!isNaN(numId)) {
+            whereClause += " AND id > ?";
+            queryParams.push(numId);
+        }
+    }
+
+    // Incremental cursor 2: since_time (only orders created after ISO / SQL timestamp)
+    if (since_time) {
+        whereClause += " AND created_at > ?";
+        queryParams.push(since_time);
+    }
+
+    // Date range filters
     if (from_date) {
         whereClause += " AND DATE(created_at) >= DATE(?)";
         queryParams.push(from_date);
@@ -2991,7 +3012,9 @@ app.get('/api/v1/quickbill/sales', quickbillRateLimiter, verifyQuickbillAuth, (r
     }
 
     const countSql = `SELECT COUNT(id) as total_count FROM bookings ${whereClause}`;
-    const dataSql = `SELECT * FROM bookings ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`;
+    // When using since_id / incremental cursor, sort ascending so client can continuously stream new records
+    const sortOrder = (since_id || since_time) ? 'ASC' : 'DESC';
+    const dataSql = `SELECT * FROM bookings ${whereClause} ORDER BY id ${sortOrder} LIMIT ? OFFSET ?`;
 
     db.get(countSql, queryParams, (cntErr, cntRow) => {
         if (cntErr) {
@@ -3007,9 +3030,15 @@ app.get('/api/v1/quickbill/sales', quickbillRateLimiter, verifyQuickbillAuth, (r
                 return res.status(500).json({ success: false, error: 'Database error fetching receipts' });
             }
 
+            let maxIdInBatch = 0;
+            let lastTimestampInBatch = null;
+
             // Group multi-session line items under their base order_id
             const groupedMap = new Map();
             (rows || []).forEach(b => {
+                if (b.id && b.id > maxIdInBatch) maxIdInBatch = b.id;
+                if (b.created_at) lastTimestampInBatch = b.created_at;
+
                 let baseId = b.order_id || `ORD_${b.id}`;
                 const parts = baseId.split('_');
                 if (parts[1] === 'SP' && parts.length >= 4) {
@@ -3045,7 +3074,11 @@ app.get('/api/v1/quickbill/sales', quickbillRateLimiter, verifyQuickbillAuth, (r
                     limit: maxLimit,
                     offset: startOffset,
                     from_date: from_date || null,
-                    to_date: to_date || null
+                    to_date: to_date || null,
+                    since_id: since_id ? parseInt(since_id, 10) : null,
+                    since_time: since_time || null,
+                    next_since_id: maxIdInBatch > 0 ? maxIdInBatch : null,
+                    next_since_time: lastTimestampInBatch || null
                 },
                 receipts: formattedReceipts
             });
