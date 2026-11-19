@@ -2883,15 +2883,12 @@ function formatGroupedBookingForQuickbill(groupedOrder) {
     const cgstAmount = Math.round((totalGst / 2) * 100) / 100;
     const sgstAmount = Math.round((totalGst - cgstAmount) * 100) / 100;
 
-    let paymentMode = 'ONLINE';
-    if (firstItem.payment_ref && firstItem.payment_ref.toUpperCase().includes('CASH')) {
-        paymentMode = 'CASH';
-    } else if (firstItem.payment_ref && firstItem.payment_ref.toUpperCase().includes('POS')) {
-        paymentMode = 'CARD_POS';
-    } else if (firstItem.payment_ref && firstItem.payment_ref.toUpperCase().includes('UPI')) {
-        paymentMode = 'UPI_DESK';
-    } else if (firstItem.icici_txn_id) {
-        paymentMode = 'ICICI_GATEWAY';
+    // 2 Standard Payment Modes: ONLINE (Payment Gateway) or PAY_AT_DESK (Pay at Desk)
+    const baseId = (groupedOrder.order_id || '').toUpperCase();
+    const hasIcici = Boolean(firstItem.icici_txn_id);
+    let paymentMode = (baseId.includes('PAYDUE') && !hasIcici) ? 'PAY_AT_DESK' : 'ONLINE';
+    if (firstItem.payment_ref && firstItem.payment_ref.toUpperCase().includes('DESK')) {
+        paymentMode = 'PAY_AT_DESK';
     }
 
     const lineItems = items.map((it, idx) => {
