@@ -796,6 +796,53 @@ app.post('/api/admin/settings/payment', verifyToken, verifySuperAdmin, (req, res
     });
 });
 
+// Admin Notification Phone Numbers Settings
+app.get('/api/admin/settings/admin-phones', verifyToken, (req, res) => {
+    db.get("SELECT value FROM settings WHERE key = 'admin_notification_phones'", (err, row) => {
+        if (err) return res.status(500).json({ error: 'Database error fetching notification numbers' });
+        if (!row || !row.value) return res.json({ phones: [] });
+        try {
+            const phones = JSON.parse(row.value);
+            res.json({ phones: Array.isArray(phones) ? phones : [] });
+        } catch (e) {
+            res.json({ phones: [] });
+        }
+    });
+});
+
+app.post('/api/admin/settings/admin-phones', verifyToken, (req, res) => {
+    let { phones } = req.body;
+    if (!Array.isArray(phones)) {
+        return res.status(400).json({ error: 'Invalid payload: phones must be an array' });
+    }
+
+    // Clean and validate each phone number
+    const cleanedPhones = phones.map(p => {
+        if (typeof p !== 'string') return '';
+        let clean = p.trim().replace(/[^\d+]/g, '');
+        if (clean && !clean.startsWith('+')) {
+            clean = '+91' + clean.replace(/^0+/, '');
+        }
+        return clean;
+    }).filter(p => p && p.length >= 10);
+
+    // Deduplicate
+    const uniquePhones = Array.from(new Set(cleanedPhones));
+    const value = JSON.stringify(uniquePhones);
+
+    db.run("UPDATE settings SET value = ? WHERE key = 'admin_notification_phones'", [value], function (err) {
+        if (err) return res.status(500).json({ error: 'Failed to update admin notification numbers.' });
+        if (this.changes === 0) {
+            db.run("INSERT INTO settings (key, value) VALUES ('admin_notification_phones', ?)", [value], (insertErr) => {
+                if (insertErr) return res.status(500).json({ error: 'Failed to insert admin notification numbers.' });
+                res.json({ success: true, phones: uniquePhones });
+            });
+        } else {
+            res.json({ success: true, phones: uniquePhones });
+        }
+    });
+});
+
 // Feature switches (e.g. Band Inventory & Desk Payment Link ON/OFF toggle per website)
 app.get('/api/settings/features', (req, res) => {
     db.get("SELECT value FROM settings WHERE key = 'feature_switches'", (err, row) => {
@@ -3439,6 +3486,7 @@ function dispatchBookingWhatsAppNotification(rows, paymentStatus) {
     const timeSlot = rows.map(r => r.booking_time).filter(Boolean).join(', ') || '';
     const totalAmount = rows.reduce((sum, r) => sum + (parseFloat(r.price) || 0), 0).toFixed(2);
 
+    // 1. Send confirmation to customer
     sendBookingConfirmationWhatsApp({
         customerName,
         customerPhone,
@@ -3448,7 +3496,32 @@ function dispatchBookingWhatsAppNotification(rows, paymentStatus) {
         timeSlot,
         totalAmount,
         paymentStatus
-    }).catch(e => console.error('[Interakt WhatsApp] Unhandled rejection:', e));
+    }).catch(e => console.error('[Interakt WhatsApp] Customer dispatch unhandled rejection:', e));
+
+    // 2. Also send alert copy to configured Admin notification numbers
+    db.get("SELECT value FROM settings WHERE key = 'admin_notification_phones'", (err, row) => {
+        if (err || !row || !row.value) return;
+        try {
+            const adminPhones = JSON.parse(row.value);
+            if (Array.isArray(adminPhones) && adminPhones.length > 0) {
+                console.log(`[Interakt WhatsApp] Dispatching booking alert to ${adminPhones.length} admin number(s) for Order #${orderId}...`);
+                adminPhones.forEach(adminPhone => {
+                    sendBookingConfirmationWhatsApp({
+                        customerName: `${customerName || 'Customer'} [Admin Alert]`,
+                        customerPhone: adminPhone,
+                        orderId,
+                        sessionDetails: sessionSummary,
+                        date,
+                        timeSlot,
+                        totalAmount,
+                        paymentStatus
+                    }).catch(err => console.error(`[Interakt WhatsApp] Admin alert failed for ${adminPhone}:`, err.message));
+                });
+            }
+        } catch (parseErr) {
+            console.error('[Interakt WhatsApp] Error parsing admin notification phones:', parseErr.message);
+        }
+    });
 }
 
 // Automated Payment Link Notification via Interakt WhatsApp

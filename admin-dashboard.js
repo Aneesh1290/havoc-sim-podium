@@ -4640,6 +4640,7 @@ document.querySelector('.nav-btn[data-target="tab-newsletter"]')?.addEventListen
 // SETTINGS & FEATURE SWITCHES
 // ==========================================
 async function loadSettings() {
+    loadAdminNotificationPhones();
     try {
         const res = await fetch(BACKEND_URL + "/api/settings/payment", {
             headers: { "Authorization": `Bearer ${token}` }
@@ -8018,5 +8019,115 @@ window.sendAdvanceReminderOrder = async function(orderId) {
     } catch (e) {
         console.error('Error sending advance reminder:', e);
         alert(e.message || 'Server error sending advance reminder.');
+    }
+};
+
+
+// ==========================================
+// ADMIN NOTIFICATION PHONE NUMBERS CONTROLLER
+// ==========================================
+window._adminNotificationPhones = [];
+
+async function loadAdminNotificationPhones() {
+    try {
+        const res = await fetchAuth('/api/admin/settings/admin-phones');
+        if (res.ok) {
+            const data = await res.json();
+            window._adminNotificationPhones = Array.isArray(data.phones) ? data.phones : [];
+            renderAdminNotificationPhones();
+        }
+    } catch (err) {
+        console.error('Failed to load admin notification phones:', err);
+    }
+}
+
+function renderAdminNotificationPhones() {
+    const container = document.getElementById('adminPhonesListContainer');
+    if (!container) return;
+
+    if (!window._adminNotificationPhones || window._adminNotificationPhones.length === 0) {
+        container.innerHTML = '<div style="color: var(--muted); font-size: 0.85rem; padding: 0.5rem 0;" id="adminPhonesEmptyMsg">No admin numbers configured. Add numbers above to receive booking alerts.</div>';
+        return;
+    }
+
+    container.innerHTML = window._adminNotificationPhones.map((phone, idx) => `
+        <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); padding: 0.65rem 0.9rem; border-radius: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: #25D366; font-size: 1.1rem;">💬</span>
+                <span style="color: #fff; font-family: monospace; font-size: 0.95rem; font-weight: 600;">${phone}</span>
+            </div>
+            <button type="button" onclick="removeAdminNotificationPhone(${idx})" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 0.3rem 0.65rem; border-radius: 6px; cursor: pointer; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; gap: 4px;">
+                <span>✕</span> Remove
+            </button>
+        </div>
+    `).join('');
+}
+
+window.addAdminNotificationPhone = function() {
+    const input = document.getElementById('adminPhoneInput');
+    if (!input) return;
+    let val = input.value.trim();
+    if (!val) {
+        alert('Please enter a phone number.');
+        return;
+    }
+
+    // Clean phone number
+    let clean = val.replace(/[^\d+]/g, '');
+    if (!clean.startsWith('+')) {
+        clean = '+91' + clean.replace(/^0+/, '');
+    }
+
+    if (clean.length < 12) {
+        alert('Please enter a valid phone number (e.g. 9876543210).');
+        return;
+    }
+
+    if (!window._adminNotificationPhones) window._adminNotificationPhones = [];
+    if (window._adminNotificationPhones.includes(clean)) {
+        alert('This phone number is already added.');
+        return;
+    }
+
+    window._adminNotificationPhones.push(clean);
+    input.value = '';
+    renderAdminNotificationPhones();
+};
+
+window.removeAdminNotificationPhone = function(idx) {
+    if (!window._adminNotificationPhones) return;
+    window._adminNotificationPhones.splice(idx, 1);
+    renderAdminNotificationPhones();
+};
+
+window.saveAdminNotificationPhones = async function() {
+    const btn = document.getElementById('saveAdminPhonesBtn');
+    const origText = btn ? btn.textContent : 'Save Notification Numbers';
+    if (btn) {
+        btn.textContent = 'Saving...';
+        btn.disabled = true;
+    }
+
+    try {
+        const res = await fetchAuth('/api/admin/settings/admin-phones', {
+            method: 'POST',
+            body: JSON.stringify({ phones: window._adminNotificationPhones || [] })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            window._adminNotificationPhones = data.phones;
+            renderAdminNotificationPhones();
+            alert('Admin notification phone numbers saved successfully!');
+        } else {
+            alert(data.error || 'Failed to save admin notification numbers.');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Server error saving admin notification phone numbers.');
+    } finally {
+        if (btn) {
+            btn.textContent = origText;
+            btn.disabled = false;
+        }
     }
 };

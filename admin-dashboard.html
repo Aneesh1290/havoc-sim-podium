@@ -3056,6 +3056,35 @@
                     <button class="btn btn-gold" id="saveFeatureSettingsBtn" onclick="saveFeatureSettings()">Save Feature Switches</button>
                 </div>
             </div>
+
+            <!-- Admin WhatsApp Booking Alerts Settings -->
+            <div class="data-card" style="max-width: 600px; margin-top: 1.5rem;">
+                <h3 style="margin-top: 0; margin-bottom: 0.5rem; color: #fff; display: flex; align-items: center; gap: 8px;">
+                    <span>📲</span> Admin Booking WhatsApp Notifications
+                </h3>
+                <p style="color: var(--muted); font-size: 0.88rem; margin-bottom: 1.2rem;">
+                    Whenever a customer completes or places a booking, an instant booking confirmation WhatsApp message will also be automatically sent to all admin phone numbers listed below.
+                </p>
+
+                <!-- Input to add a new phone number -->
+                <div style="display: flex; gap: 10px; margin-bottom: 1.2rem;">
+                    <input type="text" id="adminPhoneInput" placeholder="Enter phone (e.g. 9876543210 or +919876543210)" style="flex: 1; padding: 0.75rem 0.9rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: inherit; font-size: 0.92rem; outline: none;">
+                    <button type="button" class="btn btn-gold" onclick="addAdminNotificationPhone()" style="padding: 0.75rem 1.2rem; white-space: nowrap; font-weight: 600;">
+                        + Add Number
+                    </button>
+                </div>
+
+                <!-- List of current admin numbers -->
+                <div id="adminPhonesListContainer" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 1.2rem;">
+                    <div style="color: var(--muted); font-size: 0.85rem; padding: 0.5rem 0;" id="adminPhonesEmptyMsg">
+                        No admin numbers configured. Add numbers above to receive booking alerts.
+                    </div>
+                </div>
+
+                <div style="margin-top: 1rem; text-align: right; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 1rem;">
+                    <button class="btn btn-gold" id="saveAdminPhonesBtn" onclick="saveAdminNotificationPhones()">Save Notification Numbers</button>
+                </div>
+            </div>
             
             <style>
                 .switch input:checked + .slider { background-color: var(--gold); }
