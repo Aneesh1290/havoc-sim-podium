@@ -3397,6 +3397,105 @@ function parseInternationalPhone(rawPhone) {
     return { countryCode: '+91', phoneNumber: clean };
 }
 
+// Automated WhatsApp Instructor Notification via Interakt API
+async function sendInstructorBookingWhatsApp({ instructorName, instructorPhone, studentName, sessionDetails, date, timeSlot }) {
+    const interaktApiKey = process.env.INTERAKT_API_KEY;
+    if (!interaktApiKey) {
+        console.log('[Interakt WhatsApp] INTERAKT_API_KEY not configured. Skipping instructor WhatsApp alert.');
+        return;
+    }
+
+    if (!instructorPhone) {
+        console.log(`[Interakt WhatsApp] No phone number for instructor ${instructorName}. Skipping WhatsApp alert.`);
+        return;
+    }
+
+    const { countryCode, phoneNumber } = parseInternationalPhone(instructorPhone);
+    if (!phoneNumber) {
+        console.warn(`[Interakt WhatsApp] Could not extract valid phone number for instructor ${instructorName}: "${instructorPhone}". Skipping.`);
+        return;
+    }
+
+    const templateName = process.env.INTERAKT_INSTRUCTOR_TEMPLATE || "sim_podium_instructor_booking_alert";
+    const instName = (instructorName || "Instructor").trim();
+    const student = (studentName || "Student").trim();
+    const formattedSession = String(sessionDetails || "Simulator Session").trim();
+    const formattedDateTime = `${date || 'Scheduled Date'} • ${timeSlot || 'Scheduled Time'}`;
+
+    const requestPayload = {
+        countryCode: countryCode,
+        phoneNumber: phoneNumber,
+        type: "Template",
+        template: {
+            name: templateName,
+            languageCode: "en",
+            bodyValues: [
+                instName,
+                student,
+                formattedSession,
+                formattedDateTime
+            ]
+        }
+    };
+
+    try {
+        console.log(`[Interakt WhatsApp] Sending instructor booking alert to ${instName} (${countryCode}${phoneNumber})...`);
+        const response = await fetch('https://api.interakt.ai/v1/public/message/', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${interaktApiKey.trim()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestPayload)
+        });
+
+        if (response.ok) {
+            const data = await response.json().catch(() => ({}));
+            console.log(`[Interakt WhatsApp] Instructor alert dispatched to ${instName} (${countryCode}${phoneNumber})! Result:`, data.result || 'OK');
+        } else {
+            const errText = await response.text();
+            console.warn(`[Interakt WhatsApp] Interakt API returned status ${response.status} for instructor alert:`, errText);
+        }
+    } catch (err) {
+        console.error('[Interakt WhatsApp] Error sending instructor booking alert:', err.message);
+    }
+}
+
+// Helper to notify assigned instructors for booking rows via email & WhatsApp
+function notifyAssignedInstructors(rows) {
+    if (!rows || !Array.isArray(rows) || rows.length === 0) return;
+    rows.forEach(row => {
+        if (!row.instructor_id) return;
+        db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
+            if (err || !instructor) return;
+
+            // 1. Send Email Notification
+            if (instructor.email) {
+                try {
+                    const mailer = require('./mailer');
+                    mailer.sendInstructorEmail(instructor, row);
+                } catch (e) {
+                    console.error('[Mailer] Error sending instructor email:', e.message);
+                }
+            }
+
+            // 2. Send WhatsApp Notification
+            if (instructor.phone) {
+                const isDuo = (Number(row.players) === 2 || row.player_two_name);
+                const sessionDetails = `${row.item_name || 'Simulator'}${isDuo ? ' (2-Player Duo)' : ''}`;
+                sendInstructorBookingWhatsApp({
+                    instructorName: instructor.name,
+                    instructorPhone: instructor.phone,
+                    studentName: row.name,
+                    sessionDetails,
+                    date: row.booking_date,
+                    timeSlot: row.booking_time
+                }).catch(err => console.error('[Interakt WhatsApp] Unhandled instructor alert error:', err.message));
+            }
+        });
+    });
+}
+
 // Automated WhatsApp Booking Confirmation Notification via Interakt API
 async function sendBookingConfirmationWhatsApp({ customerName, customerPhone, orderId, sessionDetails, date, timeSlot, totalAmount, paymentStatus }) {
     const interaktApiKey = process.env.INTERAKT_API_KEY;
@@ -5648,15 +5747,7 @@ app.post('/api/bookings/cod', async (req, res) => {
                         if (!err && rows && rows.length > 0) {
                             sendConfirmationEmail(rows);
                             dispatchBookingWhatsAppNotification(rows, 'Pay at Desk');
-                            rows.forEach(row => {
-                                if (row.instructor_id) {
-                                    db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
-                                        if (!err && instructor && instructor.email) {
-                                            sendInstructorEmail(instructor, row);
-                                        }
-                                    });
-                                }
-                            });
+                            notifyAssignedInstructors(rows);
                         }
                     });
 
@@ -6114,14 +6205,7 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                                                     const mailer = require('./mailer');
                                                     mailer.sendConfirmationEmail(rows);
                                                     dispatchBookingWhatsAppNotification(rows, 'Paid Online');
-
-                                                    if (rows[0].instructor_id) {
-                                                        db.get("SELECT * FROM instructors WHERE id = ?", [rows[0].instructor_id], (err, inst) => {
-                                                            if (!err && inst && inst.email) {
-                                                                mailer.sendInstructorEmail(inst, rows[0]);
-                                                            }
-                                                        });
-                                                    }
+                                                    notifyAssignedInstructors(rows);
                                                 } catch (e) {
                                                     console.error("Email/WhatsApp send failed:", e);
                                                 }
@@ -6149,14 +6233,7 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                             const mailer = require('./mailer');
                             mailer.sendConfirmationEmail(rows);
                             dispatchBookingWhatsAppNotification(rows, 'Paid Online');
-
-                            if (rows[0].instructor_id) {
-                                db.get("SELECT * FROM instructors WHERE id = ?", [rows[0].instructor_id], (err, inst) => {
-                                    if (!err && inst && inst.email) {
-                                        mailer.sendInstructorEmail(inst, rows[0]);
-                                    }
-                                });
-                            }
+                            notifyAssignedInstructors(rows);
                         } catch (e) {
                             console.error("Email/WhatsApp send failed:", e);
                         }
@@ -6962,15 +7039,7 @@ app.post('/api/upi/callback', async (req, res) => {
                     if (!err && rows && rows.length > 0) {
                         sendConfirmationEmail(rows);
                         dispatchBookingWhatsAppNotification(rows, 'Paid Online');
-                        rows.forEach(row => {
-                            if (row.instructor_id) {
-                                db.get("SELECT * FROM instructors WHERE id = ?", [row.instructor_id], (err, instructor) => {
-                                    if (!err && instructor && instructor.email) {
-                                        sendInstructorEmail(instructor, row);
-                                    }
-                                });
-                            }
-                        });
+                        notifyAssignedInstructors(rows);
                     }
                 });
             });
