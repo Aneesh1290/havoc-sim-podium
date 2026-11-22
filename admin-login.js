@@ -1,3 +1,30 @@
+// Auto-redirect if already logged in with a valid token
+(async function checkExistingAuth() {
+    const existingToken = localStorage.getItem('admin_token');
+    if (!existingToken) return;
+
+    try {
+        const res = await fetch('/api/admin/me', {
+            headers: {
+                'Authorization': `Bearer ${existingToken}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.username) {
+                // Already authenticated! Go directly to dashboard
+                window.location.replace('/admin-dashboard');
+                return;
+            }
+        }
+        // If token expired or invalid, clear it
+        localStorage.removeItem('admin_token');
+    } catch (e) {
+        console.warn('Silent auth check error:', e);
+    }
+})();
+
 const form = document.getElementById('loginForm');
 const userGroup = document.getElementById('user-field');
 const passGroup = document.getElementById('pass-field');

@@ -940,7 +940,8 @@ app.post('/api/admin/login', (req, res) => {
         }
         */
 
-        const jwtToken = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '8h' });
+        // Persist admin session for 30 days so returning visits don't require re-login
+        const jwtToken = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '30d' });
         res.json({
             success: true,
             token: jwtToken,
