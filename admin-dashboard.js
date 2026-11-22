@@ -147,7 +147,33 @@ async function loadBookings() {
     const res = await fetchAuth('/api/admin/bookings');
     let rawBookings = await res.json();
     window.allBookings = Array.isArray(rawBookings) ? rawBookings : [];
-    renderBookings(window.allBookings);
+
+    // Check if URL contains ?slot=... or ?date=... from WhatsApp slot alerts
+    const searchParams = new URLSearchParams(window.location.search);
+    const filterSlot = searchParams.get('slot');
+    const filterDate = searchParams.get('date');
+
+    if (filterSlot || (filterDate && filterDate !== 'Today')) {
+        const filtered = window.allBookings.filter(b => {
+            let matchSlot = true;
+            let matchDate = true;
+            if (filterSlot) {
+                const s = (b.booking_time || '').toLowerCase().replace(/\s+/g, '');
+                const target = filterSlot.toLowerCase().replace(/\s+/g, '');
+                matchSlot = s.includes(target) || target.includes(s);
+            }
+            if (filterDate && filterDate !== 'Today') {
+                const d = (b.booking_date || '').toLowerCase();
+                const targetD = filterDate.toLowerCase();
+                matchDate = d.includes(targetD) || targetD.includes(d);
+            }
+            return matchSlot && matchDate;
+        });
+        renderBookings(filtered);
+    } else {
+        renderBookings(window.allBookings);
+    }
+
     if (typeof renderInventory === 'function' && typeof inventoryData !== 'undefined') {
         renderInventory(inventoryData);
     }

@@ -346,10 +346,12 @@ if (db.isPostgres) {
     db.pool.query("ALTER TABLE payment_links ADD COLUMN IF NOT EXISTS order_ids TEXT", () => { });
     db.pool.query("ALTER TABLE payment_links ADD COLUMN IF NOT EXISTS upgrade_data TEXT", () => { });
     db.pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS advance_reminder_sent INTEGER DEFAULT 0", () => { });
+    db.pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS admin_upcoming_notified INTEGER DEFAULT 0", () => { });
 } else {
     db.run("ALTER TABLE payment_links ADD COLUMN order_ids TEXT", [], () => { });
     db.run("ALTER TABLE payment_links ADD COLUMN upgrade_data TEXT", [], () => { });
     db.run("ALTER TABLE bookings ADD COLUMN advance_reminder_sent INTEGER DEFAULT 0", [], () => { });
+    db.run("ALTER TABLE bookings ADD COLUMN admin_upcoming_notified INTEGER DEFAULT 0", [], () => { });
 }
 
 // Ensure blocked_slots table exists for global/date/simulator slot blocking
@@ -6820,6 +6822,152 @@ app.post('/api/admin/bookings/:order_id/send-advance-reminder', verifyToken, che
         res.status(500).json({ error: e.message || 'Internal server error sending reminder' });
     }
 });
+
+// ==========================================
+// ADMIN 30-MIN UPCOMING SLOT REMINDER ALERT
+// (Using verified template: havoc_admin_booking_reminder)
+// ==========================================
+
+async function sendAdminUpcomingSlotReminderWhatsApp({ adminPhone, timeSlot, bookingDate, totalBookings, totalAmount, isPaidCount, deskDueCount, rosterUrl }) {
+    const interaktApiKey = process.env.INTERAKT_API_KEY;
+    if (!interaktApiKey || !adminPhone) return { success: false, reason: 'Missing API key or phone' };
+
+    const { countryCode, phoneNumber } = parseInternationalPhone(adminPhone);
+    if (!phoneNumber) return { success: false, reason: 'Invalid admin phone' };
+
+    const templateName = process.env.INTERAKT_ADMIN_UPCOMING_TEMPLATE || "havoc_admin_booking_reminder";
+    const brandName = process.env.VENUE_NAME || "Havoc Sim Podium";
+    const cleanSlotDate = `${timeSlot || 'Scheduled Slot'} • ${bookingDate || 'Today'}`;
+    const cleanBookingsStr = String(totalBookings || '1 Booking');
+    const cleanPaymentStr = `Total: ₹${Number(totalAmount || 0).toLocaleString('en-IN')} (${isPaidCount || 0} Paid, ${deskDueCount || 0} Due at Desk)`;
+    const cleanRosterUrl = String(rosterUrl || 'https://www.havocsim.in/admin-dashboard.html');
+
+    // 5-variable payload matching verified template: havoc_admin_booking_reminder
+    // {{1}} = Venue / Brand Name
+    // {{2}} = Scheduled Slot & Date
+    // {{3}} = Total Bookings Count
+    // {{4}} = Payment Status Breakdown
+    // {{5}} = Fast-Track View Slot Bookings Link
+    const requestPayload = {
+        countryCode: countryCode,
+        phoneNumber: phoneNumber,
+        type: "Template",
+        template: {
+            name: templateName,
+            languageCode: "en",
+            bodyValues: [
+                brandName,
+                cleanSlotDate,
+                cleanBookingsStr,
+                cleanPaymentStr,
+                cleanRosterUrl
+            ]
+        }
+    };
+
+    try {
+        const response = await fetch('https://api.interakt.ai/v1/public/message/', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Basic ${interaktApiKey.trim()}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestPayload)
+        });
+
+        if (response.ok) {
+            console.log(`[Admin Slot Reminder] Successfully sent to ${countryCode}${phoneNumber} for slot ${cleanSlotDate}`);
+            return { success: true };
+        } else {
+            const errText = await response.text();
+            console.warn(`[Admin Slot Reminder] Interakt returned status ${response.status}:`, errText);
+            return { success: false, error: errText };
+        }
+    } catch (err) {
+        console.error('[Admin Slot Reminder Error]:', err.message);
+        return { success: false, error: err.message };
+    }
+}
+
+// Background Cron Job: Runs every 5 minutes to dispatch 30-min prior upcoming slot alerts to configured admin phone numbers
+setInterval(async () => {
+    try {
+        db.get("SELECT value FROM settings WHERE key = 'admin_notification_phones'", async (adminErr, adminRow) => {
+            if (adminErr || !adminRow || !adminRow.value) return;
+            let adminPhones = [];
+            try {
+                adminPhones = JSON.parse(adminRow.value);
+            } catch (e) { }
+            if (!Array.isArray(adminPhones) || adminPhones.length === 0) return;
+
+            // Query active bookings for upcoming slots where admin reminder not sent yet
+            db.all(
+                "SELECT * FROM bookings WHERE (admin_upcoming_notified IS NULL OR admin_upcoming_notified = 0) AND status NOT IN ('CANCELLED', 'REFUNDED', 'ATTENDED') ORDER BY id ASC LIMIT 100",
+                [],
+                async (bErr, rows) => {
+                    if (bErr || !rows || rows.length === 0) return;
+
+                    const now = new Date();
+                    // Group bookings by slot: `${booking_date}___${booking_time}`
+                    const slotGroups = new Map();
+                    rows.forEach(r => {
+                        const slotKey = `${r.booking_date || ''}___${r.booking_time || ''}`;
+                        if (!slotGroups.has(slotKey)) slotGroups.set(slotKey, []);
+                        slotGroups.get(slotKey).push(r);
+                    });
+
+                    for (const [slotKey, slotBookings] of slotGroups) {
+                        const first = slotBookings[0];
+                        const slotTime = parseBookingDateTimeIST(first.booking_date, first.booking_time);
+                        if (!slotTime || isNaN(slotTime.getTime())) continue;
+
+                        const diffMinutes = (slotTime.getTime() - now.getTime()) / (1000 * 60);
+
+                        // Trigger alert when slot starts in 10 to 45 minutes (target ~30 mins prior)
+                        if (diffMinutes >= 10 && diffMinutes <= 45) {
+                            const uniqueOrderIds = new Set(slotBookings.map(b => (b.order_id || '').split('_').slice(0, 3).join('_')));
+                            const totalBookingsCount = uniqueOrderIds.size;
+                            const totalDrivers = slotBookings.reduce((sum, b) => sum + (Number(b.players) || 1), 0);
+                            const totalAmount = slotBookings.reduce((sum, b) => sum + (parseFloat(b.price) || 0), 0);
+                            
+                            const isPaidCount = slotBookings.filter(b => b.status === 'PAID' || b.status === 'SUCCESS').length;
+                            const deskDueCount = slotBookings.length - isPaidCount;
+
+                            const bookingHeadline = `${totalBookingsCount} Order${totalBookingsCount > 1 ? 's' : ''} (${totalDrivers} Driver${totalDrivers > 1 ? 's' : ''})`;
+                            const slotParam = encodeURIComponent(first.booking_time || '');
+                            const dateParam = encodeURIComponent(first.booking_date || 'Today');
+                            const rosterUrl = `https://www.havocsim.in/admin-dashboard.html?slot=${slotParam}&date=${dateParam}`;
+
+                            console.log(`[Admin Slot Reminder Cron] Dispatching alert to ${adminPhones.length} admins for slot ${first.booking_time} (${bookingHeadline})...`);
+
+                            for (const adminPhone of adminPhones) {
+                                await sendAdminUpcomingSlotReminderWhatsApp({
+                                    adminPhone,
+                                    timeSlot: first.booking_time,
+                                    bookingDate: first.booking_date,
+                                    totalBookings: bookingHeadline,
+                                    totalAmount,
+                                    isPaidCount,
+                                    deskDueCount,
+                                    rosterUrl
+                                });
+                            }
+
+                            // Mark all booking rows in this slot as alerted
+                            const rowIds = slotBookings.map(b => b.id);
+                            if (rowIds.length > 0) {
+                                const placeholders = rowIds.map(() => '?').join(',');
+                                db.run(`UPDATE bookings SET admin_upcoming_notified = 1 WHERE id IN (${placeholders})`, rowIds, () => { });
+                            }
+                        }
+                    }
+                }
+            );
+        });
+    } catch (e) {
+        console.error('[Admin Slot Reminder Cron Error]:', e);
+    }
+}, 5 * 60 * 1000); // Check every 5 minutes
 
 
 // ==========================================
