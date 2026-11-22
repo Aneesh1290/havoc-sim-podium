@@ -92,11 +92,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             const verifyRes = await fetch(`${BACKEND_URL}/api/desk-booking/verify/${deskPassToken}`);
             const passData = await verifyRes.json();
             if (verifyRes.ok && passData.success) {
-                // If staff pre-selected cart items, populate cart
-                if (Array.isArray(passData.cart) && passData.cart.length > 0) {
-                    localStorage.setItem("havoc_cart", JSON.stringify(passData.cart));
-                }
-                
                 // Pre-fill phone and name
                 if (passData.phone) {
                     const phoneInput = document.getElementById('co-phone');

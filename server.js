@@ -4576,7 +4576,7 @@ app.post('/api/admin/desk-booking/send-link', verifyToken, async (req, res) => {
 
                 const isProd = process.env.NODE_ENV === 'production' || ICICI_ENV === 'live';
                 const baseUrl = isProd ? 'https://www.havocsim.in' : `${req.protocol}://${req.get('host')}`;
-                const bookingUrl = `${baseUrl}/checkout.html?desk_pass=${token}`;
+                const bookingUrl = `${baseUrl}/book?desk_pass=${token}`;
 
                 let waDispatched = false;
                 let waError = null;
