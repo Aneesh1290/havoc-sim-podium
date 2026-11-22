@@ -298,6 +298,8 @@ db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS whatsapp_consent INTEGER D
 db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_ref TEXT", [], () => { });
 db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS wristband_number TEXT", [], () => { });
 db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS applied_coupon TEXT", [], () => { });
+db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reschedule_count INTEGER DEFAULT 0", [], () => { });
+db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reschedule_history TEXT DEFAULT '[]'", [], () => { });
 db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS allowed_simulators TEXT", [], () => { });
 db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_sessions INTEGER", [], () => { });
 db.run("ALTER TABLE admin_auth ADD COLUMN IF NOT EXISTS permissions TEXT DEFAULT 'all'", [], () => { });
@@ -348,6 +350,8 @@ if (db.isPostgres) {
     db.pool.query("ALTER TABLE payment_links ADD COLUMN IF NOT EXISTS upgrade_data TEXT", () => { });
     db.pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS advance_reminder_sent INTEGER DEFAULT 0", () => { });
     db.pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS admin_upcoming_notified INTEGER DEFAULT 0", () => { });
+    db.pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reschedule_count INTEGER DEFAULT 0", () => { });
+    db.pool.query("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reschedule_history TEXT DEFAULT '[]'", () => { });
 } else {
     db.run("ALTER TABLE payment_links ADD COLUMN order_ids TEXT", [], () => { });
     db.run("ALTER TABLE payment_links ADD COLUMN upgrade_data TEXT", [], () => { });
@@ -4527,7 +4531,7 @@ app.put('/api/admin/bookings/:id/update-details', verifyToken, checkPermission('
         return res.status(400).json({ error: 'Valid booking ID is required.' });
     }
 
-    const { item_name, booking_date, booking_time, players, player_two_name, price, status, instructor_id } = req.body;
+    const { item_name, booking_date, booking_time, players, player_two_name, price, status, instructor_id, reschedule_reason } = req.body;
 
     db.get("SELECT * FROM bookings WHERE id = ?", [bookingId], (err, existing) => {
         if (err || !existing) {
@@ -4536,6 +4540,37 @@ app.put('/api/admin/bookings/:id/update-details', verifyToken, checkPermission('
 
         const updates = [];
         const params = [];
+
+        // Check if date or time slot changed (Reschedule event)
+        const isDateChanged = booking_date !== undefined && booking_date !== existing.booking_date;
+        const isTimeChanged = booking_time !== undefined && booking_time !== existing.booking_time;
+        const isRescheduled = isDateChanged || isTimeChanged;
+
+        if (isRescheduled) {
+            const currentCount = parseInt(existing.reschedule_count, 10) || 0;
+            const newCount = currentCount + 1;
+            updates.push('reschedule_count = ?');
+            params.push(newCount);
+
+            let history = [];
+            try {
+                history = JSON.parse(existing.reschedule_history || '[]');
+            } catch (e) {
+                history = [];
+            }
+            if (!Array.isArray(history)) history = [];
+            history.push({
+                rescheduled_at: new Date().toISOString(),
+                rescheduled_by: req.user ? (req.user.username || 'staff') : 'staff',
+                from_date: existing.booking_date,
+                from_time: existing.booking_time,
+                to_date: booking_date !== undefined ? booking_date : existing.booking_date,
+                to_time: booking_time !== undefined ? booking_time : existing.booking_time,
+                reason: reschedule_reason ? String(reschedule_reason).trim() : 'Slot edit / reschedule'
+            });
+            updates.push('reschedule_history = ?');
+            params.push(JSON.stringify(history));
+        }
 
         if (item_name !== undefined) { updates.push('item_name = ?'); params.push(item_name); }
         if (booking_date !== undefined) { updates.push('booking_date = ?'); params.push(booking_date); }
@@ -4595,40 +4630,73 @@ app.put('/api/admin/bookings/order/:order_id/update-details', verifyToken, check
     if (!orderId) return res.status(400).json({ error: 'Order ID is required' });
     orderId = decodeURIComponent(orderId).trim();
 
-    const { booking_date, booking_time, name, phone, email, applied_coupon } = req.body;
+    const { booking_date, booking_time, name, phone, email, applied_coupon, reschedule_reason } = req.body;
 
-    const updates = [];
-    const params = [];
-    if (booking_date !== undefined) { updates.push('booking_date = ?'); params.push(booking_date); }
-    if (booking_time !== undefined) { updates.push('booking_time = ?'); params.push(booking_time); }
-    if (name !== undefined) { updates.push('name = ?'); params.push(name); }
-    if (phone !== undefined) { updates.push('phone = ?'); params.push(phone); }
-    if (email !== undefined) { updates.push('email = ?'); params.push(email); }
-    if (applied_coupon !== undefined) { updates.push('applied_coupon = ?'); params.push(applied_coupon ? String(applied_coupon).trim().toUpperCase() : null); }
+    db.get("SELECT booking_date, booking_time, reschedule_count, reschedule_history FROM bookings WHERE order_id = ? OR order_id LIKE ? LIMIT 1", [orderId, orderId + '%'], (bErr, existing) => {
+        const updates = [];
+        const params = [];
 
-    if (updates.length === 0) {
-        return res.status(400).json({ error: 'No fields provided for update.' });
-    }
+        const isDateChanged = existing && booking_date !== undefined && booking_date !== existing.booking_date;
+        const isTimeChanged = existing && booking_time !== undefined && booking_time !== existing.booking_time;
+        const isRescheduled = isDateChanged || isTimeChanged;
 
-    params.push(orderId, orderId + '%');
+        if (isRescheduled) {
+            const currentCount = parseInt(existing.reschedule_count, 10) || 0;
+            const newCount = currentCount + 1;
+            updates.push('reschedule_count = ?');
+            params.push(newCount);
 
-    db.run("UPDATE bookings SET " + updates.join(', ') + " WHERE order_id = ? OR order_id LIKE ?", params, function (uErr) {
-        if (uErr) {
-            console.error('Error updating order details:', uErr);
-            return res.status(500).json({ error: 'Database error updating order.' });
+            let history = [];
+            try {
+                history = JSON.parse(existing.reschedule_history || '[]');
+            } catch (e) {
+                history = [];
+            }
+            if (!Array.isArray(history)) history = [];
+            history.push({
+                rescheduled_at: new Date().toISOString(),
+                rescheduled_by: req.user ? (req.user.username || 'staff') : 'staff',
+                from_date: existing.booking_date,
+                from_time: existing.booking_time,
+                to_date: booking_date !== undefined ? booking_date : existing.booking_date,
+                to_time: booking_time !== undefined ? booking_time : existing.booking_time,
+                reason: reschedule_reason ? String(reschedule_reason).trim() : 'Bulk order reschedule'
+            });
+            updates.push('reschedule_history = ?');
+            params.push(JSON.stringify(history));
         }
 
-        // Sync simulator_slot_locks
-        if (booking_date !== undefined || booking_time !== undefined) {
-            const lockUpd = [];
-            const lockParams = [];
-            if (booking_date !== undefined) { lockUpd.push('booking_date = ?'); lockParams.push(booking_date); }
-            if (booking_time !== undefined) { lockUpd.push('booking_time = ?'); lockParams.push(booking_time); }
-            lockParams.push(orderId, orderId + '%');
-            db.run("UPDATE simulator_slot_locks SET " + lockUpd.join(', ') + " WHERE source_order_id = ? OR source_order_id LIKE ?", lockParams, () => {});
+        if (booking_date !== undefined) { updates.push('booking_date = ?'); params.push(booking_date); }
+        if (booking_time !== undefined) { updates.push('booking_time = ?'); params.push(booking_time); }
+        if (name !== undefined) { updates.push('name = ?'); params.push(name); }
+        if (phone !== undefined) { updates.push('phone = ?'); params.push(phone); }
+        if (email !== undefined) { updates.push('email = ?'); params.push(email); }
+        if (applied_coupon !== undefined) { updates.push('applied_coupon = ?'); params.push(applied_coupon ? String(applied_coupon).trim().toUpperCase() : null); }
+
+        if (updates.length === 0) {
+            return res.status(400).json({ error: 'No fields provided for update.' });
         }
 
-        res.json({ success: true, message: 'Order bookings updated successfully.', order_id: orderId });
+        params.push(orderId, orderId + '%');
+
+        db.run("UPDATE bookings SET " + updates.join(', ') + " WHERE order_id = ? OR order_id LIKE ?", params, function (uErr) {
+            if (uErr) {
+                console.error('Error updating order details:', uErr);
+                return res.status(500).json({ error: 'Database error updating order.' });
+            }
+
+            // Sync simulator_slot_locks
+            if (booking_date !== undefined || booking_time !== undefined) {
+                const lockUpd = [];
+                const lockParams = [];
+                if (booking_date !== undefined) { lockUpd.push('booking_date = ?'); lockParams.push(booking_date); }
+                if (booking_time !== undefined) { lockUpd.push('booking_time = ?'); lockParams.push(booking_time); }
+                lockParams.push(orderId, orderId + '%');
+                db.run("UPDATE simulator_slot_locks SET " + lockUpd.join(', ') + " WHERE source_order_id = ? OR source_order_id LIKE ?", lockParams, () => {});
+            }
+
+            res.json({ success: true, message: 'Order bookings updated successfully.', order_id: orderId });
+        });
     });
 });
 

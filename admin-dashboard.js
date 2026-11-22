@@ -396,6 +396,19 @@ function renderBookings(bookingsToRender) {
             </td>
             <td style="font-weight: 500; font-size: 0.85rem; color: var(--muted); white-space: nowrap;">
                 <div>#${String(b.order_id || '').replace(/^#+/, '')}</div>
+                ${(() => {
+                    const maxReschedule = Math.max(0, ...b.items.map(it => parseInt(it.reschedule_count, 10) || 0));
+                    if (maxReschedule > 0) {
+                        return `
+                            <div style="margin-top: 4px;">
+                                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 800; background: rgba(59,130,246,0.12); color: #60a5fa; border: 1px solid rgba(59,130,246,0.35);" title="Order was rescheduled ${maxReschedule} time${maxReschedule > 1 ? 's' : ''}">
+                                    🔄 Rescheduled (${maxReschedule}x)
+                                </span>
+                            </div>
+                        `;
+                    }
+                    return '';
+                })()}
                 ${vipCouponBadgeHtml}
             </td>
             <td style="color: var(--muted); font-size: 0.85rem;">${placedDateStr}</td>
@@ -725,7 +738,14 @@ window.openOrderDetails = (baseOrderId) => {
                                 <span class="od-badge ${getBadgeClass(fulfillBadge)}" style="font-size: 0.6rem; padding: 0.1rem 0.4rem; margin-left: 0;">${fulfillBadge}</span>
                             </div>
                             ${item.player_two_name ? `<div style="font-size: 0.8rem; color: #aaa; margin-top: 0.2rem;">Co-Player (P2): <strong style="color:#fff;">${item.player_two_name}</strong></div>` : ''}
-                            <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem;">Select Date: ${item.booking_date || '-'}</div>
+                            <div style="font-size: 0.8rem; color: var(--muted); margin-top: 0.3rem; display: flex; align-items: center; gap: 8px;">
+                                <span>Select Date: <strong style="color: #fff;">${item.booking_date || '-'}</strong></span>
+                                ${(parseInt(item.reschedule_count, 10) > 0) ? `
+                                    <span style="background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.35); font-size: 0.65rem; font-weight: 800; padding: 1px 6px; border-radius: 4px;">
+                                        🔄 Rescheduled ${item.reschedule_count}x
+                                    </span>
+                                ` : ''}
+                            </div>
                             <div style="font-size: 0.8rem; color: var(--muted); display: flex; align-items: center; flex-wrap: wrap;">
                                 <span>Select Time Slot: <strong style="color: #fff;">${item.booking_time || '-'}</strong></span>
                                 ${slotColorBadgeHtml}
@@ -898,6 +918,61 @@ window.openOrderDetails = (baseOrderId) => {
         </div>
     </div>
 
+    ${(() => {
+        const maxReschedule = Math.max(0, ...items.map(it => parseInt(it.reschedule_count, 10) || 0));
+        if (maxReschedule > 0) {
+            let historyList = [];
+            items.forEach(it => {
+                try {
+                    const h = JSON.parse(it.reschedule_history || '[]');
+                    if (Array.isArray(h)) historyList.push(...h);
+                } catch(e) {}
+            });
+            // deduplicate
+            const uniqueHistory = [];
+            const seen = new Set();
+            historyList.forEach(h => {
+                const k = `${h.rescheduled_at}_${h.from_date}_${h.to_date}_${h.from_time}_${h.to_time}`;
+                if (!seen.has(k)) {
+                    seen.add(k);
+                    uniqueHistory.push(h);
+                }
+            });
+
+            return `
+                <div style="border: 1px solid rgba(59,130,246,0.35); background: linear-gradient(90deg, rgba(59,130,246,0.12), rgba(30,58,138,0.08), rgba(255,255,255,0.02)); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.25rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.3rem;">🔄</span>
+                            <div>
+                                <div style="font-size: 0.88rem; font-weight: 800; color: #93c5fd; text-transform: uppercase; letter-spacing: 0.5px;">
+                                    Rescheduled Booking (${maxReschedule} time${maxReschedule > 1 ? 's' : ''})
+                                </div>
+                                <div style="font-size: 0.78rem; color: #bfdbfe; margin-top: 2px;">
+                                    This order's slot or date was modified after booking.
+                                </div>
+                            </div>
+                        </div>
+                        <span style="background: rgba(59,130,246,0.2); color: #bfdbfe; border: 1px solid rgba(59,130,246,0.4); padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700;">
+                            Rescheduled ${maxReschedule}x
+                        </span>
+                    </div>
+                    ${uniqueHistory.length > 0 ? `
+                    <div style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid rgba(59,130,246,0.2); font-size: 0.78rem; color: #e2e8f0;">
+                        <strong style="color: #60a5fa; display: block; margin-bottom: 4px;">Reschedule Log:</strong>
+                        <ul style="margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 4px;">
+                            ${uniqueHistory.map(h => {
+                                const timeStr = h.rescheduled_at ? new Date(h.rescheduled_at).toLocaleString('en-IN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                                return `<li>Moved from <del style="color: #94a3b8;">${h.from_date || ''} ${h.from_time || ''}</del> &rarr; <strong style="color: #fff;">${h.to_date || ''} ${h.to_time || ''}</strong> ${timeStr ? `<span style="color: #94a3b8;">(${timeStr} by ${h.rescheduled_by || 'staff'})</span>` : ''}</li>`;
+                            }).join('')}
+                        </ul>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+        return '';
+    })()}
     ${vipCouponBannerHtml}
 
     <div class="od-grid">
