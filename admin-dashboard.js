@@ -2797,8 +2797,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const showStatus = document.getElementById('exp-col-status')?.checked;
         const showTxnId = document.getElementById('exp-col-txnid')?.checked;
         const showPayRef = document.getElementById('exp-col-payref')?.checked;
+        const showSource = document.getElementById('exp-col-source')?.checked;
+        const showOffer = document.getElementById('exp-col-offer')?.checked;
 
-        return { showSn, showOrder, showName, showPhone, showEmail, showDate, showTime, showType, showAmountReceived, showAmountDue, showStatus, showTxnId, showPayRef };
+        return { showSn, showOrder, showName, showPhone, showEmail, showDate, showTime, showType, showAmountReceived, showAmountDue, showStatus, showTxnId, showPayRef, showSource, showOffer };
     }
 
     function generateReportDataset() {
@@ -2849,6 +2851,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cols.showStatus) headerRow.push("STATUS");
         if (cols.showTxnId) headerRow.push("GATEWAY TXN ID");
         if (cols.showPayRef) headerRow.push("DESK REF / UTR");
+        if (cols.showSource) headerRow.push("BOOKING SOURCE");
+        if (cols.showOffer) headerRow.push("OFFER / COUPON");
 
         wsRows.push(["HAVOC SIM PODIUM — BOOKINGS REPORT"]);
         wsRows.push([]);
@@ -2917,6 +2921,41 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (cols.showStatus) rowData.push(statusLabel);
                 if (cols.showTxnId) rowData.push(b.icici_txn_id || '');
                 if (cols.showPayRef) rowData.push(b.payment_ref || '');
+                if (cols.showSource) {
+                    const isRcFunZone = String(b.order_id || '').includes('FZ_') || String(b.name || '').includes('[HAVOC_RC_FUN_ZONE]') || Boolean(b.is_external_lock);
+                    rowData.push(isRcFunZone ? "Havoc RC Fun Zone" : "Havoc Sim Podium");
+                }
+                if (cols.showOffer) {
+                    const coupon = (b.applied_coupon || '').trim();
+                    let offerText = '-';
+                    if (coupon) {
+                        offerText = coupon;
+                    } else {
+                        const CATALOG_PRICES = {
+                            'rc flying sim': 354, 'race sim beginner': 354, 'race sim jr.': 472,
+                            'race sim gt': 590, 'race sim f1': 708, 'flight sim pro (airbus edition)': 1770,
+                            'flight sim pro (boeing edition)': 1770, 'play station ps5 - station one': 472,
+                            'play station ps5 - station two': 472, 'race sim jr & play station ps5': 708
+                        };
+                        const bItems = Array.isArray(b.items) ? b.items : (b.item_name ? [{ item_name: b.item_name, players: b.players }] : []);
+                        let catTotal = 0;
+                        let matched = false;
+                        bItems.forEach(it => {
+                            const rName = (it.item_name || '').toLowerCase().trim();
+                            const mk = Object.keys(CATALOG_PRICES).find(k => rName.includes(k) || k.includes(rName));
+                            if (mk) {
+                                matched = true;
+                                const pl = parseInt(it.players, 10) || 1;
+                                catTotal += (CATALOG_PRICES[mk] * (pl > 1 ? 1.5 : 1));
+                            }
+                        });
+                        const actTotal = parseFloat(b.total_price || b.price) || 0;
+                        if (matched && actTotal > 0 && actTotal < (catTotal - 20)) {
+                            offerText = "DISCOUNTED";
+                        }
+                    }
+                    rowData.push(offerText);
+                }
 
                 wsRows.push(rowData);
                 totalSlCounter++;
@@ -3080,6 +3119,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (cols.showStatus) headersConfig.push({ title: "STATUS", type: "green", align: "center", width: 25 });
                 if (cols.showTxnId) headersConfig.push({ title: "GATEWAY TXN ID", type: "pink", align: "center", width: 28 });
                 if (cols.showPayRef) headersConfig.push({ title: "DESK REF / UTR", type: "green", align: "center", width: 22 });
+                if (cols.showSource) headersConfig.push({ title: "BOOKING SOURCE", type: "green", align: "center", width: 24 });
+                if (cols.showOffer) headersConfig.push({ title: "OFFER / COUPON", type: "pink", align: "center", width: 26 });
 
                 const totalCols = headersConfig.length;
 
@@ -3234,6 +3275,44 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                         if (cols.showPayRef) {
                             rowValues.push(b.payment_ref || '');
+                            aligns.push('center');
+                        }
+                        if (cols.showSource) {
+                            const isRcFunZone = String(b.order_id || '').includes('FZ_') || String(b.name || '').includes('[HAVOC_RC_FUN_ZONE]') || Boolean(b.is_external_lock);
+                            rowValues.push(isRcFunZone ? "Havoc RC Fun Zone" : "Havoc Sim Podium");
+                            aligns.push('center');
+                        }
+                        if (cols.showOffer) {
+                            const coupon = (b.applied_coupon || '').trim();
+                            let offerText = '-';
+                            if (coupon) {
+                                offerText = coupon;
+                            } else {
+                                // Check standard catalog pricing discount
+                                const CATALOG_PRICES = {
+                                    'rc flying sim': 354, 'race sim beginner': 354, 'race sim jr.': 472,
+                                    'race sim gt': 590, 'race sim f1': 708, 'flight sim pro (airbus edition)': 1770,
+                                    'flight sim pro (boeing edition)': 1770, 'play station ps5 - station one': 472,
+                                    'play station ps5 - station two': 472, 'race sim jr & play station ps5': 708
+                                };
+                                const bItems = Array.isArray(b.items) ? b.items : (b.item_name ? [{ item_name: b.item_name, players: b.players }] : []);
+                                let catTotal = 0;
+                                let matched = false;
+                                bItems.forEach(it => {
+                                    const rName = (it.item_name || '').toLowerCase().trim();
+                                    const mk = Object.keys(CATALOG_PRICES).find(k => rName.includes(k) || k.includes(rName));
+                                    if (mk) {
+                                        matched = true;
+                                        const pl = parseInt(it.players, 10) || 1;
+                                        catTotal += (CATALOG_PRICES[mk] * (pl > 1 ? 1.5 : 1));
+                                    }
+                                });
+                                const actTotal = parseFloat(b.total_price || b.price) || 0;
+                                if (matched && actTotal > 0 && actTotal < (catTotal - 20)) {
+                                    offerText = "DISCOUNTED";
+                                }
+                            }
+                            rowValues.push(offerText);
                             aligns.push('center');
                         }
 
