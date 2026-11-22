@@ -4648,6 +4648,27 @@ app.put('/api/admin/bookings/:id/update-details', verifyToken, checkPermission('
                 }
             }
 
+            // If rescheduled, send updated confirmation to the customer via WhatsApp (and email if configured)
+            if (isRescheduled && orderId) {
+                db.all("SELECT * FROM bookings WHERE order_id = ? OR order_id LIKE ?", [orderId, orderId + '%'], (fetchErr, rows) => {
+                    if (!fetchErr && rows && rows.length > 0) {
+                        try {
+                            const isPaid = rows.some(r => r.status === 'PAID' || r.status === 'SUCCESS' || String(r.order_id || '').startsWith('PAID_'));
+                            const paymentLabel = isPaid ? 'Rescheduled (Paid)' : 'Rescheduled';
+                            dispatchBookingWhatsAppNotification(rows, paymentLabel);
+                            if (typeof sendConfirmationEmail === 'function') {
+                                sendConfirmationEmail(rows);
+                            }
+                            if (typeof notifyAssignedInstructors === 'function') {
+                                notifyAssignedInstructors(rows);
+                            }
+                        } catch (notifyErr) {
+                            console.error('[Reschedule Notification] Failed to dispatch notifications:', notifyErr);
+                        }
+                    }
+                });
+            }
+
             res.json({
                 success: true,
                 message: 'Booking details updated successfully.',
@@ -4727,6 +4748,27 @@ app.put('/api/admin/bookings/order/:order_id/update-details', verifyToken, check
                 if (booking_time !== undefined) { lockUpd.push('booking_time = ?'); lockParams.push(booking_time); }
                 lockParams.push(orderId, orderId + '%');
                 db.run("UPDATE simulator_slot_locks SET " + lockUpd.join(', ') + " WHERE source_order_id = ? OR source_order_id LIKE ?", lockParams, () => {});
+            }
+
+            // If rescheduled, send updated confirmation to the customer via WhatsApp (and email if configured)
+            if (isRescheduled && orderId) {
+                db.all("SELECT * FROM bookings WHERE order_id = ? OR order_id LIKE ?", [orderId, orderId + '%'], (fetchErr, rows) => {
+                    if (!fetchErr && rows && rows.length > 0) {
+                        try {
+                            const isPaid = rows.some(r => r.status === 'PAID' || r.status === 'SUCCESS' || String(r.order_id || '').startsWith('PAID_'));
+                            const paymentLabel = isPaid ? 'Rescheduled (Paid)' : 'Rescheduled';
+                            dispatchBookingWhatsAppNotification(rows, paymentLabel);
+                            if (typeof sendConfirmationEmail === 'function') {
+                                sendConfirmationEmail(rows);
+                            }
+                            if (typeof notifyAssignedInstructors === 'function') {
+                                notifyAssignedInstructors(rows);
+                            }
+                        } catch (notifyErr) {
+                            console.error('[Reschedule Notification] Failed to dispatch notifications:', notifyErr);
+                        }
+                    }
+                });
             }
 
             res.json({ success: true, message: 'Order bookings updated successfully.', order_id: orderId });
