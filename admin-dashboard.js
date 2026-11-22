@@ -249,27 +249,36 @@ function renderBookings(bookingsToRender) {
         const hasAttended = itemStatuses.some(s => s === 'ATTENDED');
         const hasNoShow = itemStatuses.some(s => s === 'NO_SHOW');
         const isPayDueOrder = String(b.order_id || '').startsWith('PAYDUE_') || Boolean(b.items.some(i => i.payment_ref === 'PAYDUE' || String(i.order_id || '').startsWith('PAYDUE_')));
-        const hasPaid = !isPayDueOrder && itemStatuses.some(s => s === 'PAID' || s === 'SUCCESS');
+        const isPaidOrderPrefix = String(b.order_id || '').startsWith('PAID_');
+        const hasRefunded = itemStatuses.some(s => s === 'REFUNDED');
+        const hasPaid = (!isPayDueOrder && itemStatuses.some(s => s === 'PAID' || s === 'SUCCESS')) || isPaidOrderPrefix;
         const hasPending = itemStatuses.some(s => s === 'PENDING') || isPayDueOrder;
         const allCancelled = itemStatuses.length > 0 && itemStatuses.every(s => s === 'CANCELLED' || s === 'REFUNDED' || s === 'FAILED');
 
         let paymentBadge = 'PAID';
         let fulfillBadge = 'UNFULFILLED';
 
-        if (allCancelled) {
+        // Payment status determination:
+        // Cancelled bookings must preserve their payment status (PAID stays PAID, UNPAID stays UNPAID).
+        // Only if refunded is it marked REFUNDED.
+        if (hasRefunded) {
             paymentBadge = 'REFUNDED';
+        } else if (hasPaid || (!isPayDueOrder && hasAttended)) {
+            paymentBadge = 'PAID';
+        } else if (hasPending || isPayDueOrder) {
+            paymentBadge = 'UNPAID';
+        } else {
+            paymentBadge = 'PAID';
+        }
+
+        // Fulfillment status determination:
+        if (allCancelled) {
             fulfillBadge = 'CANCELED';
         } else if (hasAttended) {
-            paymentBadge = isPayDueOrder ? 'UNPAID' : 'PAID';
             fulfillBadge = 'FULFILLED';
         } else if (hasNoShow) {
-            paymentBadge = (isPayDueOrder || !hasPaid) ? 'UNPAID' : 'PAID';
             fulfillBadge = 'NO SHOW';
-        } else if (hasPaid) {
-            paymentBadge = 'PAID';
-            fulfillBadge = 'UNFULFILLED';
-        } else if (hasPending) {
-            paymentBadge = 'UNPAID';
+        } else {
             fulfillBadge = 'UNFULFILLED';
         }
         
@@ -281,7 +290,8 @@ function renderBookings(bookingsToRender) {
             if (text === 'FULFILLED' || text === 'ATTENDED') return 'badge-attended';
             if (text === 'NO SHOW' || text === 'NO_SHOW') return 'badge-noshow';
             if (text === 'UNFULFILLED') return 'badge-pending';
-            if (text === 'CANCELED' || text === 'REFUNDED' || text === 'CANCELLED') return 'badge-cancelled';
+            if (text === 'REFUNDED') return 'badge-refunded';
+            if (text === 'CANCELED' || text === 'CANCELLED') return 'badge-cancelled';
             return 'badge-pending';
         };
 
@@ -652,27 +662,36 @@ window.openOrderDetails = (baseOrderId) => {
         const hasAttended = itemStatuses.some(s => s === 'ATTENDED');
         const hasNoShow = itemStatuses.some(s => s === 'NO_SHOW');
         const isPayDueOrder = String(order.order_id || '').startsWith('PAYDUE_') || Boolean(items.some(i => i.payment_ref === 'PAYDUE' || String(i.order_id || '').startsWith('PAYDUE_')));
-        const hasPaid = !isPayDueOrder && itemStatuses.some(s => s === 'PAID' || s === 'SUCCESS');
+        const isPaidOrderPrefix = String(order.order_id || '').startsWith('PAID_');
+        const hasRefunded = itemStatuses.some(s => s === 'REFUNDED');
+        const hasPaid = (!isPayDueOrder && itemStatuses.some(s => s === 'PAID' || s === 'SUCCESS')) || isPaidOrderPrefix;
         const hasPending = itemStatuses.some(s => s === 'PENDING') || isPayDueOrder;
         const allCancelled = itemStatuses.length > 0 && itemStatuses.every(s => s === 'CANCELLED' || s === 'REFUNDED' || s === 'FAILED');
 
         let paymentBadge = 'PAID';
         let fulfillBadge = 'UNFULFILLED';
 
-        if (allCancelled) {
+        // Payment status determination:
+        // Cancelled bookings must preserve their payment status (PAID stays PAID, UNPAID stays UNPAID).
+        // Only if refunded is it marked REFUNDED.
+        if (hasRefunded) {
             paymentBadge = 'REFUNDED';
+        } else if (hasPaid || (!isPayDueOrder && hasAttended)) {
+            paymentBadge = 'PAID';
+        } else if (hasPending || isPayDueOrder) {
+            paymentBadge = 'UNPAID';
+        } else {
+            paymentBadge = 'PAID';
+        }
+
+        // Fulfillment status determination:
+        if (allCancelled) {
             fulfillBadge = 'CANCELED';
         } else if (hasAttended) {
-            paymentBadge = isPayDueOrder ? 'UNPAID' : 'PAID';
             fulfillBadge = 'FULFILLED';
         } else if (hasNoShow) {
-            paymentBadge = (isPayDueOrder || !hasPaid) ? 'UNPAID' : 'PAID';
             fulfillBadge = 'NO SHOW';
-        } else if (hasPaid) {
-            paymentBadge = 'PAID';
-            fulfillBadge = 'UNFULFILLED';
-        } else if (hasPending) {
-            paymentBadge = 'UNPAID';
+        } else {
             fulfillBadge = 'UNFULFILLED';
         }
 
@@ -682,7 +701,8 @@ window.openOrderDetails = (baseOrderId) => {
             if (text === 'FULFILLED') return 'badge-attended';
             if (text === 'NO SHOW' || text === 'NO_SHOW') return 'badge-noshow';
             if (text === 'UNFULFILLED') return 'badge-pending';
-            if (text === 'CANCELED' || text === 'REFUNDED') return 'badge-cancelled';
+            if (text === 'REFUNDED') return 'badge-refunded';
+            if (text === 'CANCELED' || text === 'CANCELLED') return 'badge-cancelled';
             return 'badge-pending';
         };
 
@@ -3012,17 +3032,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 const rawStatus = (b.status || 'PENDING').toUpperCase();
                 const isPaidOrderPrefix = String(b.order_id || '').startsWith('PAID_');
                 const isPayDuePrefix = String(b.order_id || '').startsWith('PAYDUE_');
+                const isRefunded = rawStatus === 'REFUNDED';
                 const isCancelled = rawStatus === 'CANCELLED';
                 const isAttended = rawStatus === 'ATTENDED';
                 const isNoShow = rawStatus === 'NO_SHOW';
                 const isCash = rawStatus === 'CASH';
 
                 // Determine if this order was paid:
-                // 1. Explicit PAID_ prefix, or
-                // 2. Online status PAID/SUCCESS, or
-                // 3. Attended/Fulfilled unless explicitly marked PAYDUE
+                // Online payments (PAID_ prefix or PAID/SUCCESS or attended non-PAYDUE) remain PAID even after cancellation.
+                // Only if refunded is it marked REFUNDED.
                 let isPaid = false;
-                if (!isCancelled && !isCash) {
+                if (!isRefunded && !isCash) {
                     if (isPaidOrderPrefix) {
                         isPaid = true;
                     } else if (rawStatus === 'PAID' || rawStatus === 'SUCCESS') {
@@ -3033,13 +3053,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const receivedAmt = isPaid ? amt : (isCash ? amt : 0);
-                const dueAmt = (!isPaid && !isCash && !isCancelled) ? amt : 0;
+                const dueAmt = (!isPaid && !isCash && !isRefunded && !isCancelled) ? amt : 0;
 
                 dateTotalReceived += receivedAmt;
                 dateTotalDue += dueAmt;
 
-                const paymentLabel = isCancelled ? 'REFUNDED' : (isCash ? 'CASH' : (isPaid ? 'PAID' : 'UNPAID'));
-                const fulfillLabel = isAttended ? 'FULFILLED' : (isNoShow ? 'NO SHOW' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED'));
+                const paymentLabel = isRefunded ? 'REFUNDED' : (isCash ? 'CASH' : (isPaid ? 'PAID' : 'UNPAID'));
+                const fulfillLabel = isAttended ? 'FULFILLED' : (isNoShow ? 'NO SHOW' : (isCancelled ? 'CANCELLED' : (isRefunded ? 'CANCELLED' : 'UNFULFILLED')));
                 const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
 
                 let formattedDate = b.booking_date;
@@ -3349,13 +3369,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         const rawStatus = (b.status || 'PENDING').toUpperCase();
                         const isPaidOrderPrefix = String(b.order_id || '').startsWith('PAID_');
                         const isPayDuePrefix = String(b.order_id || '').startsWith('PAYDUE_') || b.payment_ref === 'PAYDUE';
+                        const isRefunded = rawStatus === 'REFUNDED';
                         const isCancelled = rawStatus === 'CANCELLED';
                         const isAttended = rawStatus === 'ATTENDED';
                         const isNoShow = rawStatus === 'NO_SHOW';
                         const isCash = rawStatus === 'CASH';
 
+                        // Online payments (PAID_ prefix or PAID/SUCCESS or attended non-PAYDUE) remain PAID even after cancellation.
+                        // Only if refunded is it marked REFUNDED.
                         let isPaid = false;
-                        if (!isCancelled && !isCash) {
+                        if (!isRefunded && !isCash) {
                             if (isPaidOrderPrefix) {
                                 isPaid = true;
                             } else if (rawStatus === 'PAID' || rawStatus === 'SUCCESS') {
@@ -3366,13 +3389,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
 
                         const receivedAmt = isPaid ? amt : (isCash ? amt : 0);
-                        const dueAmt = (!isPaid && !isCash && !isCancelled) ? amt : 0;
+                        const dueAmt = (!isPaid && !isCash && !isRefunded && !isCancelled) ? amt : 0;
 
                         dateAmtReceivedTotal += receivedAmt;
                         dateAmtDueTotal += dueAmt;
 
-                        const paymentLabel = isCancelled ? 'REFUNDED' : (isCash ? 'CASH' : (isPaid ? 'PAID' : 'UNPAID'));
-                        const fulfillLabel = isAttended ? 'FULFILLED' : (isNoShow ? 'NO SHOW' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED'));
+                        const paymentLabel = isRefunded ? 'REFUNDED' : (isCash ? 'CASH' : (isPaid ? 'PAID' : 'UNPAID'));
+                        const fulfillLabel = isAttended ? 'FULFILLED' : (isNoShow ? 'NO SHOW' : (isCancelled ? 'CANCELLED' : (isRefunded ? 'CANCELLED' : 'UNFULFILLED')));
                         const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
 
                         let phoneVal = b.phone ? String(b.phone) : '';

@@ -3297,7 +3297,8 @@ app.post('/api/admin/bookings/:order_id/refund', verifyToken, checkPermission('r
         if (booking.status === 'REFUNDED') {
             return res.status(400).json({ error: 'This order has already been refunded.' });
         }
-        if (booking.status !== 'PAID' && booking.status !== 'ATTENDED') {
+        const isPaidOrder = String(booking.order_id || '').startsWith('PAID_') || booking.status === 'PAID' || booking.status === 'ATTENDED' || (booking.status === 'CANCELLED' && !String(booking.order_id || '').startsWith('PAYDUE_'));
+        if (!isPaidOrder) {
             return res.status(400).json({ error: `Cannot refund an order with status "${booking.status}". Only PAID orders can be refunded.` });
         }
 
