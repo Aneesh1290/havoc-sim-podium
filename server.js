@@ -2630,8 +2630,34 @@ app.delete('/api/admin/bookings/:order_id', verifyToken, checkPermission('delete
     let { order_id } = req.params;
     order_id = decodeURIComponent(order_id).trim();
 
+    const cleanId = order_id.replace(/^#+/, '');
+    const rawNum = cleanId.replace(/^PAYDUE_FZ_/, '').replace(/^PAID_FZ_/, '').replace(/^PAYDUE_SP_/, '').replace(/^PAID_SP_/, '');
+
+    const matchConditions = [
+        cleanId,
+        `#${cleanId}`,
+        `##${cleanId}`,
+        `${cleanId}%`,
+        `#${cleanId}%`,
+        `##${cleanId}%`,
+        `%FZ_${rawNum}%`,
+        `%FZ_${rawNum}_%`
+    ];
+
+    const sqlCondition = `
+        order_id = ? OR order_id = ? OR order_id = ?
+        OR order_id LIKE ? OR order_id LIKE ? OR order_id LIKE ?
+        OR order_id LIKE ? OR order_id LIKE ?
+    `;
+
+    const lockSqlCondition = `
+        source_order_id = ? OR source_order_id = ? OR source_order_id = ?
+        OR source_order_id LIKE ? OR source_order_id LIKE ? OR source_order_id LIKE ?
+        OR source_order_id LIKE ? OR source_order_id LIKE ?
+    `;
+
     // 1. Delete from bookings table
-    db.run("DELETE FROM bookings WHERE order_id = ? OR order_id LIKE ?", [order_id, `${order_id}%`], function (bErr) {
+    db.run(`DELETE FROM bookings WHERE ${sqlCondition}`, matchConditions, function (bErr) {
         if (bErr) {
             console.error('Error deleting from bookings:', bErr);
             return res.status(500).json({ error: 'Database error deleting booking' });
@@ -2639,13 +2665,13 @@ app.delete('/api/admin/bookings/:order_id', verifyToken, checkPermission('delete
         const bookingsDeleted = this?.changes || 0;
 
         // 2. Also delete from simulator_slot_locks table (for cross-platform combo passes like RC Fun Zone)
-        db.run("DELETE FROM simulator_slot_locks WHERE source_order_id = ? OR source_order_id LIKE ?", [order_id, `${order_id}%`], function (lErr) {
+        db.run(`DELETE FROM simulator_slot_locks WHERE ${lockSqlCondition}`, matchConditions, function (lErr) {
             if (lErr) {
                 console.error('Error deleting from simulator_slot_locks:', lErr);
             }
             const locksDeleted = this?.changes || 0;
 
-            console.log(`[Admin Delete] Order: ${order_id} -> Deleted: ${bookingsDeleted} bookings, ${locksDeleted} slot locks`);
+            console.log(`[Admin Delete] Order: ${order_id} (clean: ${cleanId}) -> Deleted: ${bookingsDeleted} bookings, ${locksDeleted} slot locks`);
 
             if (bookingsDeleted === 0 && locksDeleted === 0) {
                 return res.status(404).json({ error: `Order #${order_id} not found in bookings or simulator locks.` });

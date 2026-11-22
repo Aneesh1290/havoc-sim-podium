@@ -215,9 +215,9 @@ function renderBookings(bookingsToRender) {
         // Old: PAYDUE_18OCT26_39 or PAYDUE_18OCT26_39_0
         let baseId = b.order_id || '';
         const parts = baseId.split('_');
-        if (parts[1] === 'SP' && parts.length >= 4) {
+        if ((parts[1] === 'SP' || parts[1] === 'FZ') && parts.length >= 4) {
             baseId = parts.slice(0, 3).join('_');
-        } else if (parts.length >= 4) {
+        } else if (parts.length >= 4 && !baseId.startsWith('PAYDUE_FZ_') && !baseId.startsWith('PAID_FZ_')) {
             baseId = parts.slice(0, 3).join('_');
         }
         if (!groupedMap.has(baseId)) {
@@ -463,9 +463,9 @@ function updateAnalyticsSummary(bookings) {
     bookings.forEach(b => {
         let baseId = b.order_id || '';
         const parts = baseId.split('_');
-        if (parts[1] === 'SP' && parts.length >= 4) {
+        if ((parts[1] === 'SP' || parts[1] === 'FZ') && parts.length >= 4) {
             baseId = parts.slice(0, 3).join('_');
-        } else if (parts.length >= 4) {
+        } else if (parts.length >= 4 && !baseId.startsWith('PAYDUE_FZ_') && !baseId.startsWith('PAID_FZ_')) {
             baseId = parts.slice(0, 3).join('_');
         }
         if (!orderMap.has(baseId)) {
@@ -619,9 +619,9 @@ window.openOrderDetails = (baseOrderId) => {
         const items = (window.allBookings || []).filter(b => {
             let base = b.order_id || '';
             const parts = base.split('_');
-            if (parts[1] === 'SP' && parts.length >= 4) {
+            if ((parts[1] === 'SP' || parts[1] === 'FZ') && parts.length >= 4) {
                 base = parts.slice(0, 3).join('_');
-            } else if (parts.length >= 4) {
+            } else if (parts.length >= 4 && !base.startsWith('PAYDUE_FZ_') && !base.startsWith('PAID_FZ_')) {
                 base = parts.slice(0, 3).join('_');
             }
             return base === baseOrderId;
