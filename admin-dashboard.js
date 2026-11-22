@@ -247,6 +247,7 @@ function renderBookings(bookingsToRender) {
     groupedArray.forEach(b => {
         const itemStatuses = b.items.map(i => (i.status || '').toUpperCase());
         const hasAttended = itemStatuses.some(s => s === 'ATTENDED');
+        const hasNoShow = itemStatuses.some(s => s === 'NO_SHOW');
         const hasPaid = itemStatuses.some(s => s === 'PAID' || s === 'SUCCESS');
         const hasPending = itemStatuses.some(s => s === 'PENDING');
         const allCancelled = itemStatuses.length > 0 && itemStatuses.every(s => s === 'CANCELLED' || s === 'REFUNDED' || s === 'FAILED');
@@ -260,6 +261,9 @@ function renderBookings(bookingsToRender) {
         } else if (hasAttended) {
             paymentBadge = 'PAID';
             fulfillBadge = 'FULFILLED';
+        } else if (hasNoShow) {
+            paymentBadge = hasPaid ? 'PAID' : 'UNPAID';
+            fulfillBadge = 'NO SHOW';
         } else if (hasPaid) {
             paymentBadge = 'PAID';
             fulfillBadge = 'UNFULFILLED';
@@ -274,6 +278,7 @@ function renderBookings(bookingsToRender) {
             if (text === 'UNPAID' || text === 'PENDING') return 'badge-pending';
             if (text === 'CASH') return 'badge-cash';
             if (text === 'FULFILLED' || text === 'ATTENDED') return 'badge-attended';
+            if (text === 'NO SHOW' || text === 'NO_SHOW') return 'badge-noshow';
             if (text === 'UNFULFILLED') return 'badge-pending';
             if (text === 'CANCELED' || text === 'REFUNDED' || text === 'CANCELLED') return 'badge-cancelled';
             return 'badge-pending';
@@ -644,6 +649,7 @@ window.openOrderDetails = (baseOrderId) => {
 
         const itemStatuses = items.map(i => (i.status || '').toUpperCase());
         const hasAttended = itemStatuses.some(s => s === 'ATTENDED');
+        const hasNoShow = itemStatuses.some(s => s === 'NO_SHOW');
         const hasPaid = itemStatuses.some(s => s === 'PAID' || s === 'SUCCESS');
         const hasPending = itemStatuses.some(s => s === 'PENDING');
         const allCancelled = itemStatuses.length > 0 && itemStatuses.every(s => s === 'CANCELLED' || s === 'REFUNDED' || s === 'FAILED');
@@ -657,6 +663,9 @@ window.openOrderDetails = (baseOrderId) => {
         } else if (hasAttended) {
             paymentBadge = 'PAID';
             fulfillBadge = 'FULFILLED';
+        } else if (hasNoShow) {
+            paymentBadge = hasPaid ? 'PAID' : 'UNPAID';
+            fulfillBadge = 'NO SHOW';
         } else if (hasPaid) {
             paymentBadge = 'PAID';
             fulfillBadge = 'UNFULFILLED';
@@ -669,6 +678,7 @@ window.openOrderDetails = (baseOrderId) => {
             if (text === 'PAID') return 'badge-paid';
             if (text === 'UNPAID') return 'badge-pending';
             if (text === 'FULFILLED') return 'badge-attended';
+            if (text === 'NO SHOW' || text === 'NO_SHOW') return 'badge-noshow';
             if (text === 'UNFULFILLED') return 'badge-pending';
             if (text === 'CANCELED' || text === 'REFUNDED') return 'badge-cancelled';
             return 'badge-pending';
@@ -795,6 +805,7 @@ window.openOrderDetails = (baseOrderId) => {
             moreActionsMenuHtml += `
                 <div class="custom-dropdown-item" onclick="markOrderAsFulfilled('${baseOrderId}')">✓ Mark as fulfilled</div>
                 <div class="custom-dropdown-item" onclick="markOrderAsUnfulfilled('${baseOrderId}')">✗ Mark as unfulfilled</div>
+                <div class="custom-dropdown-item" style="color: #f87171;" onclick="markOrderAsNoShow('${baseOrderId}')">🚫 Mark as No Show</div>
                 <div class="custom-dropdown-item" onclick="cancelOrder('${baseOrderId}')">✗ Cancel order</div>
                 <div class="custom-dropdown-item" style="color: var(--gold);" onclick="if(items.length) openUpgradeBookingModal(items[0].id)">🚀 Upgrade package</div>
                 <div class="custom-dropdown-item" style="color: #60a5fa;" onclick="if(items.length) openEditBookingModal(items[0].id)">📅 Edit date / reschedule</div>
@@ -1245,6 +1256,23 @@ window.markOrderAsUnfulfilled = async (orderId) => {
         method: 'PUT',
         // If they mark as unfulfilled, it means it is still paid, so revert to PAID
         body: JSON.stringify({ status: 'PAID' })
+    });
+    if (res.ok) {
+        await loadBookings();
+        const view = document.getElementById('order-details-view');
+        if (view && view.classList.contains('active')) openOrderDetails(orderId);
+    } else {
+        const data = await res.json();
+        alert(data.error || 'Failed to update status');
+    }
+};
+
+window.markOrderAsNoShow = async (orderId) => {
+    if (!confirm(`Mark Order #${orderId} as No Show? Slot lock will be released.`)) return;
+    document.querySelectorAll('.custom-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+    const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'NO_SHOW' })
     });
     if (res.ok) {
         await loadBookings();
@@ -2968,8 +2996,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const isPending = rawStatus === 'PENDING' || rawStatus === 'UNPAID';
                 const isCancelled = rawStatus === 'CANCELLED';
                 const isAttended = rawStatus === 'ATTENDED';
+                const isNoShow = rawStatus === 'NO_SHOW';
                 const isCash = rawStatus === 'CASH';
-                const isPaid = (rawStatus === 'PAID' || rawStatus === 'SUCCESS' || isAttended) && !isPending && !isCancelled && !isCash;
+                const isPaid = (rawStatus === 'PAID' || rawStatus === 'SUCCESS' || isAttended || isNoShow) && !isPending && !isCancelled && !isCash;
 
                 const receivedAmt = isPaid ? amt : 0;
                 const dueAmt = (!isPaid && !isCancelled) ? amt : 0;
@@ -2978,7 +3007,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 dateTotalDue += dueAmt;
 
                 const paymentLabel = isCancelled ? 'REFUNDED' : (isPaid ? 'PAID' : 'UNPAID');
-                const fulfillLabel = isAttended ? 'FULFILLED' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED');
+                const fulfillLabel = isAttended ? 'FULFILLED' : (isNoShow ? 'NO SHOW' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED'));
                 const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
 
                 let formattedDate = b.booking_date;
@@ -3289,8 +3318,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         const isPending = rawStatus === 'PENDING' || rawStatus === 'UNPAID';
                         const isCancelled = rawStatus === 'CANCELLED';
                         const isAttended = rawStatus === 'ATTENDED';
+                        const isNoShow = rawStatus === 'NO_SHOW';
                         const isCash = rawStatus === 'CASH';
-                        const isPaid = (rawStatus === 'PAID' || rawStatus === 'SUCCESS' || isAttended) && !isPending && !isCancelled && !isCash;
+                        const isPaid = (rawStatus === 'PAID' || rawStatus === 'SUCCESS' || isAttended || isNoShow) && !isPending && !isCancelled && !isCash;
 
                         const receivedAmt = isPaid ? amt : 0;
                         const dueAmt = (!isPaid && !isCancelled) ? amt : 0;
@@ -3299,7 +3329,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         dateAmtDueTotal += dueAmt;
 
                         const paymentLabel = isCancelled ? 'REFUNDED' : (isPaid ? 'PAID' : 'UNPAID');
-                        const fulfillLabel = isAttended ? 'FULFILLED' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED');
+                        const fulfillLabel = isAttended ? 'FULFILLED' : (isNoShow ? 'NO SHOW' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED'));
                         const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
 
                         let phoneVal = b.phone ? String(b.phone) : '';

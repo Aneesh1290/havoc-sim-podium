@@ -2758,7 +2758,7 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, checkPermission('ed
     const rawNum = cleanId.replace(/^PAYDUE_FZ_/, '').replace(/^PAYDUE_SP_/, '');
     const { status } = req.body;
 
-    const validStatuses = ['PENDING', 'PAID', 'ATTENDED', 'CANCELLED', 'CASH', 'REFUNDED'];
+    const validStatuses = ['PENDING', 'PAID', 'ATTENDED', 'CANCELLED', 'CASH', 'REFUNDED', 'NO_SHOW'];
     if (!validStatuses.includes(status?.toUpperCase())) {
         return res.status(400).json({ error: 'Invalid status value' });
     }
@@ -2776,7 +2776,7 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, checkPermission('ed
             const bookingsUpdated = this?.changes || 0;
 
             // Also sync status on simulator_slot_locks (e.g. Fun Zone combo passes)
-            const lockAction = (targetStatus === 'CANCELLED' || targetStatus === 'REFUNDED')
+            const lockAction = (targetStatus === 'CANCELLED' || targetStatus === 'REFUNDED' || targetStatus === 'NO_SHOW')
                 ? `DELETE FROM simulator_slot_locks 
                    WHERE source_order_id = ? OR source_order_id = ? OR source_order_id = ? 
                       OR source_order_id LIKE ? OR source_order_id LIKE ? OR source_order_id LIKE ?
@@ -2785,7 +2785,7 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, checkPermission('ed
                    WHERE source_order_id = ? OR source_order_id = ? OR source_order_id = ? 
                       OR source_order_id LIKE ? OR source_order_id LIKE ? OR source_order_id LIKE ?
                       OR source_order_id LIKE ? OR source_order_id LIKE ?`;
-            const lockParams = (targetStatus === 'CANCELLED' || targetStatus === 'REFUNDED')
+            const lockParams = (targetStatus === 'CANCELLED' || targetStatus === 'REFUNDED' || targetStatus === 'NO_SHOW')
                 ? [cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`, `%FZ_${rawNum}%`, `%FZ_${rawNum}_%`]
                 : [targetStatus, cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`, `%FZ_${rawNum}%`, `%FZ_${rawNum}_%`];
 
@@ -6989,6 +6989,62 @@ async function sendAdminUpcomingSlotReminderWhatsApp({ adminPhone, timeSlot, boo
         return { success: false, error: err.message };
     }
 }
+
+// Background Cron Job: Runs every 2 minutes to auto-mark bookings as NO_SHOW 
+// if 15 minutes have passed since the slot began and the customer hasn't checked in
+setInterval(async () => {
+    try {
+        const now = new Date();
+        db.all(
+            "SELECT id, order_id, booking_date, booking_time, status FROM bookings WHERE status NOT IN ('ATTENDED', 'CANCELLED', 'REFUNDED', 'NO_SHOW')",
+            [],
+            async (err, rows) => {
+                if (err || !rows || rows.length === 0) return;
+
+                const toNoShow = [];
+                for (const b of rows) {
+                    if (!b.booking_date || !b.booking_time) continue;
+                    const slotStartTime = parseBookingDateTimeIST(b.booking_date, b.booking_time);
+                    if (!slotStartTime || isNaN(slotStartTime.getTime())) continue;
+
+                    // Calculate elapsed minutes since slot started
+                    const elapsedMinutes = (now.getTime() - slotStartTime.getTime()) / (1000 * 60);
+
+                    // If slot started >= 15 minutes ago, and within the past 24 hours (so future slots are ignored)
+                    if (elapsedMinutes >= 15 && elapsedMinutes <= 24 * 60) {
+                        toNoShow.push(b);
+                    }
+                }
+
+                if (toNoShow.length === 0) return;
+
+                const ids = toNoShow.map(b => b.id);
+                const orderIds = toNoShow.map(b => b.order_id).filter(Boolean);
+                const placeholders = ids.map(() => '?').join(',');
+
+                db.run(`UPDATE bookings SET status = 'NO_SHOW' WHERE id IN (${placeholders})`, ids, function (upErr) {
+                    if (upErr) {
+                        console.error('[No-Show Cron Error] Failed to update bookings to NO_SHOW:', upErr);
+                        return;
+                    }
+                    console.log(`[No-Show Auto Mark] ${toNoShow.length} session(s) auto-marked as NO_SHOW (15+ mins past slot start). Order IDs:`, orderIds);
+
+                    // Free slot locks so walk-in customers can take over the simulator
+                    orderIds.forEach(orderId => {
+                        const cleanId = orderId.replace(/^#+/, '');
+                        db.run(
+                            "DELETE FROM simulator_slot_locks WHERE source_order_id = ? OR source_order_id LIKE ?",
+                            [cleanId, `${cleanId}%`],
+                            () => { }
+                        );
+                    });
+                });
+            }
+        );
+    } catch (e) {
+        console.error('[No-Show Cron Job Error]:', e);
+    }
+}, 2 * 60 * 1000); // Check every 2 minutes
 
 // Background Cron Job: Runs every 5 minutes to dispatch 30-min prior upcoming slot alerts to configured admin phone numbers
 setInterval(async () => {
