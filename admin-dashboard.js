@@ -535,8 +535,16 @@ window.deleteBookingRow = async function(orderId) {
     try {
         const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}`, { method: 'DELETE' });
         const data = await res.json().catch(() => ({}));
-        if (res.ok) {
+        if (res.ok && data.success !== false) {
             alert(data.message || 'Booking deleted successfully.');
+            // Optimistically remove from window.allBookings
+            if (Array.isArray(window.allBookings)) {
+                const cleanTarget = String(orderId || '').replace(/^#+/, '');
+                window.allBookings = window.allBookings.filter(b => {
+                    const bId = String(b.order_id || '').replace(/^#+/, '');
+                    return bId !== cleanTarget && !bId.startsWith(cleanTarget);
+                });
+            }
             closeOrderDetails();
             await loadBookings();
         } else {
@@ -3877,9 +3885,17 @@ window.deleteSelectedBookings = async () => {
     try {
         const orderIds = Array.from(window.selectedBookings);
         for (const orderId of orderIds) {
-            await fetchAuth(`/api/admin/bookings/${orderId}`, {
+            await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}`, {
                 method: 'DELETE'
             });
+            // Optimistically remove from window.allBookings
+            if (Array.isArray(window.allBookings)) {
+                const cleanTarget = String(orderId || '').replace(/^#+/, '');
+                window.allBookings = window.allBookings.filter(b => {
+                    const bId = String(b.order_id || '').replace(/^#+/, '');
+                    return bId !== cleanTarget && !bId.startsWith(cleanTarget);
+                });
+            }
         }
         window.selectedBookings.clear();
         await loadBookings();

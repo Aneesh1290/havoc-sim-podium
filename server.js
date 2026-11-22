@@ -2641,19 +2641,20 @@ app.delete('/api/admin/bookings/:order_id', verifyToken, checkPermission('delete
         `#${cleanId}%`,
         `##${cleanId}%`,
         `%FZ_${rawNum}%`,
-        `%FZ_${rawNum}_%`
+        `%FZ_${rawNum}_%`,
+        `%${cleanId}%`
     ];
 
     const sqlCondition = `
         order_id = ? OR order_id = ? OR order_id = ?
         OR order_id LIKE ? OR order_id LIKE ? OR order_id LIKE ?
-        OR order_id LIKE ? OR order_id LIKE ?
+        OR order_id LIKE ? OR order_id LIKE ? OR order_id LIKE ?
     `;
 
     const lockSqlCondition = `
         source_order_id = ? OR source_order_id = ? OR source_order_id = ?
         OR source_order_id LIKE ? OR source_order_id LIKE ? OR source_order_id LIKE ?
-        OR source_order_id LIKE ? OR source_order_id LIKE ?
+        OR source_order_id LIKE ? OR source_order_id LIKE ? OR source_order_id LIKE ?
     `;
 
     // 1. Delete from bookings table
@@ -2674,7 +2675,13 @@ app.delete('/api/admin/bookings/:order_id', verifyToken, checkPermission('delete
             console.log(`[Admin Delete] Order: ${order_id} (clean: ${cleanId}) -> Deleted: ${bookingsDeleted} bookings, ${locksDeleted} slot locks`);
 
             if (bookingsDeleted === 0 && locksDeleted === 0) {
-                return res.status(404).json({ error: `Order #${order_id} not found in bookings or simulator locks.` });
+                // If not found, return 200 with soft success rather than blocking the UI so stale frontend items disappear
+                return res.json({
+                    success: true,
+                    message: `Order #${order_id} was removed or was already deleted.`,
+                    bookingsDeleted: 0,
+                    locksDeleted: 0
+                });
             }
 
             res.json({
