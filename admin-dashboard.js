@@ -8450,10 +8450,13 @@ window.openCashBookingModal = function() {
     if (!modal) return;
     
     // Reset fields
-    document.getElementById('cbPhone').value = '';
-    document.getElementById('cbName').value = '';
-    document.getElementById('cbSimulator').value = 'Customer Choice';
-    document.getElementById('cbSlot').value = 'Now / Open Slot';
+    const phoneInput = document.getElementById('cbPhone');
+    const nameInput = document.getElementById('cbName');
+    const countryCodeSelect = document.getElementById('cbCountryCode');
+    
+    if (phoneInput) phoneInput.value = '';
+    if (nameInput) nameInput.value = '';
+    if (countryCodeSelect) countryCodeSelect.value = '+91';
     
     const feedbackBox = document.getElementById('cbFeedbackBox');
     if (feedbackBox) feedbackBox.style.display = 'none';
@@ -8471,18 +8474,32 @@ window.submitCashBooking = async function(e) {
     e.preventDefault();
     const phoneInput = document.getElementById('cbPhone');
     const nameInput = document.getElementById('cbName');
-    const simSelect = document.getElementById('cbSimulator');
-    const slotSelect = document.getElementById('cbSlot');
+    const countryCodeSelect = document.getElementById('cbCountryCode');
     const submitBtn = document.getElementById('cbSubmitBtn');
 
-    const phone = phoneInput ? phoneInput.value.trim() : '';
+    const countryCode = countryCodeSelect ? countryCodeSelect.value.trim() : '+91';
+    let rawPhone = phoneInput ? phoneInput.value.trim() : '';
     const name = nameInput ? nameInput.value.trim() : '';
-    const sim = simSelect ? simSelect.value : 'Customer Choice';
-    const slot = slotSelect ? slotSelect.value : 'Now / Open Slot';
 
-    if (!phone || phone.length < 10) {
-        alert('Please enter a valid 10-digit mobile number.');
+    // Strip leading zeroes and non-digits
+    let cleanDigits = rawPhone.replace(/\D/g, '').replace(/^0+/, '');
+
+    if (!cleanDigits || cleanDigits.length < 5) {
+        alert('Please enter a valid mobile number.');
         return;
+    }
+
+    // Format full international phone with +
+    let fullPhone;
+    if (rawPhone.startsWith('+')) {
+        fullPhone = '+' + cleanDigits;
+    } else {
+        const codeDigits = countryCode.replace(/\D/g, '');
+        if (cleanDigits.startsWith(codeDigits) && cleanDigits.length > codeDigits.length + 5) {
+            fullPhone = '+' + cleanDigits;
+        } else {
+            fullPhone = `${countryCode}${cleanDigits}`;
+        }
     }
 
     const origBtnHtml = submitBtn ? submitBtn.innerHTML : 'Send Pay-at-Desk Pass';
@@ -8491,42 +8508,13 @@ window.submitCashBooking = async function(e) {
         submitBtn.disabled = true;
     }
 
-    // Build pre-selected item if staff chose a specific simulator
-    let items = [];
-    if (sim && sim !== 'Customer Choice') {
-        const prices = {
-            'Race Sim GT': 500,
-            'Race Sim F1': 600,
-            'Race Sim Beginner': 300,
-            'Flight Sim Pro (Airbus Edition)': 1500,
-            'Flight Sim Pro (Boeing Edition)': 1500,
-            'RC Flying Sim': 300,
-            'Play Station PS5 - Station One': 400,
-            'Play Station PS5 - Station Two': 400,
-            'Race Sim Jr & Play Station PS5': 600
-        };
-        const p = prices[sim] || 500;
-        const now = new Date();
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-        const dateLabel = `${monthNames[now.getMonth()]} ${now.getDate()} (${dayNames[now.getDay()]})`;
-
-        items.push({
-            itemName: sim,
-            itemPrice: `₹${p}`,
-            dateLabel: dateLabel,
-            slot: slot !== 'Now / Open Slot' ? slot : '11AM-11:30AM',
-            players: 1
-        });
-    }
-
     try {
         const res = await fetchAuth('/api/admin/desk-booking/send-link', {
             method: 'POST',
             body: JSON.stringify({
-                phone: `+91${phone}`,
+                phone: fullPhone,
                 name,
-                items
+                items: []
             })
         });
 

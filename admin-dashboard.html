@@ -1310,55 +1310,59 @@
             <form id="cashBookingForm" onsubmit="submitCashBooking(event)">
                 <div style="margin-bottom: 1rem;">
                     <label style="display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.4rem;">Customer WhatsApp Number *</label>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="text" value="+91" disabled style="width: 65px; text-align: center; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--gold); font-weight: 700; font-family: inherit;">
-                        <input type="text" id="cbPhone" placeholder="10-digit mobile number" required maxlength="10" style="flex: 1; padding: 0.75rem 0.9rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 0.95rem; outline: none; font-family: inherit;">
+                    <div style="display: flex; gap: 8px; align-items: center;">
+                        <div style="position: relative; width: 110px; flex-shrink: 0;">
+                            <select id="cbCountryCode" style="width: 100%; padding: 0.7rem 1.6rem 0.7rem 0.75rem; background: rgba(255,255,255,0.06) url('data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'10\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%23e5b869\' stroke-width=\'2.5\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'%3E%3C/polyline%3E%3C/svg%3E') no-repeat right 0.5rem center; border: 1px solid var(--border); border-radius: 8px; color: var(--gold); font-weight: 700; font-size: 0.88rem; font-family: inherit; outline: none; cursor: pointer; appearance: none; -webkit-appearance: none;">
+                                <option value="+91" selected style="background:#1c1d26; color:#fff;">🇮🇳 +91</option>
+                                <option value="+1" style="background:#1c1d26; color:#fff;">🇺🇸 +1</option>
+                                <option value="+44" style="background:#1c1d26; color:#fff;">🇬🇧 +44</option>
+                                <option value="+971" style="background:#1c1d26; color:#fff;">🇦🇪 +971</option>
+                                <option value="+61" style="background:#1c1d26; color:#fff;">🇦🇺 +61</option>
+                                <option value="+65" style="background:#1c1d26; color:#fff;">🇸🇬 +65</option>
+                                <option value="+1" style="background:#1c1d26; color:#fff;">🇨🇦 +1</option>
+                                <option value="+966" style="background:#1c1d26; color:#fff;">🇸🇦 +966</option>
+                                <option value="+974" style="background:#1c1d26; color:#fff;">🇶🇦 +974</option>
+                                <option value="+968" style="background:#1c1d26; color:#fff;">🇴🇲 +968</option>
+                                <option value="+965" style="background:#1c1d26; color:#fff;">🇰🇼 +965</option>
+                                <option value="+973" style="background:#1c1d26; color:#fff;">🇧🇭 +973</option>
+                                <option value="+49" style="background:#1c1d26; color:#fff;">🇩🇪 +49</option>
+                                <option value="+33" style="background:#1c1d26; color:#fff;">🇫🇷 +33</option>
+                                <option value="+39" style="background:#1c1d26; color:#fff;">🇮🇹 +39</option>
+                                <option value="+34" style="background:#1c1d26; color:#fff;">🇪🇸 +34</option>
+                                <option value="+31" style="background:#1c1d26; color:#fff;">🇳🇱 +31</option>
+                                <option value="+41" style="background:#1c1d26; color:#fff;">🇨🇭 +41</option>
+                                <option value="+46" style="background:#1c1d26; color:#fff;">🇸🇪 +46</option>
+                                <option value="+47" style="background:#1c1d26; color:#fff;">🇳🇴 +47</option>
+                                <option value="+353" style="background:#1c1d26; color:#fff;">🇮🇪 +353</option>
+                                <option value="+64" style="background:#1c1d26; color:#fff;">🇳🇿 +64</option>
+                                <option value="+60" style="background:#1c1d26; color:#fff;">🇲🇾 +60</option>
+                                <option value="+62" style="background:#1c1d26; color:#fff;">🇮🇩 +62</option>
+                                <option value="+66" style="background:#1c1d26; color:#fff;">🇹🇭 +66</option>
+                                <option value="+63" style="background:#1c1d26; color:#fff;">🇵🇭 +63</option>
+                                <option value="+84" style="background:#1c1d26; color:#fff;">🇻🇳 +84</option>
+                                <option value="+81" style="background:#1c1d26; color:#fff;">🇯🇵 +81</option>
+                                <option value="+82" style="background:#1c1d26; color:#fff;">🇰🇷 +82</option>
+                                <option value="+86" style="background:#1c1d26; color:#fff;">🇨🇳 +86</option>
+                                <option value="+852" style="background:#1c1d26; color:#fff;">🇭🇰 +852</option>
+                                <option value="+27" style="background:#1c1d26; color:#fff;">🇿🇦 +27</option>
+                                <option value="+55" style="background:#1c1d26; color:#fff;">🇧🇷 +55</option>
+                                <option value="+52" style="background:#1c1d26; color:#fff;">🇲🇽 +52</option>
+                                <option value="+94" style="background:#1c1d26; color:#fff;">🇱🇰 +94</option>
+                                <option value="+880" style="background:#1c1d26; color:#fff;">🇧🇩 +880</option>
+                                <option value="+977" style="background:#1c1d26; color:#fff;">🇳🇵 +977</option>
+                                <option value="+92" style="background:#1c1d26; color:#fff;">🇵🇰 +92</option>
+                                <option value="+20" style="background:#1c1d26; color:#fff;">🇪🇬 +20</option>
+                                <option value="+90" style="background:#1c1d26; color:#fff;">🇹🇷 +90</option>
+                                <option value="+7" style="background:#1c1d26; color:#fff;">🇷🇺 +7</option>
+                            </select>
+                        </div>
+                        <input type="tel" id="cbPhone" placeholder="Mobile / WhatsApp number" required autocomplete="off" style="flex: 1; min-width: 0; padding: 0.75rem 0.9rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 0.95rem; outline: none; font-family: inherit;">
                     </div>
                 </div>
 
-                <div style="margin-bottom: 1rem;">
+                <div style="margin-bottom: 1.25rem;">
                     <label style="display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.4rem;">Customer Name (Optional)</label>
                     <input type="text" id="cbName" placeholder="Driver / Customer Name" style="width: 100%; padding: 0.75rem 0.9rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 0.95rem; outline: none; font-family: inherit;">
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem;">
-                    <div>
-                        <label style="display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.4rem;">Simulator Experience</label>
-                        <select id="cbSimulator" style="width: 100%; padding: 0.75rem 0.9rem; background: #232433; border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 0.9rem; outline: none; font-family: inherit;">
-                            <option value="Customer Choice">📱 Let Customer Choose</option>
-                            <option value="Race Sim GT">Race Sim GT (₹500)</option>
-                            <option value="Race Sim F1">Race Sim F1 (₹600)</option>
-                            <option value="Race Sim Beginner">Race Sim Beginner (₹300)</option>
-                            <option value="Flight Sim Pro (Airbus Edition)">Flight Sim Pro (Airbus) (₹1500)</option>
-                            <option value="Flight Sim Pro (Boeing Edition)">Flight Sim Pro (Boeing) (₹1500)</option>
-                            <option value="RC Flying Sim">RC Flying Sim (₹300)</option>
-                            <option value="Play Station PS5 - Station One">PlayStation PS5 Station 1 (₹400)</option>
-                            <option value="Play Station PS5 - Station Two">PlayStation PS5 Station 2 (₹400)</option>
-                            <option value="Race Sim Jr & Play Station PS5">Race Sim Jr & PS5 (₹600)</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.4rem;">Time Slot (Optional)</label>
-                        <select id="cbSlot" style="width: 100%; padding: 0.75rem 0.9rem; background: #232433; border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 0.9rem; outline: none; font-family: inherit;">
-                            <option value="Now / Open Slot">⚡ Immediate / Open</option>
-                            <option value="11AM-11:30AM">11:00 AM - 11:30 AM</option>
-                            <option value="11:30AM-12PM">11:30 AM - 12:00 PM</option>
-                            <option value="12PM-12:30PM">12:00 PM - 12:30 PM</option>
-                            <option value="12:30PM-1PM">12:30 PM - 01:00 PM</option>
-                            <option value="2PM-2:30PM">02:00 PM - 02:30 PM</option>
-                            <option value="2:30PM-3PM">02:30 PM - 03:00 PM</option>
-                            <option value="3PM-3:30PM">03:00 PM - 03:30 PM</option>
-                            <option value="3:30PM-4PM">03:30 PM - 04:00 PM</option>
-                            <option value="4PM-4:30PM">04:00 PM - 04:30 PM</option>
-                            <option value="4:30PM-5PM">04:30 PM - 05:00 PM</option>
-                            <option value="5PM-5:30PM">05:00 PM - 05:30 PM</option>
-                            <option value="5:30PM-6PM">05:30 PM - 06:00 PM</option>
-                            <option value="6PM-6:30PM">06:00 PM - 06:30 PM</option>
-                            <option value="6:30PM-7PM">06:30 PM - 07:00 PM</option>
-                            <option value="7PM-7:30PM">07:00 PM - 07:30 PM</option>
-                            <option value="7:30PM-8PM">07:30 PM - 08:00 PM</option>
-                        </select>
-                    </div>
                 </div>
 
                 <div id="cbFeedbackBox" style="display: none; margin-bottom: 1rem; padding: 0.85rem; border-radius: 8px; background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); color: #86efac; font-size: 0.85rem;">
@@ -4294,6 +4298,6 @@
     </div>
     <script src="exceljs.min.js"></script>
     <script src="slotColors.js"></script>
-    <script src="admin-dashboard.js?v=40"></script>
+    <script src="admin-dashboard.js?v=41"></script>
 </body>
 </html>

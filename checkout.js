@@ -96,12 +96,36 @@ document.addEventListener("DOMContentLoaded", async () => {
                 if (passData.phone) {
                     const phoneInput = document.getElementById('co-phone');
                     const codeSelect = document.getElementById('co-country-code');
-                    let p = passData.phone.replace(/\D/g, '');
-                    if (p.startsWith('91') && p.length > 10) {
-                        if (codeSelect) codeSelect.value = '+91';
-                        if (phoneInput) phoneInput.value = p.slice(2);
-                    } else {
-                        if (phoneInput) phoneInput.value = p;
+                    let p = passData.phone.trim();
+                    let matchedCode = null;
+                    let remainingDigits = p.replace(/\D/g, '');
+
+                    if (codeSelect && codeSelect.options) {
+                        // Sort options descending by code length so +971 is matched before +9
+                        const codes = Array.from(codeSelect.options)
+                            .map(o => o.value)
+                            .filter(Boolean)
+                            .sort((a, b) => b.length - a.length);
+
+                        for (const code of codes) {
+                            const digits = code.replace(/\D/g, '');
+                            if (p.startsWith(code) || remainingDigits.startsWith(digits)) {
+                                matchedCode = code;
+                                if (p.startsWith(code)) {
+                                    remainingDigits = p.slice(code.length).replace(/\D/g, '');
+                                } else {
+                                    remainingDigits = remainingDigits.slice(digits.length);
+                                }
+                                break;
+                            }
+                        }
+                    }
+
+                    if (matchedCode && codeSelect) {
+                        codeSelect.value = matchedCode;
+                    }
+                    if (phoneInput) {
+                        phoneInput.value = remainingDigits;
                     }
                 }
                 if (passData.name) {
