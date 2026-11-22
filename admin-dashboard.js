@@ -341,13 +341,54 @@ function renderBookings(bookingsToRender) {
         const placedDateStr = placedDateObj.toLocaleString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'});
 
         const appliedCouponCode = (b.items.find(i => i.applied_coupon)?.applied_coupon || '').trim();
-        const vipCouponBadgeHtml = appliedCouponCode ? `
-            <div style="margin-top: 4px;">
-                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; background: #fef3c7; color: #451a03; border: 1px solid #fcd34d; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="VIP Band Offer Coupon: ${escapeHtml(appliedCouponCode)}">
-                    ⭐ VIP BAND: ${escapeHtml(appliedCouponCode)}
-                </span>
-            </div>
-        ` : '';
+
+        // Check if a discount was detected (either via applied_coupon or price difference from catalog standard)
+        const CATALOG_STANDARD_PRICES = {
+            'rc flying sim': 354,
+            'race sim beginner': 354,
+            'race sim jr.': 472,
+            'race sim gt': 590,
+            'race sim f1': 708,
+            'flight sim pro (airbus edition)': 1770,
+            'flight sim pro (boeing edition)': 1770,
+            'play station ps5 - station one': 472,
+            'play station ps5 - station two': 472,
+            'race sim jr & play station ps5': 708
+        };
+
+        let calculatedCatalogTotal = 0;
+        let hasMatchedCatalog = false;
+        b.items.forEach(it => {
+            const rawName = (it.item_name || '').toLowerCase().trim();
+            const matchedKey = Object.keys(CATALOG_STANDARD_PRICES).find(k => rawName.includes(k) || k.includes(rawName));
+            if (matchedKey) {
+                hasMatchedCatalog = true;
+                const players = parseInt(it.players, 10) || 1;
+                calculatedCatalogTotal += (CATALOG_STANDARD_PRICES[matchedKey] * (players > 1 ? 1.5 : 1));
+            }
+        });
+
+        const actualTotalPaid = parseFloat(b.total_price) || 0;
+        const isDiscountedByPrice = hasMatchedCatalog && actualTotalPaid > 0 && actualTotalPaid < (calculatedCatalogTotal - 20);
+
+        let vipCouponBadgeHtml = '';
+        if (appliedCouponCode) {
+            vipCouponBadgeHtml = `
+                <div style="margin-top: 4px;">
+                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; background: #fef3c7; color: #451a03; border: 1px solid #fcd34d; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="VIP Band Offer Coupon: ${escapeHtml(appliedCouponCode)}">
+                        ⭐ VIP BAND: ${escapeHtml(appliedCouponCode)}
+                    </span>
+                </div>
+            `;
+        } else if (isDiscountedByPrice) {
+            vipCouponBadgeHtml = `
+                <div style="margin-top: 4px;">
+                    <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; background: #fef3c7; color: #451a03; border: 1px solid #fcd34d; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="Promotional Discount Applied: Standard ₹${calculatedCatalogTotal.toFixed(0)} reduced to ₹${actualTotalPaid.toFixed(0)}">
+                        ⭐ VIP BAND: DISCOUNTED
+                    </span>
+                </div>
+            `;
+        }
 
         tr.innerHTML = `
             <td>
@@ -367,7 +408,17 @@ function renderBookings(bookingsToRender) {
             <td>
                 <span class="badge ${getBadgeClass(fulfillBadge)}" style="margin-left:0; padding: 0.2rem 0.6rem; font-size: 0.75rem;">${fulfillBadge.toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}</span>
             </td>
-            <td style="color: var(--muted); font-size: 0.85rem;">₹${(parseFloat(b.total_price) || 0).toFixed(2)}</td>
+            <td style="color: var(--muted); font-size: 0.85rem;">
+                ${isDiscountedByPrice ? `
+                    <div>
+                        <span style="font-weight: 700; color: #fff;">₹${actualTotalPaid.toFixed(2)}</span>
+                        <div style="font-size: 0.72rem; color: #4ade80; display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+                            <del style="color: rgba(255,255,255,0.4);">₹${calculatedCatalogTotal.toFixed(0)}</del>
+                            <span>(-₹${(calculatedCatalogTotal - actualTotalPaid).toFixed(0)})</span>
+                        </div>
+                    </div>
+                ` : `₹${actualTotalPaid.toFixed(2)}`}
+            </td>
             <td style="color: #60a5fa; font-size: 0.85rem;">
                 ${b.items.length} 
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left: 2px; vertical-align: middle;">
@@ -753,26 +804,78 @@ window.openOrderDetails = (baseOrderId) => {
         ` : '';
 
         const appliedCouponCode = (items.find(i => i.applied_coupon)?.applied_coupon || '').trim();
-        const vipCouponBannerHtml = appliedCouponCode ? `
-            <div style="border: 2px solid #fbbf24; background: linear-gradient(90deg, rgba(251,191,36,0.15), rgba(254,243,199,0.1), rgba(255,255,255,0.03)); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-                <div>
-                    <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-size: 1.2rem;">⭐</span>
-                        <span style="font-size: 0.8rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.8px; color: #fef08a;">
-                            VIP Offer Wristband / Discount Pass Activated
+
+        // Calculate standard catalog price vs actual paid
+        const CATALOG_STANDARD_PRICES_OD = {
+            'rc flying sim': 354,
+            'race sim beginner': 354,
+            'race sim jr.': 472,
+            'race sim gt': 590,
+            'race sim f1': 708,
+            'flight sim pro (airbus edition)': 1770,
+            'flight sim pro (boeing edition)': 1770,
+            'play station ps5 - station one': 472,
+            'play station ps5 - station two': 472,
+            'race sim jr & play station ps5': 708
+        };
+        let odCatalogTotal = 0;
+        let odHasMatched = false;
+        items.forEach(it => {
+            const rawName = (it.item_name || '').toLowerCase().trim();
+            const matchedKey = Object.keys(CATALOG_STANDARD_PRICES_OD).find(k => rawName.includes(k) || k.includes(rawName));
+            if (matchedKey) {
+                odHasMatched = true;
+                const players = parseInt(it.players, 10) || 1;
+                odCatalogTotal += (CATALOG_STANDARD_PRICES_OD[matchedKey] * (players > 1 ? 1.5 : 1));
+            }
+        });
+        const odActualPaid = totalAmount;
+        const odIsDiscounted = odHasMatched && odActualPaid > 0 && odActualPaid < (odCatalogTotal - 20);
+
+        let vipCouponBannerHtml = '';
+        if (appliedCouponCode) {
+            vipCouponBannerHtml = `
+                <div style="border: 2px solid #fbbf24; background: linear-gradient(90deg, rgba(251,191,36,0.15), rgba(254,243,199,0.1), rgba(255,255,255,0.03)); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.2rem;">⭐</span>
+                            <span style="font-size: 0.8rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.8px; color: #fef08a;">
+                                VIP Offer Wristband / Discount Pass Activated
+                            </span>
+                        </div>
+                        <div style="font-size: 0.82rem; color: #fde68a; margin-top: 4px;">
+                            Customer redeemed promotional pass code: <strong style="font-family: monospace; font-size: 0.95rem; background: #fef3c7; color: #451a03; border: 1px solid #fcd34d; padding: 2px 8px; border-radius: 5px; margin-left: 4px;">${escapeHtml(appliedCouponCode)}</strong>
+                        </div>
+                    </div>
+                    <div>
+                        <span style="background: #fef3c7; color: #451a03; border: 1px solid #fcd34d; padding: 4px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+                            ⭐ VIP Band Guest
                         </span>
                     </div>
-                    <div style="font-size: 0.82rem; color: #fde68a; margin-top: 4px;">
-                        Customer redeemed promotional pass code: <strong style="font-family: monospace; font-size: 0.95rem; background: #fef3c7; color: #451a03; border: 1px solid #fcd34d; padding: 2px 8px; border-radius: 5px; margin-left: 4px;">${escapeHtml(appliedCouponCode)}</strong>
+                </div>
+            `;
+        } else if (odIsDiscounted) {
+            vipCouponBannerHtml = `
+                <div style="border: 2px solid #fbbf24; background: linear-gradient(90deg, rgba(251,191,36,0.15), rgba(254,243,199,0.1), rgba(255,255,255,0.03)); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-size: 1.2rem;">⭐</span>
+                            <span style="font-size: 0.8rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.8px; color: #fef08a;">
+                                VIP Promotional Offer / Discount Applied
+                            </span>
+                        </div>
+                        <div style="font-size: 0.82rem; color: #fde68a; margin-top: 4px;">
+                            Standard Tariff: <del style="color: rgba(255,255,255,0.6);">₹${odCatalogTotal.toFixed(2)}</del> &bull; Discounted to: <strong style="color: #fff;">₹${odActualPaid.toFixed(2)}</strong> <span style="color: #4ade80; font-weight: 700;">(-₹${(odCatalogTotal - odActualPaid).toFixed(2)} Savings)</span>
+                        </div>
+                    </div>
+                    <div>
+                        <span style="background: #fef3c7; color: #451a03; border: 1px solid #fcd34d; padding: 4px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+                            ⭐ VIP Discounted Order
+                        </span>
                     </div>
                 </div>
-                <div>
-                    <span style="background: #fef3c7; color: #451a03; border: 1px solid #fcd34d; padding: 4px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
-                        ⭐ VIP Band Guest
-                    </span>
-                </div>
-            </div>
-        ` : '';
+            `;
+        }
 
         const cleanOrderId = String(baseOrderId || '').replace(/^#+/, '');
 
@@ -786,7 +889,7 @@ window.openOrderDetails = (baseOrderId) => {
             <h2>Order #${cleanOrderId}</h2>
             <span class="od-badge ${getBadgeClass(paymentBadge)}">${paymentBadge}</span>
             <span class="od-badge ${getBadgeClass(fulfillBadge)}">${fulfillBadge}</span>
-            ${appliedCouponCode ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 900; text-transform: uppercase; background: #fef3c7; color: #451a03; border: 1px solid #fcd34d;">⭐ VIP BAND: ${escapeHtml(appliedCouponCode)}</span>` : ''}
+            ${appliedCouponCode ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 900; text-transform: uppercase; background: #fef3c7; color: #451a03; border: 1px solid #fcd34d;">⭐ VIP BAND: ${escapeHtml(appliedCouponCode)}</span>` : (odIsDiscounted ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 900; text-transform: uppercase; background: #fef3c7; color: #451a03; border: 1px solid #fcd34d;">⭐ VIP BAND: DISCOUNTED</span>` : '')}
             <div class="od-date">Placed on ${placedDateStr}</div>
         </div>
         <div class="od-actions">
