@@ -870,6 +870,16 @@ window.openOrderDetails = (baseOrderId) => {
             </div>
 
             <div class="od-card">
+                <div class="od-card-title">Promotional Pass / Coupon</div>
+                <div style="font-size: 0.82rem; color: var(--muted); margin-bottom: 0.5rem;">
+                    ${appliedCouponCode ? `Current Applied Code: <strong style="color: var(--gold); font-family: monospace;">${escapeHtml(appliedCouponCode)}</strong>` : 'No coupon attached to this order.'}
+                </div>
+                <button type="button" onclick="promptSetOrderCoupon('${escapeHtml(baseOrderId)}', '${escapeHtml(appliedCouponCode)}')" style="width: 100%; padding: 0.6rem 0.8rem; background: rgba(229,184,105,0.1); border: 1px dashed rgba(229,184,105,0.35); border-radius: 8px; color: var(--gold); font-family: inherit; font-size: 0.82rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;">
+                    <span>🏷️</span> ${appliedCouponCode ? 'Change / Remove Coupon Code' : '+ Attach VIP / Discount Coupon Code'}
+                </button>
+            </div>
+
+            <div class="od-card">
                 <div class="od-card-title">Tags</div>
                 <button style="width: 100%; padding: 0.75rem; background: transparent; border: 1px dashed rgba(255,255,255,0.2); border-radius: 8px; color: #60a5fa; font-family: 'Outfit'; cursor: pointer; text-align: left;">+ Assign Tags</button>
             </div>
@@ -887,6 +897,46 @@ window.openOrderDetails = (baseOrderId) => {
         const tab = document.getElementById('tab-bookings');
         if (tab) tab.style.display = '';
         alert('Could not open order details: ' + err.message);
+    }
+};
+
+window.promptSetOrderCoupon = async (baseOrderId, currentCoupon) => {
+    const input = prompt("Enter VIP / Discount Coupon Code for this order (leave blank to remove):", currentCoupon || "");
+    if (input === null) return; // User pressed Cancel
+    const cleanCoupon = input.trim().toUpperCase();
+
+    try {
+        const res = await fetchAuth(`/api/admin/bookings/order/${encodeURIComponent(baseOrderId)}/update-details`, {
+            method: 'PUT',
+            body: JSON.stringify({ applied_coupon: cleanCoupon })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            // Update local memory
+            (window.allBookings || []).forEach(b => {
+                let base = b.order_id || '';
+                const parts = base.split('_');
+                if (parts[1] === 'SP' && parts.length >= 4) {
+                    base = parts.slice(0, 3).join('_');
+                } else if (parts.length >= 4) {
+                    base = parts.slice(0, 3).join('_');
+                }
+                if (base === baseOrderId) {
+                    b.applied_coupon = cleanCoupon || null;
+                }
+            });
+
+            // Re-render order details and bookings list
+            openOrderDetails(baseOrderId);
+            if (typeof renderBookings === 'function' && Array.isArray(window.allBookings)) {
+                renderBookings(window.allBookings);
+            }
+        } else {
+            alert(data.error || 'Failed to update coupon on order.');
+        }
+    } catch (err) {
+        console.error('Error updating coupon:', err);
+        alert('Server error updating coupon.');
     }
 };
 

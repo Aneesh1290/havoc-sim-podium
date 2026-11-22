@@ -4756,7 +4756,7 @@ app.put('/api/admin/bookings/order/:order_id/update-details', verifyToken, check
     if (!orderId) return res.status(400).json({ error: 'Order ID is required' });
     orderId = decodeURIComponent(orderId).trim();
 
-    const { booking_date, booking_time, name, phone, email } = req.body;
+    const { booking_date, booking_time, name, phone, email, applied_coupon } = req.body;
 
     const updates = [];
     const params = [];
@@ -4765,6 +4765,7 @@ app.put('/api/admin/bookings/order/:order_id/update-details', verifyToken, check
     if (name !== undefined) { updates.push('name = ?'); params.push(name); }
     if (phone !== undefined) { updates.push('phone = ?'); params.push(phone); }
     if (email !== undefined) { updates.push('email = ?'); params.push(email); }
+    if (applied_coupon !== undefined) { updates.push('applied_coupon = ?'); params.push(applied_coupon ? String(applied_coupon).trim().toUpperCase() : null); }
 
     if (updates.length === 0) {
         return res.status(400).json({ error: 'No fields provided for update.' });
