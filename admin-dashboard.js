@@ -1252,10 +1252,25 @@ window.markOrderAsUnpaid = async (orderId) => {
 
 window.markOrderAsUnfulfilled = async (orderId) => {
     document.querySelectorAll('.custom-dropdown-menu.open').forEach(m => m.classList.remove('open'));
+    // Check if the order was unpaid/pending or paid originally
+    const items = (window.allBookings || []).filter(b => {
+        let base = b.order_id || '';
+        const parts = base.split('_');
+        if ((parts[1] === 'SP' || parts[1] === 'FZ') && parts.length >= 4) {
+            base = parts.slice(0, 3).join('_');
+        } else if (parts.length >= 4 && !base.startsWith('PAYDUE_FZ_') && !base.startsWith('PAID_FZ_')) {
+            base = parts.slice(0, 3).join('_');
+        }
+        return base === orderId || b.order_id === orderId;
+    });
+
+    const isUnpaidPayDue = items.some(b => String(b.order_id || '').startsWith('PAYDUE_') || b.status === 'PENDING');
+    // If it was a Pay-at-Desk / PAYDUE order, restore to PENDING (Unpaid/Unfulfilled). If paid online, restore to PAID (Paid/Unfulfilled).
+    const targetStatus = isUnpaidPayDue ? 'PENDING' : 'PAID';
+
     const res = await fetchAuth(`/api/admin/bookings/${encodeURIComponent(orderId)}/status`, {
         method: 'PUT',
-        // If they mark as unfulfilled, it means it is still paid, so revert to PAID
-        body: JSON.stringify({ status: 'PAID' })
+        body: JSON.stringify({ status: targetStatus })
     });
     if (res.ok) {
         await loadBookings();
