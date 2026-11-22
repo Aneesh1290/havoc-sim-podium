@@ -79,6 +79,51 @@ const BACKEND_URL = "";
 
 document.addEventListener("DOMContentLoaded", async () => {
 
+    // Check if opened via Staff WhatsApp Pay-at-Desk link
+    const urlParams = new URLSearchParams(window.location.search);
+    const deskPassToken = urlParams.get('desk_pass');
+    window._deskPassToken = deskPassToken || null;
+
+    if (deskPassToken) {
+        try {
+            const verifyRes = await fetch(`${BACKEND_URL}/api/desk-booking/verify/${deskPassToken}`);
+            const passData = await verifyRes.json();
+            if (verifyRes.ok && passData.success) {
+                // If staff pre-selected cart items, populate cart
+                if (Array.isArray(passData.cart) && passData.cart.length > 0) {
+                    localStorage.setItem("havoc_cart", JSON.stringify(passData.cart));
+                }
+                
+                // Pre-fill phone and name
+                if (passData.phone) {
+                    const phoneInput = document.getElementById('co-phone');
+                    const codeSelect = document.getElementById('co-country-code');
+                    let p = passData.phone.replace(/\D/g, '');
+                    if (p.startsWith('91') && p.length > 10) {
+                        if (codeSelect) codeSelect.value = '+91';
+                        if (phoneInput) phoneInput.value = p.slice(2);
+                    } else {
+                        if (phoneInput) phoneInput.value = p;
+                    }
+                }
+                if (passData.name) {
+                    const nameInput = document.getElementById('co-name');
+                    if (nameInput) nameInput.value = passData.name;
+                }
+
+                // Show special banner
+                const banner = document.getElementById('deskPassBanner');
+                if (banner) banner.style.display = 'block';
+
+                window._isDeskPassMode = true;
+            } else {
+                alert(passData.error || 'This Pay-at-Desk link is invalid or expired.');
+            }
+        } catch (e) {
+            console.error('[Desk Pass Verify Error]', e);
+        }
+    }
+
     // ---- 1. Load cart from localStorage & Render IMMEDIATELY (Instant 0ms display) ----
     let raw = localStorage.getItem("havoc_cart");
     let cart = raw ? JSON.parse(raw) : [];
@@ -196,6 +241,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         let firstAvail = null;
         paymentOptions.forEach(opt => {
             const m = opt.getAttribute('data-method');
+
+            // If opened in Desk Pass mode, STRICTLY force COD and hide Online
+            if (window._isDeskPassMode) {
+                if (m === 'cod') {
+                    opt.style.display = 'flex';
+                    opt.classList.add('selected');
+                    selectedPaymentMethod = 'cod';
+                    firstAvail = opt;
+                } else {
+                    opt.style.display = 'none';
+                    opt.classList.remove('selected');
+                }
+                return;
+            }
+
             const isEnabled = m === 'icici' ? (settings.upi !== false) : (settings[m] !== false);
             if (!isEnabled) {
                 opt.style.display = 'none';
@@ -389,7 +449,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     body:    JSON.stringify({ 
                         amount, 
                         customer_details: { name, email, phone, whatsapp_consent: whatsappConsent },
-                        booking_data
+                        booking_data,
+                        desk_pass_token: window._deskPassToken || null
                     })
                 });
 

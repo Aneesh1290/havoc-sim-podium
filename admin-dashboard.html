@@ -1292,6 +1292,94 @@
     </div>
 
     <!-- Walk-in Booking Modal -->
+    
+    <!-- Cash / Desk Assisted Booking Modal -->
+    <div class="modal-overlay" id="cashBookingModal" style="display:none; z-index: 10002; align-items: center; justify-content: center; background: rgba(0,0,0,0.75);">
+        <div class="modal-box" style="max-width: 540px; width: 94%; text-align: left; background: #1c1d26; border: 1px solid rgba(229,184,105,0.3); border-radius: 18px; padding: 1.8rem; box-shadow: 0 25px 60px rgba(0,0,0,0.7);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); padding-bottom: 0.9rem;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.5rem; background: rgba(229,184,105,0.15); width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid rgba(229,184,105,0.3);">💵</span>
+                    <div>
+                        <h2 style="font-size: 1.25rem; color: #fff; margin: 0; font-weight: 700;">Cash Walk-in Booking</h2>
+                        <p style="font-size: 0.78rem; color: var(--muted); margin: 2px 0 0;">Send private Pay-at-Desk booking link directly to customer WhatsApp</p>
+                    </div>
+                </div>
+                <button type="button" class="modal-close" onclick="closeCashBookingModal()">&times;</button>
+            </div>
+
+            <form id="cashBookingForm" onsubmit="submitCashBooking(event)">
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.4rem;">Customer WhatsApp Number *</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" value="+91" disabled style="width: 65px; text-align: center; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 8px; color: var(--gold); font-weight: 700; font-family: inherit;">
+                        <input type="text" id="cbPhone" placeholder="10-digit mobile number" required maxlength="10" style="flex: 1; padding: 0.75rem 0.9rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 0.95rem; outline: none; font-family: inherit;">
+                    </div>
+                </div>
+
+                <div style="margin-bottom: 1rem;">
+                    <label style="display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.4rem;">Customer Name (Optional)</label>
+                    <input type="text" id="cbName" placeholder="Driver / Customer Name" style="width: 100%; padding: 0.75rem 0.9rem; background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 0.95rem; outline: none; font-family: inherit;">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 1rem;">
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.4rem;">Simulator Experience</label>
+                        <select id="cbSimulator" style="width: 100%; padding: 0.75rem 0.9rem; background: #232433; border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 0.9rem; outline: none; font-family: inherit;">
+                            <option value="Customer Choice">📱 Let Customer Choose</option>
+                            <option value="Race Sim GT">Race Sim GT (₹500)</option>
+                            <option value="Race Sim F1">Race Sim F1 (₹600)</option>
+                            <option value="Race Sim Beginner">Race Sim Beginner (₹300)</option>
+                            <option value="Flight Sim Pro (Airbus Edition)">Flight Sim Pro (Airbus) (₹1500)</option>
+                            <option value="Flight Sim Pro (Boeing Edition)">Flight Sim Pro (Boeing) (₹1500)</option>
+                            <option value="RC Flying Sim">RC Flying Sim (₹300)</option>
+                            <option value="Play Station PS5 - Station One">PlayStation PS5 Station 1 (₹400)</option>
+                            <option value="Play Station PS5 - Station Two">PlayStation PS5 Station 2 (₹400)</option>
+                            <option value="Race Sim Jr & Play Station PS5">Race Sim Jr & PS5 (₹600)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.4rem;">Time Slot (Optional)</label>
+                        <select id="cbSlot" style="width: 100%; padding: 0.75rem 0.9rem; background: #232433; border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 0.9rem; outline: none; font-family: inherit;">
+                            <option value="Now / Open Slot">⚡ Immediate / Open</option>
+                            <option value="11AM-11:30AM">11:00 AM - 11:30 AM</option>
+                            <option value="11:30AM-12PM">11:30 AM - 12:00 PM</option>
+                            <option value="12PM-12:30PM">12:00 PM - 12:30 PM</option>
+                            <option value="12:30PM-1PM">12:30 PM - 01:00 PM</option>
+                            <option value="2PM-2:30PM">02:00 PM - 02:30 PM</option>
+                            <option value="2:30PM-3PM">02:30 PM - 03:00 PM</option>
+                            <option value="3PM-3:30PM">03:00 PM - 03:30 PM</option>
+                            <option value="3:30PM-4PM">03:30 PM - 04:00 PM</option>
+                            <option value="4PM-4:30PM">04:00 PM - 04:30 PM</option>
+                            <option value="4:30PM-5PM">04:30 PM - 05:00 PM</option>
+                            <option value="5PM-5:30PM">05:00 PM - 05:30 PM</option>
+                            <option value="5:30PM-6PM">05:30 PM - 06:00 PM</option>
+                            <option value="6PM-6:30PM">06:00 PM - 06:30 PM</option>
+                            <option value="6:30PM-7PM">06:30 PM - 07:00 PM</option>
+                            <option value="7PM-7:30PM">07:00 PM - 07:30 PM</option>
+                            <option value="7:30PM-8PM">07:30 PM - 08:00 PM</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="cbFeedbackBox" style="display: none; margin-bottom: 1rem; padding: 0.85rem; border-radius: 8px; background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.3); color: #86efac; font-size: 0.85rem;">
+                    <div style="font-weight: 700; margin-bottom: 4px;" id="cbFeedbackTitle">✓ Pay-at-Desk Pass Generated!</div>
+                    <div style="word-break: break-all; color: #fff; font-family: monospace; font-size: 0.8rem; margin-bottom: 6px;" id="cbLinkText"></div>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn" onclick="copyCashBookingLink()" style="background: rgba(255,255,255,0.15); color: #fff; font-size: 0.78rem; padding: 0.35rem 0.75rem; border-radius: 6px; border: none; cursor: pointer;">📋 Copy Link</button>
+                        <a id="cbWaFallbackBtn" target="_blank" style="display: none; background: #25D366; color: #000; font-size: 0.78rem; font-weight: 700; padding: 0.35rem 0.75rem; border-radius: 6px; text-decoration: none; align-items: center; gap: 4px;">📲 Open in WhatsApp</a>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 1.25rem;">
+                    <button type="button" class="btn" onclick="closeCashBookingModal()" style="flex: 1; background: rgba(255,255,255,0.08); color: #fff; border: none; padding: 0.8rem; border-radius: 10px; cursor: pointer;">Cancel</button>
+                    <button type="submit" id="cbSubmitBtn" class="btn btn-gold" style="flex: 2; padding: 0.8rem; border-radius: 10px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <span>📲 Send Pay-at-Desk Pass</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="walkinModal" style="display:none; z-index: 10000;">
         <div class="modal-box" style="max-width: 500px; text-align: left;">
             <h2 style="margin-bottom: 1.5rem; text-align: center;">Book Walk-in Slot</h2>
@@ -2079,6 +2167,10 @@
             <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                 <h1 class="page-title" style="display: flex; align-items: center; gap: 0.5rem;">Bookings <span id="bookingCountHeader" style="color: var(--muted); font-weight: 400;">0</span></h1>
                 <div style="display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;">
+                    <button id="cashBookingBtn" class="btn" onclick="openCashBookingModal()" style="background: linear-gradient(135deg, #e5b869, #c9952f); color: #000; border: none; font-weight: 700; padding: 0.5rem 1.15rem; border-radius: 20px; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(229,184,105,0.3);">
+                        <span style="font-size: 1.1rem; line-height: 1;">💵</span>
+                        Cash Walk-in Booking
+                    </button>
                     <button id="verifyDeskOtpBtn" class="btn" onclick="openDeskOtpModal()" style="background: linear-gradient(135deg, #10B981, #059669); color: #fff; border: none; font-weight: 700; padding: 0.5rem 1.15rem; border-radius: 20px; display: flex; align-items: center; gap: 8px; cursor: pointer; box-shadow: 0 4px 15px rgba(16,185,129,0.3);">
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
                         Verify &amp; Check-In Customer

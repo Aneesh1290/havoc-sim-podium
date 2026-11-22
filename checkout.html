@@ -98,8 +98,18 @@
                 </div>
             </section>
 
-            <section class="co-section">
+            <section class="co-section" id="co-payment-section">
                 <h2>Payment</h2>
+                <!-- Special Desk Pass Indicator Banner (only shown if opened via staff WhatsApp desk link) -->
+                <div id="deskPassBanner" style="display: none; background: rgba(229,184,105,0.12); border: 1px solid rgba(229,184,105,0.4); border-radius: 10px; padding: 0.85rem 1rem; margin-bottom: 1rem; color: #fff; font-size: 0.88rem;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--gold); margin-bottom: 4px;">
+                        <span>💵</span> Pay-at-Desk Assisted Pass Active
+                    </div>
+                    <div style="color: #ccc; font-size: 0.82rem;">
+                        This slot reservation has been arranged by our arena staff. Please confirm below and complete your payment with cash/card when you arrive at the front desk.
+                    </div>
+                </div>
+
                 <div class="payment-option" data-method="icici" id="icici-payment-option" style="display: none;">
                     <div class="payment-radio"></div>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="payment-icon" style="width:28px;height:28px;"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>

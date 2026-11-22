@@ -8157,3 +8157,143 @@ window.saveAdminNotificationPhones = async function() {
         }
     }
 };
+
+// ==========================================
+// CASH / DESK ASSISTED BOOKING CONTROLLER
+// ==========================================
+
+window._lastGeneratedCashBookingUrl = null;
+
+window.openCashBookingModal = function() {
+    const modal = document.getElementById('cashBookingModal');
+    if (!modal) return;
+    
+    // Reset fields
+    document.getElementById('cbPhone').value = '';
+    document.getElementById('cbName').value = '';
+    document.getElementById('cbSimulator').value = 'Customer Choice';
+    document.getElementById('cbSlot').value = 'Now / Open Slot';
+    
+    const feedbackBox = document.getElementById('cbFeedbackBox');
+    if (feedbackBox) feedbackBox.style.display = 'none';
+    
+    modal.style.display = 'flex';
+    document.getElementById('cbPhone')?.focus();
+};
+
+window.closeCashBookingModal = function() {
+    const modal = document.getElementById('cashBookingModal');
+    if (modal) modal.style.display = 'none';
+};
+
+window.submitCashBooking = async function(e) {
+    e.preventDefault();
+    const phoneInput = document.getElementById('cbPhone');
+    const nameInput = document.getElementById('cbName');
+    const simSelect = document.getElementById('cbSimulator');
+    const slotSelect = document.getElementById('cbSlot');
+    const submitBtn = document.getElementById('cbSubmitBtn');
+
+    const phone = phoneInput ? phoneInput.value.trim() : '';
+    const name = nameInput ? nameInput.value.trim() : '';
+    const sim = simSelect ? simSelect.value : 'Customer Choice';
+    const slot = slotSelect ? slotSelect.value : 'Now / Open Slot';
+
+    if (!phone || phone.length < 10) {
+        alert('Please enter a valid 10-digit mobile number.');
+        return;
+    }
+
+    const origBtnHtml = submitBtn ? submitBtn.innerHTML : 'Send Pay-at-Desk Pass';
+    if (submitBtn) {
+        submitBtn.innerHTML = 'Generating & Sending...';
+        submitBtn.disabled = true;
+    }
+
+    // Build pre-selected item if staff chose a specific simulator
+    let items = [];
+    if (sim && sim !== 'Customer Choice') {
+        const prices = {
+            'Race Sim GT': 500,
+            'Race Sim F1': 600,
+            'Race Sim Beginner': 300,
+            'Flight Sim Pro (Airbus Edition)': 1500,
+            'Flight Sim Pro (Boeing Edition)': 1500,
+            'RC Flying Sim': 300,
+            'Play Station PS5 - Station One': 400,
+            'Play Station PS5 - Station Two': 400,
+            'Race Sim Jr & Play Station PS5': 600
+        };
+        const p = prices[sim] || 500;
+        const now = new Date();
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+        const dateLabel = `${monthNames[now.getMonth()]} ${now.getDate()} (${dayNames[now.getDay()]})`;
+
+        items.push({
+            itemName: sim,
+            itemPrice: `₹${p}`,
+            dateLabel: dateLabel,
+            slot: slot !== 'Now / Open Slot' ? slot : '11AM-11:30AM',
+            players: 1
+        });
+    }
+
+    try {
+        const res = await fetchAuth('/api/admin/desk-booking/send-link', {
+            method: 'POST',
+            body: JSON.stringify({
+                phone: `+91${phone}`,
+                name,
+                items
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            window._lastGeneratedCashBookingUrl = data.bookingUrl;
+            
+            const feedbackBox = document.getElementById('cbFeedbackBox');
+            const linkText = document.getElementById('cbLinkText');
+            const waFallbackBtn = document.getElementById('cbWaFallbackBtn');
+            const feedbackTitle = document.getElementById('cbFeedbackTitle');
+
+            if (feedbackBox && linkText) {
+                linkText.textContent = data.bookingUrl;
+                feedbackBox.style.display = 'block';
+
+                if (data.waDispatched) {
+                    feedbackTitle.innerHTML = '✓ Link Sent to Customer WhatsApp!';
+                    feedbackTitle.style.color = '#86efac';
+                } else {
+                    feedbackTitle.innerHTML = '✓ Pay-at-Desk Pass Created! (WhatsApp API offline / manual link ready)';
+                    feedbackTitle.style.color = 'var(--gold)';
+                }
+
+                if (waFallbackBtn && data.waMeUrl) {
+                    waFallbackBtn.href = data.waMeUrl;
+                    waFallbackBtn.style.display = 'inline-flex';
+                }
+            }
+        } else {
+            alert(data.error || 'Failed to generate cash booking link.');
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Server error creating cash booking pass.');
+    } finally {
+        if (submitBtn) {
+            submitBtn.innerHTML = origBtnHtml;
+            submitBtn.disabled = false;
+        }
+    }
+};
+
+window.copyCashBookingLink = function() {
+    if (!window._lastGeneratedCashBookingUrl) return;
+    navigator.clipboard.writeText(window._lastGeneratedCashBookingUrl).then(() => {
+        alert('Copied Pay-at-Desk link to clipboard!');
+    }).catch(() => {
+        prompt('Copy this link:', window._lastGeneratedCashBookingUrl);
+    });
+};

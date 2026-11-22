@@ -356,6 +356,18 @@ if (db.isPostgres) {
 
 // Ensure blocked_slots table exists for global/date/simulator slot blocking
 db.run(`
+    CREATE TABLE IF NOT EXISTS desk_booking_tokens (
+        token TEXT PRIMARY KEY,
+        phone TEXT NOT NULL,
+        name TEXT,
+        cart_json TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP,
+        used INTEGER DEFAULT 0
+    )
+`, [], () => { });
+
+db.run(`
     CREATE TABLE IF NOT EXISTS blocked_slots (
         id SERIAL PRIMARY KEY,
         simulator_name TEXT DEFAULT 'ALL',
@@ -4523,6 +4535,148 @@ app.post('/api/admin/bookings', verifyToken, (req, res) => {
     );
 });
 
+// ==========================================
+// DESK / CASH ASSISTED BOOKING API
+// ==========================================
+
+// 1. Staff generates and sends a special Pay-at-Desk link via WhatsApp
+app.post('/api/admin/desk-booking/send-link', verifyToken, async (req, res) => {
+    try {
+        const { phone, name, items } = req.body;
+        if (!phone || String(phone).trim().length < 7) {
+            return res.status(400).json({ error: 'Valid customer phone number is required.' });
+        }
+
+        const rawPhone = String(phone).trim();
+        const { countryCode, phoneNumber } = parseInternationalPhone(rawPhone);
+        if (!phoneNumber) {
+            return res.status(400).json({ error: 'Could not parse a valid phone number.' });
+        }
+
+        const cleanFullPhone = `${countryCode}${phoneNumber}`;
+        const customerName = (name || '').trim();
+        const itemsArr = Array.isArray(items) ? items : [];
+
+        // Generate secure 8-character token
+        const crypto = require('crypto');
+        const token = 'DP_' + crypto.randomBytes(4).toString('hex').toUpperCase();
+
+        // Expire in 2 hours
+        const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+        const cartJson = JSON.stringify(itemsArr);
+
+        db.run(
+            "INSERT INTO desk_booking_tokens (token, phone, name, cart_json, expires_at) VALUES (?, ?, ?, ?, ?)",
+            [token, cleanFullPhone, customerName, cartJson, expiresAt],
+            async function (insertErr) {
+                if (insertErr) {
+                    console.error('[Desk Booking] Error saving token:', insertErr);
+                    return res.status(500).json({ error: 'Failed to generate desk booking token' });
+                }
+
+                const isProd = process.env.NODE_ENV === 'production' || ICICI_ENV === 'live';
+                const baseUrl = isProd ? 'https://www.havocsim.in' : `${req.protocol}://${req.get('host')}`;
+                const bookingUrl = `${baseUrl}/checkout.html?desk_pass=${token}`;
+
+                let waDispatched = false;
+                let waError = null;
+
+                // Send WhatsApp notification
+                const interaktApiKey = process.env.INTERAKT_API_KEY;
+                const messageText = `Hi ${customerName || 'Driver'}! 🏎️\n\nHere is your private booking pass for Havoc Sim Podium:\n${bookingUrl}\n\n👉 Complete your check-in and pay cash/card at the arena desk!`;
+                const waMeUrl = `https://wa.me/${cleanFullPhone.replace(/\D/g, '')}?text=${encodeURIComponent(messageText)}`;
+
+                if (interaktApiKey) {
+                    try {
+                        const templateName = process.env.INTERAKT_PAYMENT_LINK_TEMPLATE || "havoc_payment_link";
+                        const waResponse = await fetch('https://api.interakt.ai/v1/public/message/', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Basic ${interaktApiKey.trim()}`,
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                countryCode: countryCode,
+                                phoneNumber: phoneNumber,
+                                type: "Template",
+                                template: {
+                                    name: templateName,
+                                    languageCode: "en",
+                                    bodyValues: [
+                                        customerName || "Driver",
+                                        "Havoc Sim Podium (Pay at Desk)",
+                                        "0.00",
+                                        bookingUrl
+                                    ]
+                                }
+                            })
+                        });
+
+                        if (waResponse.ok) {
+                            waDispatched = true;
+                            console.log(`[Desk Booking WhatsApp] Link successfully sent to ${cleanFullPhone}`);
+                        } else {
+                            const errText = await waResponse.text();
+                            console.warn('[Desk Booking WhatsApp] Interakt returned status', waResponse.status, errText);
+                            waError = errText;
+                        }
+                    } catch (apiErr) {
+                        console.error('[Desk Booking WhatsApp] Exception sending WhatsApp:', apiErr.message);
+                        waError = apiErr.message;
+                    }
+                }
+
+                res.json({
+                    success: true,
+                    token,
+                    bookingUrl,
+                    waMeUrl,
+                    waDispatched,
+                    waError
+                });
+            }
+        );
+    } catch (err) {
+        console.error('[Desk Booking] General error:', err);
+        res.status(500).json({ error: err.message || 'Internal server error' });
+    }
+});
+
+// 2. Public verification for customer checkout page
+app.get('/api/desk-booking/verify/:token', (req, res) => {
+    const token = (req.params.token || '').trim();
+    if (!token) return res.status(400).json({ error: 'Token is required' });
+
+    db.get("SELECT * FROM desk_booking_tokens WHERE token = ?", [token], (err, row) => {
+        if (err || !row) {
+            return res.status(404).json({ error: 'Desk booking pass not found or invalid' });
+        }
+
+        if (row.used === 1) {
+            return res.status(400).json({ error: 'This desk booking pass has already been used.', used: true });
+        }
+
+        if (row.expires_at && new Date(row.expires_at).getTime() < Date.now()) {
+            return res.status(400).json({ error: 'This desk booking pass has expired. Please ask staff for a new pass.', expired: true });
+        }
+
+        let cart = [];
+        try {
+            cart = JSON.parse(row.cart_json || '[]');
+        } catch (e) {
+            cart = [];
+        }
+
+        res.json({
+            success: true,
+            phone: row.phone,
+            name: row.name,
+            cart: Array.isArray(cart) ? cart : [],
+            token: row.token
+        });
+    });
+});
+
 // Update booking details (package/simulator, date, time slot, players, co-player, price)
 app.put('/api/admin/bookings/:id/update-details', verifyToken, checkPermission('edit_orders'), (req, res) => {
     const bookingId = parseInt(req.params.id, 10);
@@ -5758,6 +5912,11 @@ app.post('/api/bookings/cod', async (req, res) => {
                     const cPhone = customer_details?.phone ? customer_details.phone.replace(/[^\d]/g, '') : '';
                     if (cEmail || cPhone) {
                         db.run("DELETE FROM online_checkout_holds WHERE LOWER(customer_email) = ? OR customer_phone LIKE ?", [cEmail, `%${cPhone}`], () => { });
+                    }
+
+                    // If booking was done using a desk_pass token, mark token as used
+                    if (req.body.desk_pass_token) {
+                        db.run("UPDATE desk_booking_tokens SET used = 1 WHERE token = ?", [req.body.desk_pass_token], () => { });
                     }
 
                     res.json({ success: true, order_id: baseOrderId });
