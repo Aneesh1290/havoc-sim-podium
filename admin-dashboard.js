@@ -3010,14 +3010,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 dateTotalPpt += ppt;
 
                 const rawStatus = (b.status || 'PENDING').toUpperCase();
-                const isPayDue = String(b.order_id || '').startsWith('PAYDUE_') || b.payment_ref === 'PAYDUE';
-                const isPending = rawStatus === 'PENDING' || rawStatus === 'UNPAID' || isPayDue;
+                const isPaidOrderPrefix = String(b.order_id || '').startsWith('PAID_');
+                const isPayDuePrefix = String(b.order_id || '').startsWith('PAYDUE_');
                 const isCancelled = rawStatus === 'CANCELLED';
                 const isAttended = rawStatus === 'ATTENDED';
                 const isNoShow = rawStatus === 'NO_SHOW';
                 const isCash = rawStatus === 'CASH';
-                // If it's a PAYDUE order, it is NEVER paid unless specifically completed with a valid transaction ref or marked CASH
-                const isPaid = !isPayDue && (rawStatus === 'PAID' || rawStatus === 'SUCCESS') && !isCancelled && !isCash;
+
+                // Determine if this order was paid:
+                // 1. Explicit PAID_ prefix, or
+                // 2. Online status PAID/SUCCESS, or
+                // 3. Attended/Fulfilled unless explicitly marked PAYDUE
+                let isPaid = false;
+                if (!isCancelled && !isCash) {
+                    if (isPaidOrderPrefix) {
+                        isPaid = true;
+                    } else if (rawStatus === 'PAID' || rawStatus === 'SUCCESS') {
+                        isPaid = true;
+                    } else if (isAttended && !isPayDuePrefix) {
+                        isPaid = true;
+                    }
+                }
 
                 const receivedAmt = isPaid ? amt : (isCash ? amt : 0);
                 const dueAmt = (!isPaid && !isCash && !isCancelled) ? amt : 0;
@@ -3334,14 +3347,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         datePptTotal += ppt;
 
                         const rawStatus = (b.status || 'PENDING').toUpperCase();
-                        const isPayDue = String(b.order_id || '').startsWith('PAYDUE_') || b.payment_ref === 'PAYDUE';
-                        const isPending = rawStatus === 'PENDING' || rawStatus === 'UNPAID' || isPayDue;
+                        const isPaidOrderPrefix = String(b.order_id || '').startsWith('PAID_');
+                        const isPayDuePrefix = String(b.order_id || '').startsWith('PAYDUE_') || b.payment_ref === 'PAYDUE';
                         const isCancelled = rawStatus === 'CANCELLED';
                         const isAttended = rawStatus === 'ATTENDED';
                         const isNoShow = rawStatus === 'NO_SHOW';
                         const isCash = rawStatus === 'CASH';
-                        // If it's a PAYDUE order, it is NEVER paid unless specifically completed with a valid transaction ref or marked CASH
-                        const isPaid = !isPayDue && (rawStatus === 'PAID' || rawStatus === 'SUCCESS') && !isCancelled && !isCash;
+
+                        let isPaid = false;
+                        if (!isCancelled && !isCash) {
+                            if (isPaidOrderPrefix) {
+                                isPaid = true;
+                            } else if (rawStatus === 'PAID' || rawStatus === 'SUCCESS') {
+                                isPaid = true;
+                            } else if (isAttended && !isPayDuePrefix) {
+                                isPaid = true;
+                            }
+                        }
 
                         const receivedAmt = isPaid ? amt : (isCash ? amt : 0);
                         const dueAmt = (!isPaid && !isCash && !isCancelled) ? amt : 0;
