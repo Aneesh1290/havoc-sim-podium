@@ -447,10 +447,13 @@ document.addEventListener("DOMContentLoaded", async () => {
                 player_two_name: item.playerTwoName || ''
             }));
 
+            const appliedCode = (codeInput?.value?.trim()?.toUpperCase() && appliedDiscount > 0) ? codeInput.value.trim().toUpperCase() : null;
+
             if (selectedPaymentMethod === 'cod') {
                 // COD Flow
                 bookingDetails.status = 'confirmed';
                 bookingDetails.paymentMethod = 'cod';
+                if (appliedCode) bookingDetails.applied_coupon = appliedCode;
                 localStorage.setItem("havoc_recent_booking", JSON.stringify(bookingDetails));
 
                 const orderRes = await fetch(BACKEND_URL + "/api/bookings/cod", {
@@ -460,7 +463,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                         amount, 
                         customer_details: { name, email, phone, whatsapp_consent: whatsappConsent },
                         booking_data,
-                        desk_pass_token: window._deskPassToken || null
+                        desk_pass_token: window._deskPassToken || null,
+                        applied_coupon: appliedCode
                     })
                 });
 
@@ -476,7 +480,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                 }
 
                 // Increment coupon usage count if a code was applied
-                const appliedCode = codeInput?.value?.trim()?.toUpperCase();
                 if (appliedCode && appliedDiscount > 0) {
                     await fetch(BACKEND_URL + '/api/coupons/use', {
                         method: 'POST',
@@ -496,7 +499,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                     body:    JSON.stringify({ 
                         amount, 
                         customer_details: { name, email, phone, whatsapp_consent: whatsappConsent },
-                        booking_data
+                        booking_data,
+                        applied_coupon: appliedCode
                     })
                 });
 

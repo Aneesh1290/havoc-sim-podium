@@ -340,11 +340,23 @@ function renderBookings(bookingsToRender) {
         if (isNaN(placedDateObj.getTime())) placedDateObj = new Date();
         const placedDateStr = placedDateObj.toLocaleString('en-US', {month:'short', day:'numeric', year:'numeric', hour:'numeric', minute:'2-digit'});
 
+        const appliedCouponCode = (b.items.find(i => i.applied_coupon)?.applied_coupon || '').trim();
+        const vipCouponBadgeHtml = appliedCouponCode ? `
+            <div style="margin-top: 4px;">
+                <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 6px; font-size: 10px; font-weight: 900; text-transform: uppercase; letter-spacing: 0.5px; background: #fef3c7; color: #451a03; border: 1px solid #fcd34d; box-shadow: 0 1px 2px rgba(0,0,0,0.05);" title="VIP Band Offer Coupon: ${escapeHtml(appliedCouponCode)}">
+                    ⭐ VIP BAND: ${escapeHtml(appliedCouponCode)}
+                </span>
+            </div>
+        ` : '';
+
         tr.innerHTML = `
             <td>
                 <input type="checkbox" class="row-checkbox" value="${b.order_id}" onclick="toggleBookingSelection(event, '${b.order_id}')">
             </td>
-            <td style="font-weight: 500; font-size: 0.85rem; color: var(--muted);">#${String(b.order_id || '').replace(/^#+/, '')}</td>
+            <td style="font-weight: 500; font-size: 0.85rem; color: var(--muted); white-space: nowrap;">
+                <div>#${String(b.order_id || '').replace(/^#+/, '')}</div>
+                ${vipCouponBadgeHtml}
+            </td>
             <td style="color: var(--muted); font-size: 0.85rem;">${placedDateStr}</td>
             <td>
                 <div style="font-weight: 500; font-size: 0.85rem; color: var(--muted);">${b.name}</div>
@@ -740,6 +752,28 @@ window.openOrderDetails = (baseOrderId) => {
             </div>
         ` : '';
 
+        const appliedCouponCode = (items.find(i => i.applied_coupon)?.applied_coupon || '').trim();
+        const vipCouponBannerHtml = appliedCouponCode ? `
+            <div style="border: 2px solid #fbbf24; background: linear-gradient(90deg, rgba(251,191,36,0.15), rgba(254,243,199,0.1), rgba(255,255,255,0.03)); border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 1.2rem;">⭐</span>
+                        <span style="font-size: 0.8rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.8px; color: #fef08a;">
+                            VIP Offer Wristband / Discount Pass Activated
+                        </span>
+                    </div>
+                    <div style="font-size: 0.82rem; color: #fde68a; margin-top: 4px;">
+                        Customer redeemed promotional pass code: <strong style="font-family: monospace; font-size: 0.95rem; background: #fef3c7; color: #451a03; border: 1px solid #fcd34d; padding: 2px 8px; border-radius: 5px; margin-left: 4px;">${escapeHtml(appliedCouponCode)}</strong>
+                    </div>
+                </div>
+                <div>
+                    <span style="background: #fef3c7; color: #451a03; border: 1px solid #fcd34d; padding: 4px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">
+                        ⭐ VIP Band Guest
+                    </span>
+                </div>
+            </div>
+        ` : '';
+
         const cleanOrderId = String(baseOrderId || '').replace(/^#+/, '');
 
         view.innerHTML = `
@@ -752,6 +786,7 @@ window.openOrderDetails = (baseOrderId) => {
             <h2>Order #${cleanOrderId}</h2>
             <span class="od-badge ${getBadgeClass(paymentBadge)}">${paymentBadge}</span>
             <span class="od-badge ${getBadgeClass(fulfillBadge)}">${fulfillBadge}</span>
+            ${appliedCouponCode ? `<span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 6px; font-size: 11px; font-weight: 900; text-transform: uppercase; background: #fef3c7; color: #451a03; border: 1px solid #fcd34d;">⭐ VIP BAND: ${escapeHtml(appliedCouponCode)}</span>` : ''}
             <div class="od-date">Placed on ${placedDateStr}</div>
         </div>
         <div class="od-actions">
@@ -759,6 +794,8 @@ window.openOrderDetails = (baseOrderId) => {
             ${collectPaymentBtnHtml}
         </div>
     </div>
+
+    ${vipCouponBannerHtml}
 
     <div class="od-grid">
         <!-- LEFT COL -->
@@ -775,6 +812,15 @@ window.openOrderDetails = (baseOrderId) => {
                 <div class="od-summary-row"><span>Items</span><span>₹${baseCostFormatted}</span></div>
                 <div class="od-summary-row"><span>Shipping</span><span>₹0.00</span></div>
                 <div class="od-summary-row"><span>Tax (18% GST)</span><span>₹${taxFormatted}</span></div>
+                ${appliedCouponCode ? `
+                <div class="od-summary-row" style="color: #4ade80; font-weight: 700; background: rgba(34,197,94,0.08); padding: 6px 10px; border-radius: 6px; border: 1px solid rgba(34,197,94,0.2); margin: 6px 0;">
+                    <span style="display: flex; align-items: center; gap: 6px;">
+                        <span>🏷️ Coupon Discount</span>
+                        <span style="font-family: monospace; background: #fef3c7; color: #451a03; border: 1px solid #fcd34d; font-size: 10px; padding: 1px 6px; border-radius: 4px; font-weight: 900;">${escapeHtml(appliedCouponCode)}</span>
+                    </span>
+                    <span>Applied to Booking</span>
+                </div>
+                ` : ''}
                 <div class="od-summary-row total"><span>Total</span><span>₹${priceFormatted}</span></div>
                 <div class="od-summary-row" style="margin-top: 1rem; margin-bottom: 0;"><span>Amount due</span><span style="font-weight: 700; color: #fff;">₹${isPending ? priceFormatted : '0.00'}</span></div>
                 ${(order.icici_txn_id || items.find(i => i.icici_txn_id)?.icici_txn_id) ? `
@@ -5494,12 +5540,20 @@ window.renderDeskVerifiedBookings = function() {
             orderBadgeHtml = `<span style="background: rgba(239,68,68,0.15); color: #f87171; border: 1px solid rgba(239,68,68,0.3); font-weight: 800; font-size: 0.72rem; padding: 4px 10px; border-radius: 6px;">⚠️ PAY AT DESK</span>`;
         }
 
+        // Check if any items in this order have an applied coupon
+        const orderCoupon = (items.find(b => b.applied_coupon)?.applied_coupon || '').trim();
+        const deskVipCouponBadge = orderCoupon ? `
+            <span style="font-family: monospace; font-size: 0.72rem; font-weight: 800; background: #fef3c7; color: #451a03; border: 1px solid #fcd34d; padding: 2px 7px; border-radius: 6px; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+                ⭐ VIP BAND: ${escapeHtml(orderCoupon)}
+            </span>
+        ` : '';
+
         html += `
             <div class="desk-order-card" style="background: rgba(255,255,255,0.02); border: 1.5px solid ${isAllPaid ? 'rgba(16,185,129,0.35)' : 'rgba(239,68,68,0.35)'}; border-radius: 14px; padding: 1.15rem; margin-bottom: 0.9rem;">
                 
                 <!-- Order Card Header -->
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.06); padding-bottom: 0.75rem; margin-bottom: 0.9rem; flex-wrap: wrap; gap: 8px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                         <span style="font-size: 1.1rem;">🧾</span>
                         <div>
                             <span style="background: rgba(229,184,105,0.15); border: 1px solid rgba(229,184,105,0.3); color: var(--gold); font-family: monospace; font-weight: 800; font-size: 0.85rem; padding: 2px 8px; border-radius: 6px;">
@@ -5509,6 +5563,7 @@ window.renderDeskVerifiedBookings = function() {
                                 👥 ${totalOrderPlayers} Player(s) &bull; Total: <strong style="color: #fff;">₹${totalOrderAmount.toFixed(2)}</strong>
                             </span>
                         </div>
+                        ${deskVipCouponBadge}
                     </div>
                     <div>
                         ${orderBadgeHtml}

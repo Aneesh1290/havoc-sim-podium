@@ -297,6 +297,7 @@ db.run(`
 db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS whatsapp_consent INTEGER DEFAULT 1", [], () => { });
 db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_ref TEXT", [], () => { });
 db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS wristband_number TEXT", [], () => { });
+db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS applied_coupon TEXT", [], () => { });
 db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS allowed_simulators TEXT", [], () => { });
 db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_sessions INTEGER", [], () => { });
 db.run("ALTER TABLE admin_auth ADD COLUMN IF NOT EXISTS permissions TEXT DEFAULT 'all'", [], () => { });
@@ -405,6 +406,7 @@ db.run(`
         amount REAL NOT NULL,
         items_json TEXT NOT NULL,
         whatsapp_consent INTEGER DEFAULT 1,
+        applied_coupon TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 `, [], (err) => {
@@ -420,11 +422,13 @@ db.run(`
                 amount REAL NOT NULL,
                 items_json TEXT NOT NULL,
                 whatsapp_consent INTEGER DEFAULT 1,
+                applied_coupon TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         `, [], () => { });
     }
 });
+db.run("ALTER TABLE online_checkout_holds ADD COLUMN IF NOT EXISTS applied_coupon TEXT", [], () => { });
 
 // Ensure common shared band_items table exists (Shared with Havoc RC Fun Zone)
 db.run(`
@@ -5714,7 +5718,7 @@ const getNextOrderNumber = () => {
 
 // Create a COD / Pay at Desk booking (Public checkout)
 app.post('/api/bookings/cod', async (req, res) => {
-    const { amount, customer_details, booking_data } = req.body;
+    const { amount, customer_details, booking_data, applied_coupon } = req.body;
     const items = Array.isArray(booking_data) ? booking_data : [booking_data];
 
     // Validate required fields
@@ -5885,9 +5889,10 @@ app.post('/api/bookings/cod', async (req, res) => {
         }
 
         const whatsappConsentVal = (customer_details && customer_details.whatsapp_consent === false) ? 0 : 1;
-        db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, whatsapp_consent) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null, item.players || 1, item.player_two_name || null, whatsappConsentVal],
+        const couponVal = (applied_coupon || '').toString().trim().toUpperCase() || null;
+        db.run(`INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, whatsapp_consent, applied_coupon) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [rowOrderId, customer_details.name, customer_details.email, customer_details.phone, item.item_name, itemPrice, item.date, item.time, 'PENDING', item.instructor_id || null, item.players || 1, item.player_two_name || null, whatsappConsentVal, couponVal],
             function (err) {
                 if (err) {
                     console.error("DB Insert Error (COD):", err);
@@ -5945,7 +5950,7 @@ function generateIciciHash(payload) {
 
 app.post('/api/payment/icici/initiate', async (req, res) => {
     try {
-        const { amount, customer_details, booking_data } = req.body;
+        const { amount, customer_details, booking_data, applied_coupon } = req.body;
         const items = Array.isArray(booking_data) ? booking_data : [booking_data];
 
         // Check for duplicates within the request itself
@@ -6096,12 +6101,13 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
         const baseOrderId = tempTxnId;
 
         const whatsappConsentVal = (customer_details && customer_details.whatsapp_consent === false) ? 0 : 1;
+        const couponVal = (applied_coupon || '').toString().trim().toUpperCase() || null;
 
         // Save temporary hold in online_checkout_holds table
         db.run(
-            `INSERT INTO online_checkout_holds (txn_id, customer_name, customer_email, customer_phone, amount, items_json, whatsapp_consent)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [tempTxnId, customer_details.name || 'Customer', customer_details.email || '', customer_details.phone || '', orderAmount, JSON.stringify(items), whatsappConsentVal],
+            `INSERT INTO online_checkout_holds (txn_id, customer_name, customer_email, customer_phone, amount, items_json, whatsapp_consent, applied_coupon)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [tempTxnId, customer_details.name || 'Customer', customer_details.email || '', customer_details.phone || '', orderAmount, JSON.stringify(items), whatsappConsentVal, couponVal],
             function (err) {
                 if (err) {
                     console.error("Hold Insert Error:", err);
@@ -6333,8 +6339,8 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                             }
 
                             db.run(
-                                `INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, whatsapp_consent, icici_txn_id, icici_merchant_txn)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PAID', ?, ?, ?, ?, ?, ?)`,
+                                `INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, whatsapp_consent, icici_txn_id, icici_merchant_txn, applied_coupon)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PAID', ?, ?, ?, ?, ?, ?, ?)`,
                                 [
                                     rowOrderId,
                                     holdRow.customer_name,
@@ -6349,7 +6355,8 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                                     item.player_two_name || null,
                                     holdRow.whatsapp_consent,
                                     txnID,
-                                    baseOrderId
+                                    baseOrderId,
+                                    holdRow.applied_coupon || null
                                 ],
                                 function (insErr) {
                                     if (insErr) console.error("Insert confirmed booking error:", insErr);
