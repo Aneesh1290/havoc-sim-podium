@@ -3710,136 +3710,9 @@ async function sendPaymentLinkWhatsApp({ customerName, customerPhone, amount, pa
     }
 }
 
-// Automated Google Review / Experience Feedback Notification via Interakt WhatsApp
-const GOOGLE_REVIEW_URL = "https://search.google.com/local/writereview?placeid=ChIJb8-vOgMVrjsRW__4-FpHspA";
-
-async function sendGoogleReviewWhatsApp({ customerName, customerPhone, reviewUrl = GOOGLE_REVIEW_URL }) {
-    const interaktApiKey = process.env.INTERAKT_API_KEY;
-    if (!interaktApiKey) {
-        console.log(`[Review WhatsApp] INTERAKT_API_KEY not configured. Mock review message for ${customerPhone} (${customerName}): "Thanks for racing at Havoc Sim Podium! Rate your experience here: ${reviewUrl}"`);
-        return { success: false, reason: 'INTERAKT_API_KEY not configured' };
-    }
-
-    if (!customerPhone) {
-        return { success: false, reason: 'No customer phone provided' };
-    }
-
-    const { countryCode, phoneNumber } = parseInternationalPhone(customerPhone);
-    if (!phoneNumber) {
-        console.warn(`[Review WhatsApp] Invalid phone number: "${customerPhone}". Skipping.`);
-        return { success: false, reason: 'Invalid phone number' };
-    }
-
-    const templateName = process.env.INTERAKT_REVIEW_TEMPLATE || "simpodium_google_review";
-    const driverName = (customerName || "Driver").trim();
-    const languageCode = process.env.INTERAKT_REVIEW_LANG || "en";
-
-    // Default payload (with both driverName body variable and optional CTA button URL variable)
-    const requestPayload = {
-        countryCode: countryCode,
-        phoneNumber: phoneNumber,
-        type: "Template",
-        template: {
-            name: templateName,
-            languageCode: languageCode,
-            bodyValues: [
-                driverName
-            ]
-        }
-    };
-
-    try {
-        console.log(`[Review WhatsApp] Sending experience review request to ${countryCode}${phoneNumber} with template "${templateName}" (lang: ${languageCode})...`);
-        console.log(`[Review WhatsApp] Request Payload:`, JSON.stringify(requestPayload));
-
-        let response = await fetch('https://api.interakt.ai/v1/public/message/', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Basic ${interaktApiKey.trim()}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestPayload)
-        });
-
-        if (response.ok) {
-            const data = await response.json().catch(() => ({}));
-            console.log(`[Review WhatsApp] Google Review request dispatched successfully to ${countryCode}${phoneNumber}! Result:`, data.result || 'OK');
-            return { success: true, result: data.result || 'OK' };
-        }
-
-        let errText = await response.text();
-        console.warn(`[Review WhatsApp] Interakt API returned status ${response.status}:`, errText);
-
-        // Fallback 1: If rejected because the CTA button was configured as a Dynamic URL in Interakt/Meta,
-        // it requires buttonValues: { "0": ["..."] }
-        if (errText.includes('button') || errText.includes('param') || response.status === 400) {
-            console.log(`[Review WhatsApp] Retrying with buttonValues (dynamic URL button fallback)...`);
-            requestPayload.template.buttonValues = {
-                "0": ["ChIJb8-vOgMVrjsRW__4-FpHspA"]
-            };
-            const btnResp = await fetch('https://api.interakt.ai/v1/public/message/', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Basic ${interaktApiKey.trim()}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestPayload)
-            });
-
-            if (btnResp.ok) {
-                const btnData = await btnResp.json().catch(() => ({}));
-                console.log(`[Review WhatsApp] Google Review request dispatched successfully with buttonValues to ${countryCode}${phoneNumber}!`);
-                return { success: true, result: btnData.result || 'OK' };
-            }
-            const btnErr = await btnResp.text();
-            console.warn(`[Review WhatsApp] Retry with buttonValues returned status ${btnResp.status}:`, btnErr);
-            // If still failed, delete buttonValues before testing languageCode fallback
-            delete requestPayload.template.buttonValues;
-        }
-
-        // Fallback 2: If languageCode was 'en' and failed (e.g. template approved under en_US), retry with 'en_US'
-        if (languageCode === 'en' && (errText.includes('language') || errText.includes('template') || response.status === 400 || response.status === 404)) {
-            console.log(`[Review WhatsApp] Retrying with languageCode: "en_US"...`);
-            requestPayload.template.languageCode = "en_US";
-            const retryResp = await fetch('https://api.interakt.ai/v1/public/message/', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Basic ${interaktApiKey.trim()}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestPayload)
-            });
-
-            if (retryResp.ok) {
-                const retryData = await retryResp.json().catch(() => ({}));
-                console.log(`[Review WhatsApp] Google Review request dispatched successfully on retry (en_US) to ${countryCode}${phoneNumber}!`);
-                return { success: true, result: retryData.result || 'OK' };
-            }
-            errText = await retryResp.text();
-            console.warn(`[Review WhatsApp] Retry with en_US also returned status ${retryResp.status}:`, errText);
-
-            // Also test en_US with buttonValues
-            requestPayload.template.buttonValues = { "0": ["ChIJb8-vOgMVrjsRW__4-FpHspA"] };
-            const retryBtnResp = await fetch('https://api.interakt.ai/v1/public/message/', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Basic ${interaktApiKey.trim()}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(requestPayload)
-            });
-            if (retryBtnResp.ok) {
-                const rData = await retryBtnResp.json().catch(() => ({}));
-                console.log(`[Review WhatsApp] Google Review request dispatched successfully with en_US + buttonValues!`);
-                return { success: true, result: rData.result || 'OK' };
-            }
-        }
-
-        return { success: false, error: errText };
-    } catch (err) {
-        console.error('[Review WhatsApp] Error sending Google review request:', err.message);
-        return { success: false, error: err.message };
-    }
+// Google Review WhatsApp feature has been permanently disabled / removed per request
+async function sendGoogleReviewWhatsApp() {
+    return { success: false, disabled: true };
 }
 
 // Helper to parse booking date string into Date object
@@ -4349,15 +4222,7 @@ app.post('/api/admin/verify/collect-and-fulfill', verifyToken, async (req, res) 
         Promise.all(updatePromises).then(() => {
             console.log(`[Desk Payment] Successfully collected ₹${amt.toFixed(2)} (Ref: ${txnRef}) for orders:`, order_ids);
 
-            // Send Google Review Request on desk payment completion
-            const primaryCustomer = rows[0];
-            if (primaryCustomer && primaryCustomer.phone) {
-                const custName = primaryCustomer.name || 'Customer';
-                sendGoogleReviewWhatsApp({
-                    customerName: custName,
-                    customerPhone: primaryCustomer.phone
-                }).catch(e => console.error('[Review WhatsApp] Send error:', e));
-            }
+            // Google review request removed
 
             res.json({
                 success: true,
@@ -4365,8 +4230,7 @@ app.post('/api/admin/verify/collect-and-fulfill', verifyToken, async (req, res) 
                 order_ids,
                 amount_collected: amt,
                 transaction_ref: txnRef,
-                review_requested: true
-            });
+});
         });
     });
 });
@@ -4466,34 +4330,8 @@ app.post('/api/admin/verify/cancel-walkout', verifyToken, (req, res) => {
     });
 });
 
-// 6. Explicit route to send / re-send Google Review request via WhatsApp
 app.post('/api/admin/verify/send-review-link', verifyToken, async (req, res) => {
-    try {
-        const { phone, country_code, name } = req.body;
-        const cleanPhone = normalizePhone(phone || '');
-        const rawCountryCode = (country_code || '+91').trim();
-        const cleanCountryCode = rawCountryCode.startsWith('+') ? rawCountryCode : ('+' + rawCountryCode);
-        const fullPhone = `${cleanCountryCode}${cleanPhone}`;
-        const custName = (name || 'Customer').trim();
-
-        if (!cleanPhone) {
-            return res.status(400).json({ error: 'Valid phone number is required' });
-        }
-
-        const waResult = await sendGoogleReviewWhatsApp({
-            customerName: custName,
-            customerPhone: fullPhone
-        });
-
-        res.json({
-            success: true,
-            message: `Google Review WhatsApp message sent to ${fullPhone}!`,
-            whatsapp: waResult
-        });
-    } catch (err) {
-        console.error('Send review link error:', err);
-        res.status(500).json({ error: 'Failed to dispatch review request' });
-    }
+    res.json({ success: false, disabled: true, message: 'Google Review WhatsApp feature is disabled.' });
 });
 
 // Manually create a walk-in booking (Protected)
@@ -6288,13 +6126,7 @@ app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), 
                                                 }
                                             }
                                             console.log(`[Payment Link Success] Automatically marked linked bookings as ATTENDED for link ${linkId}:`, linkedOrders);
-                                            // Send post-session Google review WhatsApp
-                                            if (plRow.customer_phone) {
-                                                sendGoogleReviewWhatsApp({
-                                                    customerName: plRow.customer_name || 'Customer',
-                                                    customerPhone: plRow.customer_phone
-                                                }).catch(e => console.error('[Review WhatsApp] Send error:', e));
-                                            }
+                                            // Google review request removed
                                         }
                                     );
                                 }
