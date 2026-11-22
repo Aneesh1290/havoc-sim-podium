@@ -248,8 +248,9 @@ function renderBookings(bookingsToRender) {
         const itemStatuses = b.items.map(i => (i.status || '').toUpperCase());
         const hasAttended = itemStatuses.some(s => s === 'ATTENDED');
         const hasNoShow = itemStatuses.some(s => s === 'NO_SHOW');
-        const hasPaid = itemStatuses.some(s => s === 'PAID' || s === 'SUCCESS');
-        const hasPending = itemStatuses.some(s => s === 'PENDING');
+        const isPayDueOrder = String(b.order_id || '').startsWith('PAYDUE_') || Boolean(b.items.some(i => i.payment_ref === 'PAYDUE' || String(i.order_id || '').startsWith('PAYDUE_')));
+        const hasPaid = !isPayDueOrder && itemStatuses.some(s => s === 'PAID' || s === 'SUCCESS');
+        const hasPending = itemStatuses.some(s => s === 'PENDING') || isPayDueOrder;
         const allCancelled = itemStatuses.length > 0 && itemStatuses.every(s => s === 'CANCELLED' || s === 'REFUNDED' || s === 'FAILED');
 
         let paymentBadge = 'PAID';
@@ -259,10 +260,10 @@ function renderBookings(bookingsToRender) {
             paymentBadge = 'REFUNDED';
             fulfillBadge = 'CANCELED';
         } else if (hasAttended) {
-            paymentBadge = 'PAID';
+            paymentBadge = isPayDueOrder ? 'UNPAID' : 'PAID';
             fulfillBadge = 'FULFILLED';
         } else if (hasNoShow) {
-            paymentBadge = hasPaid ? 'PAID' : 'UNPAID';
+            paymentBadge = (isPayDueOrder || !hasPaid) ? 'UNPAID' : 'PAID';
             fulfillBadge = 'NO SHOW';
         } else if (hasPaid) {
             paymentBadge = 'PAID';
@@ -650,8 +651,9 @@ window.openOrderDetails = (baseOrderId) => {
         const itemStatuses = items.map(i => (i.status || '').toUpperCase());
         const hasAttended = itemStatuses.some(s => s === 'ATTENDED');
         const hasNoShow = itemStatuses.some(s => s === 'NO_SHOW');
-        const hasPaid = itemStatuses.some(s => s === 'PAID' || s === 'SUCCESS');
-        const hasPending = itemStatuses.some(s => s === 'PENDING');
+        const isPayDueOrder = String(order.order_id || '').startsWith('PAYDUE_') || Boolean(items.some(i => i.payment_ref === 'PAYDUE' || String(i.order_id || '').startsWith('PAYDUE_')));
+        const hasPaid = !isPayDueOrder && itemStatuses.some(s => s === 'PAID' || s === 'SUCCESS');
+        const hasPending = itemStatuses.some(s => s === 'PENDING') || isPayDueOrder;
         const allCancelled = itemStatuses.length > 0 && itemStatuses.every(s => s === 'CANCELLED' || s === 'REFUNDED' || s === 'FAILED');
 
         let paymentBadge = 'PAID';
@@ -661,10 +663,10 @@ window.openOrderDetails = (baseOrderId) => {
             paymentBadge = 'REFUNDED';
             fulfillBadge = 'CANCELED';
         } else if (hasAttended) {
-            paymentBadge = 'PAID';
+            paymentBadge = isPayDueOrder ? 'UNPAID' : 'PAID';
             fulfillBadge = 'FULFILLED';
         } else if (hasNoShow) {
-            paymentBadge = hasPaid ? 'PAID' : 'UNPAID';
+            paymentBadge = (isPayDueOrder || !hasPaid) ? 'UNPAID' : 'PAID';
             fulfillBadge = 'NO SHOW';
         } else if (hasPaid) {
             paymentBadge = 'PAID';
@@ -3008,20 +3010,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 dateTotalPpt += ppt;
 
                 const rawStatus = (b.status || 'PENDING').toUpperCase();
-                const isPending = rawStatus === 'PENDING' || rawStatus === 'UNPAID';
+                const isPayDue = String(b.order_id || '').startsWith('PAYDUE_') || b.payment_ref === 'PAYDUE';
+                const isPending = rawStatus === 'PENDING' || rawStatus === 'UNPAID' || isPayDue;
                 const isCancelled = rawStatus === 'CANCELLED';
                 const isAttended = rawStatus === 'ATTENDED';
                 const isNoShow = rawStatus === 'NO_SHOW';
                 const isCash = rawStatus === 'CASH';
-                const isPaid = (rawStatus === 'PAID' || rawStatus === 'SUCCESS' || isAttended || isNoShow) && !isPending && !isCancelled && !isCash;
+                // If it's a PAYDUE order, it is NEVER paid unless specifically completed with a valid transaction ref or marked CASH
+                const isPaid = !isPayDue && (rawStatus === 'PAID' || rawStatus === 'SUCCESS') && !isCancelled && !isCash;
 
-                const receivedAmt = isPaid ? amt : 0;
-                const dueAmt = (!isPaid && !isCancelled) ? amt : 0;
+                const receivedAmt = isPaid ? amt : (isCash ? amt : 0);
+                const dueAmt = (!isPaid && !isCash && !isCancelled) ? amt : 0;
 
                 dateTotalReceived += receivedAmt;
                 dateTotalDue += dueAmt;
 
-                const paymentLabel = isCancelled ? 'REFUNDED' : (isPaid ? 'PAID' : 'UNPAID');
+                const paymentLabel = isCancelled ? 'REFUNDED' : (isCash ? 'CASH' : (isPaid ? 'PAID' : 'UNPAID'));
                 const fulfillLabel = isAttended ? 'FULFILLED' : (isNoShow ? 'NO SHOW' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED'));
                 const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
 
@@ -3330,20 +3334,22 @@ document.addEventListener('DOMContentLoaded', () => {
                         datePptTotal += ppt;
 
                         const rawStatus = (b.status || 'PENDING').toUpperCase();
-                        const isPending = rawStatus === 'PENDING' || rawStatus === 'UNPAID';
+                        const isPayDue = String(b.order_id || '').startsWith('PAYDUE_') || b.payment_ref === 'PAYDUE';
+                        const isPending = rawStatus === 'PENDING' || rawStatus === 'UNPAID' || isPayDue;
                         const isCancelled = rawStatus === 'CANCELLED';
                         const isAttended = rawStatus === 'ATTENDED';
                         const isNoShow = rawStatus === 'NO_SHOW';
                         const isCash = rawStatus === 'CASH';
-                        const isPaid = (rawStatus === 'PAID' || rawStatus === 'SUCCESS' || isAttended || isNoShow) && !isPending && !isCancelled && !isCash;
+                        // If it's a PAYDUE order, it is NEVER paid unless specifically completed with a valid transaction ref or marked CASH
+                        const isPaid = !isPayDue && (rawStatus === 'PAID' || rawStatus === 'SUCCESS') && !isCancelled && !isCash;
 
-                        const receivedAmt = isPaid ? amt : 0;
-                        const dueAmt = (!isPaid && !isCancelled) ? amt : 0;
+                        const receivedAmt = isPaid ? amt : (isCash ? amt : 0);
+                        const dueAmt = (!isPaid && !isCash && !isCancelled) ? amt : 0;
 
                         dateAmtReceivedTotal += receivedAmt;
                         dateAmtDueTotal += dueAmt;
 
-                        const paymentLabel = isCancelled ? 'REFUNDED' : (isPaid ? 'PAID' : 'UNPAID');
+                        const paymentLabel = isCancelled ? 'REFUNDED' : (isCash ? 'CASH' : (isPaid ? 'PAID' : 'UNPAID'));
                         const fulfillLabel = isAttended ? 'FULFILLED' : (isNoShow ? 'NO SHOW' : (isCancelled ? 'CANCELLED' : 'UNFULFILLED'));
                         const statusLabel = `${paymentLabel} / ${fulfillLabel}`;
 
