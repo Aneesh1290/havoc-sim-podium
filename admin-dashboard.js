@@ -8484,7 +8484,19 @@ window.submitCashBooking = async function(e) {
     // Strip leading zeroes and non-digits
     let cleanDigits = rawPhone.replace(/\D/g, '').replace(/^0+/, '');
 
-    if (!cleanDigits || cleanDigits.length < 5) {
+    const rule = window.getAdminPhoneRule ? window.getAdminPhoneRule(countryCode) : null;
+    if (rule) {
+        if (cleanDigits.length < rule.min || cleanDigits.length > rule.max) {
+            alert(`Please enter a valid phone number for ${countryCode} (${rule.desc}).`);
+            if (phoneInput) phoneInput.focus();
+            return;
+        }
+        if (rule.pattern && !rule.pattern.test(cleanDigits)) {
+            alert(`Please enter a valid phone number for ${countryCode} (${rule.desc}).`);
+            if (phoneInput) phoneInput.focus();
+            return;
+        }
+    } else if (!cleanDigits || cleanDigits.length < 5) {
         alert('Please enter a valid mobile number.');
         return;
     }
@@ -8566,3 +8578,114 @@ window.copyCashBookingLink = function() {
         prompt('Copy this link:', window._lastGeneratedCashBookingUrl);
     });
 };
+
+// ==========================================
+// STANDARDIZED INTERNATIONAL PHONE VALIDATION
+// ==========================================
+
+const ADMIN_PHONE_RULES = {
+    '+91':  { min: 10, max: 10, placeholder: '9876543210', pattern: /^[6-9]\d{9}$/, desc: '10 digits starting with 6-9' },
+    '+1':   { min: 10, max: 10, placeholder: '2025550123', pattern: /^\d{10}$/, desc: '10 digits' },
+    '+44':  { min: 10, max: 10, placeholder: '7911123456', pattern: /^\d{10}$/, desc: '10 digits' },
+    '+971': { min: 9,  max: 9,  placeholder: '501234567',  pattern: /^\d{9}$/, desc: '9 digits' },
+    '+65':  { min: 8,  max: 8,  placeholder: '81234567',   pattern: /^\d{8}$/, desc: '8 digits' },
+    '+61':  { min: 9,  max: 9,  placeholder: '412345678',  pattern: /^\d{9}$/, desc: '9 digits' },
+    '+966': { min: 9,  max: 9,  placeholder: '501234567',  pattern: /^\d{9}$/, desc: '9 digits' },
+    '+974': { min: 8,  max: 8,  placeholder: '33123456',   pattern: /^\d{8}$/, desc: '8 digits' },
+    '+968': { min: 8,  max: 8,  placeholder: '91234567',   pattern: /^\d{8}$/, desc: '8 digits' },
+    '+965': { min: 8,  max: 8,  placeholder: '91234567',   pattern: /^\d{8}$/, desc: '8 digits' },
+    '+973': { min: 8,  max: 8,  placeholder: '39123456',   pattern: /^\d{8}$/, desc: '8 digits' },
+    '+49':  { min: 10, max: 11, placeholder: '15123456789', pattern: /^\d{10,11}$/, desc: '10-11 digits' },
+    '+33':  { min: 9,  max: 9,  placeholder: '612345678',  pattern: /^\d{9}$/, desc: '9 digits' },
+    '+39':  { min: 9,  max: 10, placeholder: '3201234567', pattern: /^\d{9,10}$/, desc: '9-10 digits' },
+    '+34':  { min: 9,  max: 9,  placeholder: '612345678',  pattern: /^\d{9}$/, desc: '9 digits' },
+    '+31':  { min: 9,  max: 9,  placeholder: '612345678',  pattern: /^\d{9}$/, desc: '9 digits' },
+    '+41':  { min: 9,  max: 9,  placeholder: '781234567',  pattern: /^\d{9}$/, desc: '9 digits' },
+    '+46':  { min: 9,  max: 9,  placeholder: '701234567',  pattern: /^\d{9}$/, desc: '9 digits' },
+    '+47':  { min: 8,  max: 8,  placeholder: '41234567',   pattern: /^\d{8}$/, desc: '8 digits' },
+    '+353': { min: 9,  max: 9,  placeholder: '851234567',  pattern: /^\d{9}$/, desc: '9 digits' },
+    '+64':  { min: 8,  max: 10, placeholder: '211234567',  pattern: /^\d{8,10}$/, desc: '8-10 digits' },
+    '+60':  { min: 9,  max: 10, placeholder: '123456789',  pattern: /^\d{9,10}$/, desc: '9-10 digits' },
+    '+62':  { min: 9,  max: 12, placeholder: '8123456789', pattern: /^\d{9,12}$/, desc: '9-12 digits' },
+    '+66':  { min: 9,  max: 9,  placeholder: '812345678',  pattern: /^\d{9}$/, desc: '9 digits' },
+    '+63':  { min: 10, max: 10, placeholder: '9123456789', pattern: /^\d{10}$/, desc: '10 digits' },
+    '+84':  { min: 9,  max: 10, placeholder: '912345678',  pattern: /^\d{9,10}$/, desc: '9-10 digits' },
+    '+81':  { min: 10, max: 10, placeholder: '9012345678', pattern: /^\d{10}$/, desc: '10 digits' },
+    '+82':  { min: 9,  max: 10, placeholder: '1012345678', pattern: /^\d{9,10}$/, desc: '9-10 digits' },
+    '+86':  { min: 11, max: 11, placeholder: '13800138000', pattern: /^\d{11}$/, desc: '11 digits' },
+    '+852': { min: 8,  max: 8,  placeholder: '91234567',   pattern: /^\d{8}$/, desc: '8 digits' },
+    '+27':  { min: 9,  max: 9,  placeholder: '821234567',  pattern: /^\d{9}$/, desc: '9 digits' },
+    '+55':  { min: 10, max: 11, placeholder: '11987654321', pattern: /^\d{10,11}$/, desc: '10-11 digits' },
+    '+52':  { min: 10, max: 10, placeholder: '5512345678', pattern: /^\d{10}$/, desc: '10 digits' },
+    '+94':  { min: 9,  max: 9,  placeholder: '771234567',  pattern: /^\d{9}$/, desc: '9 digits' },
+    '+880': { min: 10, max: 10, placeholder: '1712345678', pattern: /^\d{10}$/, desc: '10 digits' },
+    '+977': { min: 10, max: 10, placeholder: '9841234567', pattern: /^\d{10}$/, desc: '10 digits' },
+    '+92':  { min: 10, max: 10, placeholder: '3001234567', pattern: /^\d{10}$/, desc: '10 digits' },
+    '+20':  { min: 10, max: 10, placeholder: '1012345678', pattern: /^\d{10}$/, desc: '10 digits' },
+    '+90':  { min: 10, max: 10, placeholder: '5321234567', pattern: /^\d{10}$/, desc: '10 digits' },
+    '+7':   { min: 10, max: 10, placeholder: '9123456789', pattern: /^\d{10}$/, desc: '10 digits' }
+};
+
+window.getAdminPhoneRule = function(countryCode) {
+    const dial = (countryCode || '+91').trim();
+    return ADMIN_PHONE_RULES[dial] || { min: 7, max: 15, placeholder: 'Phone Number', pattern: /^\d{7,15}$/, desc: '7 to 15 digits' };
+};
+
+window.setupAdminPhoneValidation = function(phoneInputId, countryCodeSelectId) {
+    const phoneInput = document.getElementById(phoneInputId);
+    const codeSelect = document.getElementById(countryCodeSelectId);
+    if (!phoneInput) return;
+
+    function applyPhoneConfig() {
+        const dial = codeSelect ? codeSelect.value : '+91';
+        const rule = window.getAdminPhoneRule(dial);
+        phoneInput.maxLength = rule.max;
+        if (rule.placeholder) {
+            phoneInput.placeholder = (dial === '+91') ? '10-digit mobile number' : `e.g. ${rule.placeholder}`;
+        }
+        let digits = phoneInput.value.replace(/\D/g, '');
+        if (digits.length > rule.max) {
+            digits = digits.slice(0, rule.max);
+        }
+        phoneInput.value = digits;
+    }
+
+    phoneInput.addEventListener('input', function() {
+        const dial = codeSelect ? codeSelect.value : '+91';
+        const rule = window.getAdminPhoneRule(dial);
+        let digits = this.value.replace(/\D/g, '');
+        if (digits.length > rule.max) {
+            digits = digits.slice(0, rule.max);
+        }
+        this.value = digits;
+    });
+
+    phoneInput.addEventListener('keydown', function(e) {
+        const dial = codeSelect ? codeSelect.value : '+91';
+        const rule = window.getAdminPhoneRule(dial);
+        const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Home', 'End'];
+        if (allowedKeys.includes(e.key) || e.ctrlKey || e.metaKey) return;
+        if (!/^\d$/.test(e.key)) {
+            e.preventDefault();
+            return;
+        }
+        const selStart = this.selectionStart;
+        const selEnd = this.selectionEnd;
+        if (this.value.length >= rule.max && selStart === selEnd) {
+            e.preventDefault();
+        }
+    });
+
+    if (codeSelect) {
+        codeSelect.addEventListener('change', applyPhoneConfig);
+    }
+    applyPhoneConfig();
+};
+
+// Initialize phone validation pairs across admin dashboard
+document.addEventListener('DOMContentLoaded', () => {
+    window.setupAdminPhoneValidation('cbPhone', 'cbCountryCode');
+    window.setupAdminPhoneValidation('deskCustomerPhone', 'deskCustomerCountryCode');
+    window.setupAdminPhoneValidation('plPhone', 'plCountryCode');
+    window.setupAdminPhoneValidation('plPagePhone', 'plPageCountryCode');
+});
