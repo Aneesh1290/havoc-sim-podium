@@ -1,5 +1,12 @@
 document.addEventListener("DOMContentLoaded", () => {
 
+    // Preserve desk_pass token if customer arrived from staff WhatsApp pass
+    const urlParams = new URLSearchParams(window.location.search);
+    const deskPass = urlParams.get('desk_pass');
+    if (deskPass) {
+        localStorage.setItem('havoc_active_desk_pass', deskPass);
+    }
+
     // =============================================
     // Mobile Menu
     // =============================================
@@ -1175,7 +1182,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const checkoutBtn = document.querySelector(".checkout-btn");
     checkoutBtn?.addEventListener("click", () => {
         if (cart.length > 0) {
-            window.location.href = "/checkout";
+            const activeDeskPass = localStorage.getItem('havoc_active_desk_pass');
+            if (activeDeskPass) {
+                window.location.href = `/checkout?desk_pass=${encodeURIComponent(activeDeskPass)}`;
+            } else {
+                window.location.href = "/checkout";
+            }
         }
     });
 

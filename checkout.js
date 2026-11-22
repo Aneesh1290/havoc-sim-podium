@@ -81,7 +81,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Check if opened via Staff WhatsApp Pay-at-Desk link
     const urlParams = new URLSearchParams(window.location.search);
-    const deskPassToken = urlParams.get('desk_pass');
+    let deskPassToken = urlParams.get('desk_pass');
+    if (!deskPassToken) {
+        deskPassToken = localStorage.getItem('havoc_active_desk_pass');
+    }
     window._deskPassToken = deskPassToken || null;
 
     if (deskPassToken) {
@@ -135,7 +138,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     if (!cart || cart.length === 0) {
-        window.location.href = "/book";
+        if (deskPassToken) {
+            window.location.href = `/book?desk_pass=${encodeURIComponent(deskPassToken)}`;
+        } else {
+            window.location.href = "/book";
+        }
         return;
     }
 
@@ -366,6 +373,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     let firstAvailable = null;
     paymentOptions.forEach(option => {
         option.addEventListener("click", () => {
+            if (window._isDeskPassMode && option.getAttribute("data-method") !== 'cod') {
+                return; // Do not allow selecting online when in desk pass mode
+            }
             document.querySelectorAll(".payment-option").forEach(opt => opt.classList.remove("selected"));
             option.classList.add("selected");
             selectedPaymentMethod = option.getAttribute("data-method");
@@ -374,9 +384,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     // Auto-select first option
-    const defaultSelected = document.querySelector('.payment-option.selected') || paymentOptions[0];
-    if (defaultSelected) {
-        defaultSelected.click();
+    if (window._isDeskPassMode) {
+        const codOption = document.querySelector('.payment-option[data-method="cod"]');
+        if (codOption) codOption.click();
+    } else {
+        const defaultSelected = document.querySelector('.payment-option.selected') || paymentOptions[0];
+        if (defaultSelected) {
+            defaultSelected.click();
+        }
     }
 
     // ---- 2. PAY NOW button ----
