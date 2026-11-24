@@ -1,6 +1,51 @@
 const token = localStorage.getItem('admin_token');
 if (!token) window.location.href = "/admin-login";
 
+// ==========================================
+// THEME MANAGER (Light / Dark Mode)
+// ==========================================
+function updateThemeUI(theme) {
+    const isLight = theme === 'light';
+    const toggleBtns = document.querySelectorAll('.theme-toggle-btn');
+    toggleBtns.forEach(btn => {
+        const icon = btn.querySelector('.theme-icon');
+        const text = btn.querySelector('.theme-text');
+        if (icon) icon.textContent = isLight ? '☀️' : '🌙';
+        if (text) text.textContent = isLight ? 'Light Mode' : 'Dark Mode';
+        btn.setAttribute('title', isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode');
+    });
+}
+
+function initAdminTheme() {
+    // Default to 'light' to match the user request and public site
+    const savedTheme = localStorage.getItem('admin_theme') || 'light';
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+    } else {
+        document.body.classList.remove('light-theme');
+    }
+    updateThemeUI(savedTheme);
+}
+
+window.toggleAdminTheme = function() {
+    const isCurrentlyLight = document.body.classList.contains('light-theme');
+    const newTheme = isCurrentlyLight ? 'dark' : 'light';
+    if (newTheme === 'light') {
+        document.body.classList.add('light-theme');
+    } else {
+        document.body.classList.remove('light-theme');
+    }
+    localStorage.setItem('admin_theme', newTheme);
+    updateThemeUI(newTheme);
+};
+
+// Immediate invocation for clean page paint
+if (document.body) {
+    initAdminTheme();
+} else {
+    document.addEventListener('DOMContentLoaded', initAdminTheme);
+}
+
 const BACKEND_URL = '';
 
 // API Wrapper with Auth Header
@@ -848,7 +893,7 @@ window.openOrderDetails = (baseOrderId) => {
         const moreActionsBtnHtml = moreActionsMenuHtml.trim() ? `
             <div class="custom-dropdown">
                 <button class="btn-secondary" onclick="togglePaymentDropdown('${baseOrderId}', 'more', event)">More Actions ˅</button>
-                <div class="custom-dropdown-menu" id="pay-menu-more-${baseOrderId}" style="right:0; left:auto; min-width: 240px; background: #1c1c21;">
+                <div class="custom-dropdown-menu" id="pay-menu-more-${baseOrderId}" style="right:0; left:auto; min-width: 240px;">
                     ${moreActionsMenuHtml}
                 </div>
             </div>

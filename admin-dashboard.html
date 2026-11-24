@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Havoc Admin Dashboard</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script>
+        // Apply theme before DOM render to prevent white/dark flash
+        (function() {
+            try {
+                var theme = localStorage.getItem('admin_theme') || 'light';
+                if (theme === 'light') {
+                    document.documentElement.classList.add('light-theme');
+                    document.addEventListener('DOMContentLoaded', function() {
+                        document.body.classList.add('light-theme');
+                    });
+                }
+            } catch(e) {}
+        })();
+    </script>
     <style>
         *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -21,6 +35,245 @@
             --green: #4ade80;
             --yellow: #fbbf24;
             --red: #f87171;
+            --text-primary: #ffffff;
+            --text-secondary: rgba(255,255,255,0.7);
+            --shadow-subtle: 0 4px 20px rgba(0,0,0,0.3);
+            --accent-brand: #e11d24;
+            --accent-brand-hover: #c8161d;
+        }
+
+        /* ===== LIGHT THEME OVERRIDES (Matched to Public Website) ===== */
+        body.light-theme {
+            --bg: #f8fafc;
+            --sidebar-bg: #ffffff;
+            --card: #ffffff;
+            --card2: #f1f5f9;
+            --border: #e2e8f0;
+            --muted: #64748b;
+            --input-bg: #f8fafc;
+            --gold: #e11d24; /* Racing Red accent from public website */
+            --gold-glow: rgba(225, 29, 36, 0.15);
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --green: #10b981;
+            --yellow: #f59e0b;
+            --red: #ef4444;
+            --shadow-subtle: 0 4px 20px rgba(15, 23, 42, 0.06);
+            color: #0f172a;
+            background: #f8fafc;
+        }
+
+        /* Global element overrides under Light Theme */
+        body.light-theme .sidebar {
+            background: #ffffff;
+            border-right: 1px solid #e2e8f0;
+            box-shadow: 2px 0 12px rgba(15, 23, 42, 0.03);
+        }
+        body.light-theme .brand-name {
+            color: #e11d24;
+        }
+        body.light-theme .brand-sub {
+            color: #64748b;
+        }
+        body.light-theme .nav-section {
+            color: #94a3b8;
+        }
+        body.light-theme .nav-btn {
+            color: #475569;
+        }
+        body.light-theme .nav-btn:hover {
+            background: rgba(225, 29, 36, 0.05);
+            color: #e11d24;
+        }
+        body.light-theme .nav-btn.active {
+            background: rgba(225, 29, 36, 0.09);
+            color: #e11d24;
+            font-weight: 700;
+        }
+        body.light-theme .card,
+        body.light-theme .stat-card,
+        body.light-theme .table-card,
+        body.light-theme .data-card,
+        body.light-theme .modal-box,
+        body.light-theme .desk-order-card,
+        body.light-theme .od-card {
+            background: #ffffff !important;
+            border-color: #e2e8f0 !important;
+            color: #0f172a !important;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04);
+        }
+        body.light-theme .analytics-summary-bar {
+            background: #ffffff !important;
+            border-color: #e2e8f0 !important;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+        }
+        body.light-theme .analytics-summary-bar span,
+        body.light-theme .stat-value {
+            color: #0f172a !important;
+        }
+        body.light-theme .stat-value.gold {
+            color: #e11d24 !important;
+        }
+        body.light-theme .page-title,
+        body.light-theme h1,
+        body.light-theme h2,
+        body.light-theme h3,
+        body.light-theme h4,
+        body.light-theme .modal-title,
+        body.light-theme .od-title-area h2,
+        body.light-theme .od-card-title,
+        body.light-theme .table-card-title {
+            color: #0f172a !important;
+        }
+        body.light-theme .page-title span,
+        body.light-theme h1 span,
+        body.light-theme h2 span {
+            color: #e11d24 !important;
+        }
+        body.light-theme th {
+            background: #f8fafc !important;
+            color: #64748b !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+        }
+        body.light-theme td {
+            color: #1e293b !important;
+            border-bottom: 1px solid #f1f5f9 !important;
+        }
+        body.light-theme tr:hover td {
+            background: #f8fafc !important;
+        }
+        body.light-theme input,
+        body.light-theme select,
+        body.light-theme textarea,
+        body.light-theme .input {
+            background: #ffffff !important;
+            border-color: #cbd5e1 !important;
+            color: #0f172a !important;
+        }
+        body.light-theme input:focus,
+        body.light-theme select:focus,
+        body.light-theme textarea:focus {
+            border-color: #e11d24 !important;
+            box-shadow: 0 0 0 3px rgba(225, 29, 36, 0.12) !important;
+        }
+        body.light-theme .custom-dropdown-btn {
+            background: #ffffff !important;
+            border-color: #cbd5e1 !important;
+            color: #334155 !important;
+        }
+        body.light-theme .custom-dropdown-menu {
+            background: #ffffff !important;
+            border-color: #e2e8f0 !important;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.1) !important;
+        }
+        body.light-theme .custom-dropdown-item {
+            color: #334155 !important;
+        }
+        body.light-theme .custom-dropdown-item:hover {
+            background: #f1f5f9 !important;
+            color: #0f172a !important;
+        }
+        body.light-theme .mobile-header {
+            background: #ffffff !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+        }
+        body.light-theme .mobile-brand-title {
+            color: #e11d24 !important;
+        }
+        body.light-theme .mobile-brand-sub {
+            color: #64748b !important;
+        }
+        body.light-theme .mobile-menu-btn {
+            color: #0f172a !important;
+        }
+        body.light-theme .admin-topbar-pill {
+            background: #ffffff !important;
+            border-color: #e2e8f0 !important;
+            color: #334155 !important;
+        }
+        body.light-theme .admin-topbar-pill:hover {
+            border-color: #cbd5e1 !important;
+            background: #f8fafc !important;
+        }
+        body.light-theme .btn-secondary {
+            background: #f1f5f9 !important;
+            color: #334155 !important;
+            border-color: #cbd5e1 !important;
+        }
+        body.light-theme .btn-secondary:hover {
+            background: #e2e8f0 !important;
+            color: #0f172a !important;
+        }
+        body.light-theme .modal-close {
+            color: #64748b !important;
+        }
+        body.light-theme .modal-close:hover {
+            color: #0f172a !important;
+        }
+
+        /* Theme toggle switch styles */
+        .theme-toggle-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0.45rem 0.85rem;
+            border-radius: 20px;
+            font-family: inherit;
+            font-size: 0.82rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            background: rgba(255,255,255,0.08);
+            color: #ffffff;
+            border: 1px solid rgba(255,255,255,0.15);
+            outline: none;
+            user-select: none;
+        }
+        .theme-toggle-btn:hover {
+            background: rgba(255,255,255,0.15);
+            transform: translateY(-1px);
+        }
+        body.light-theme .theme-toggle-btn {
+            background: #ffffff;
+            color: #0f172a;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+        }
+        body.light-theme .theme-toggle-btn:hover {
+            background: #f1f5f9;
+            border-color: #94a3b8;
+        }
+
+        body.light-theme strong,
+        body.light-theme b {
+            color: #0f172a !important;
+        }
+        body.light-theme span[style*="color: #fff"],
+        body.light-theme span[style*="color:#fff"],
+        body.light-theme strong[style*="color: #fff"],
+        body.light-theme strong[style*="color:#fff"],
+        body.light-theme div[style*="color: #fff"],
+        body.light-theme div[style*="color:#fff"],
+        body.light-theme p[style*="color: #fff"],
+        body.light-theme p[style*="color:#fff"],
+        body.light-theme h3[style*="color: #fff"],
+        body.light-theme h3[style*="color:#fff"] {
+            color: #0f172a !important;
+        }
+        body.light-theme div[style*="background: #1a1a1a"],
+        body.light-theme div[style*="background:#1a1a1a"],
+        body.light-theme div[style*="background: #1c1c21"],
+        body.light-theme div[style*="background:#1c1c21"] {
+            background: #ffffff !important;
+            border-color: #e2e8f0 !important;
+        }
+        body.light-theme div[style*="border-bottom: 1px solid rgba(255,255,255,0.06)"],
+        body.light-theme div[style*="border-top: 1px solid rgba(255,255,255,0.08)"],
+        body.light-theme div[style*="border-top: 1px dashed rgba(255,255,255,0.1)"] {
+            border-color: #e2e8f0 !important;
+        }
+        body.light-theme del {
+            color: #94a3b8 !important;
         }
 
         html, body { height: 100%; }
@@ -1472,13 +1725,18 @@
                 <div class="mobile-brand-sub">Admin Panel</div>
             </div>
         </a>
-        <button type="button" class="mobile-menu-btn" id="mobileMenuToggle" aria-label="Toggle navigation">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="3" y1="12" x2="21" y2="12"></line>
-                <line x1="3" y1="6" x2="21" y2="6"></line>
-                <line x1="3" y1="18" x2="21" y2="18"></line>
-            </svg>
-        </button>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <button type="button" class="theme-toggle-btn" id="mobileThemeToggleBtn" onclick="toggleAdminTheme()" style="padding: 0.35rem 0.65rem; font-size: 0.78rem;">
+                <span class="theme-icon">🌙</span>
+            </button>
+            <button type="button" class="mobile-menu-btn" id="mobileMenuToggle" aria-label="Toggle navigation">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+        </div>
     </header>
 
     <!-- Mobile Sidebar Backdrop Overlay -->
@@ -1534,6 +1792,9 @@
         </div>
 
         <div class="sidebar-footer">
+            <button class="theme-toggle-btn" id="sidebarThemeToggleBtn" onclick="toggleAdminTheme()" style="width: 100%; justify-content: center; margin-bottom: 0.75rem;">
+                <span class="theme-icon">🌙</span> <span class="theme-text">Dark Mode</span>
+            </button>
             <button class="logout-btn" id="backupDbBtn" style="margin-bottom: 0.6rem; border-color: rgba(74,222,128,0.3); color: var(--green);">
                 <span>💾</span> Download Backup
             </button>
@@ -2191,6 +2452,9 @@
                             <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
                         </svg>
                         Export Report
+                    </button>
+                    <button type="button" class="theme-toggle-btn header-theme-toggle" onclick="toggleAdminTheme()" title="Switch Light/Dark theme">
+                        <span class="theme-icon">🌙</span> <span class="theme-text">Dark Mode</span>
                     </button>
                 </div>
             </div>
@@ -4300,6 +4564,6 @@
     </div>
     <script src="exceljs.min.js"></script>
     <script src="slotColors.js"></script>
-    <script src="admin-dashboard.js?v=48"></script>
+    <script src="admin-dashboard.js?v=49"></script>
 </body>
 </html>
