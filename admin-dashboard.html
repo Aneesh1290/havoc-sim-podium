@@ -276,6 +276,167 @@
             color: #94a3b8 !important;
         }
 
+        /* ===== LIGHT THEME: COMPREHENSIVE TEXT, FORM & TABLE VISIBILITY ===== */
+        /* 1. Form Labels, Inputs & Selects */
+        body.light-theme .field label,
+        body.light-theme label {
+            color: #475569 !important;
+            font-weight: 600;
+        }
+        body.light-theme .field .input-wrap {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+        }
+        body.light-theme .field .input-wrap:focus-within {
+            border-color: #e11d24 !important;
+            box-shadow: 0 0 0 3px rgba(225,29,36,0.15) !important;
+        }
+        body.light-theme .field .input-wrap input,
+        body.light-theme .field input,
+        body.light-theme input[type="text"],
+        body.light-theme input[type="number"],
+        body.light-theme input[type="password"],
+        body.light-theme input[type="email"],
+        body.light-theme input[type="tel"],
+        body.light-theme input[type="search"] {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+            -webkit-text-fill-color: #0f172a !important;
+        }
+        body.light-theme .field .input-wrap input::placeholder,
+        body.light-theme input::placeholder,
+        body.light-theme textarea::placeholder {
+            color: #94a3b8 !important;
+        }
+        body.light-theme .field .input-wrap select,
+        body.light-theme .field select,
+        body.light-theme select {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+        }
+        body.light-theme .field .input-wrap select option,
+        body.light-theme select option {
+            background: #ffffff !important;
+            color: #0f172a !important;
+        }
+
+        /* Chrome autofill light theme override */
+        body.light-theme .field .input-wrap input:-webkit-autofill,
+        body.light-theme .field .input-wrap input:-webkit-autofill:hover,
+        body.light-theme .field .input-wrap input:-webkit-autofill:focus,
+        body.light-theme .field .input-wrap input:-webkit-autofill:active,
+        body.light-theme .field input:-webkit-autofill,
+        body.light-theme input:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 9999px #ffffff inset !important;
+            box-shadow: 0 0 0 9999px #ffffff inset !important;
+            -webkit-text-fill-color: #0f172a !important;
+            caret-color: #0f172a !important;
+            color: #0f172a !important;
+        }
+
+        /* 2. Staff Accounts Table & Permissions */
+        body.light-theme .perm-pill {
+            background: #f1f5f9 !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #334155 !important;
+            font-weight: 500;
+        }
+        body.light-theme .perm-pill.active {
+            background: rgba(225, 29, 36, 0.08) !important;
+            border: 1px solid rgba(225, 29, 36, 0.35) !important;
+            color: #e11d24 !important;
+            font-weight: 700;
+        }
+        body.light-theme .perm-pill input[type="checkbox"] {
+            accent-color: #e11d24;
+        }
+        body.light-theme .perm-label {
+            color: inherit !important;
+        }
+        body.light-theme .user-name-text {
+            color: #0f172a !important;
+            font-weight: 700;
+        }
+        body.light-theme .staff-role-select {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #0f172a !important;
+        }
+        body.light-theme .staff-role-select option {
+            background: #ffffff !important;
+            color: #0f172a !important;
+        }
+        body.light-theme td[style*="monospace"] {
+            color: #475569 !important;
+            font-weight: 600;
+        }
+
+        /* 3. Create Account & Staff Sidebar Checklist */
+        body.light-theme #staffPermissionsBox {
+            background: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+        }
+        body.light-theme #staffPermissionsBox label {
+            color: #334155 !important;
+        }
+        body.light-theme #staffPermissionsBox label span {
+            color: #1e293b !important;
+            font-weight: 500;
+        }
+        body.light-theme #staffPermissionsBox input[type="checkbox"] {
+            accent-color: #e11d24;
+        }
+        body.light-theme .add-coupon-card {
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+        }
+        body.light-theme .add-coupon-card h3 {
+            color: #0f172a !important;
+        }
+
+        /* 4. Action Buttons & Helpers */
+        body.light-theme .btn-delete {
+            background: #fee2e2 !important;
+            color: #dc2626 !important;
+            border: 1px solid #fca5a5 !important;
+        }
+        body.light-theme .btn-delete:hover {
+            background: #fecaca !important;
+            color: #b91c1c !important;
+        }
+        body.light-theme .btn-gold {
+            background: linear-gradient(135deg, #e11d24, #c8161d) !important;
+            color: #ffffff !important;
+            box-shadow: 0 2px 10px rgba(225,29,36,0.2) !important;
+        }
+        body.light-theme .btn-gold:hover {
+            background: linear-gradient(135deg, #c8161d, #991b1b) !important;
+        }
+
+        /* 5. General Text Contrast in Data Cards, Sliders & Tables */
+        body.light-theme p[style*="color: var(--muted)"],
+        body.light-theme p[style*="color:#aaa"],
+        body.light-theme p[style*="color: #aaa"],
+        body.light-theme div[style*="color: var(--muted)"],
+        body.light-theme span[style*="color: var(--muted)"] {
+            color: #475569 !important;
+        }
+        body.light-theme div[style*="background: rgba(255,255,255,0.03)"],
+        body.light-theme div[style*="background: rgba(255,255,255,0.05)"],
+        body.light-theme div[style*="background: rgba(0,0,0,0.25)"] {
+            background: #f8fafc !important;
+            border-color: #e2e8f0 !important;
+        }
+        body.light-theme div[style*="border: 1px solid var(--border)"] {
+            border-color: #e2e8f0 !important;
+        }
+        body.light-theme td[style*="font-family:monospace"] {
+            color: #334155 !important;
+        }
+
         html, body { height: 100%; }
 
         body {
@@ -4564,6 +4725,6 @@
     </div>
     <script src="exceljs.min.js"></script>
     <script src="slotColors.js"></script>
-    <script src="admin-dashboard.js?v=49"></script>
+    <script src="admin-dashboard.js?v=50"></script>
 </body>
 </html>

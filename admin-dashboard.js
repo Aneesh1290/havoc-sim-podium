@@ -2465,16 +2465,16 @@ async function loadStaff() {
 
         let permsHtml = '';
         if (isMainAdmin || isSuperAdmin) {
-            permsHtml = `<span style="color:var(--gold); font-size:0.8rem; font-weight:700; background:rgba(229,184,105,0.12); padding:4px 10px; border-radius:20px; border:1px solid rgba(229,184,105,0.3);">✨ Full Access (All Tabs)</span>`;
+            permsHtml = `<span style="color:var(--gold); font-size:0.8rem; font-weight:700; background:var(--gold-glow); padding:4px 10px; border-radius:20px; border:1px solid rgba(225,29,36,0.3);">✨ Full Access (All Tabs)</span>`;
         } else {
             permsHtml = `
                 <div style="display:flex; flex-wrap:wrap; gap:0.4rem; max-width:420px;">
                     ${PERMISSION_CONFIG.map(p => {
                         const isChecked = currentPerms.includes(p.key);
                         return `
-                            <label style="display:inline-flex; align-items:center; gap:4px; font-size:0.75rem; background:rgba(255,255,255,0.05); padding:2px 8px; border-radius:6px; border:1px solid ${isChecked ? 'rgba(229,184,105,0.4)' : 'rgba(255,255,255,0.1)'}; color:${isChecked ? '#fff' : 'var(--muted)'}; cursor:pointer;">
+                            <label class="perm-pill ${isChecked ? 'active' : ''}" style="display:inline-flex; align-items:center; gap:4px; font-size:0.75rem; padding:3px 8px; border-radius:6px; cursor:pointer;">
                                 <input type="checkbox" onchange="toggleUserPerm(${u.id}, '${u.username}', '${p.key}', this.checked)" ${isChecked ? 'checked' : ''}>
-                                ${p.label}
+                                <span class="perm-label">${p.label}</span>
                             </label>
                         `;
                     }).join('')}
@@ -2483,15 +2483,15 @@ async function loadStaff() {
         }
 
         tr.innerHTML = `
-            <td style="font-family:monospace; color:rgba(255,255,255,0.6);">${u.id}</td>
+            <td style="font-family:monospace; font-weight:600; color:var(--text-secondary);">${u.id}</td>
             <td style="font-weight:600">
-                ${u.username} 
+                <span class="user-name-text">${u.username}</span> 
                 ${isMainAdmin ? `
                     <span style="color:var(--gold);font-size:0.75rem;margin-left:0.5rem; text-transform:uppercase; font-weight:700;">(Primary)</span>
                 ` : `
-                    <select onchange="updateStaffRole(${u.id}, '${u.username}', this.value)" style="margin-top:0.3rem; display:block; padding: 0.3rem 0.6rem; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 0.75rem; font-weight: 600; outline: none; cursor: pointer;">
-                        <option value="staff" style="color: #000;" ${!isSuperAdmin ? 'selected' : ''}>Staff (Custom Access)</option>
-                        <option value="super_admin" style="color: #000;" ${isSuperAdmin ? 'selected' : ''}>Super Admin (All Tabs)</option>
+                    <select class="staff-role-select" onchange="updateStaffRole(${u.id}, '${u.username}', this.value)" style="margin-top:0.3rem; display:block; padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; outline: none; cursor: pointer;">
+                        <option value="staff" ${!isSuperAdmin ? 'selected' : ''}>Staff (Custom Access)</option>
+                        <option value="super_admin" ${isSuperAdmin ? 'selected' : ''}>Super Admin (All Tabs)</option>
                     </select>
                 `}
             </td>
