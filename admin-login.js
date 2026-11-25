@@ -1,3 +1,46 @@
+// ==========================================
+// THEME MANAGER FOR LOGIN (Light / Dark Mode)
+// ==========================================
+function updateLoginThemeUI(theme) {
+    const isLight = theme === 'light';
+    const toggleBtn = document.getElementById('loginThemeToggle');
+    if (toggleBtn) {
+        const icon = toggleBtn.querySelector('.theme-icon');
+        const text = toggleBtn.querySelector('.theme-text');
+        if (icon) icon.textContent = isLight ? '☀️' : '🌙';
+        if (text) text.textContent = isLight ? 'Light Mode' : 'Dark Mode';
+        toggleBtn.setAttribute('title', isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode');
+    }
+}
+
+function initLoginTheme() {
+    const savedTheme = localStorage.getItem('admin_theme') || 'light';
+    if (savedTheme === 'light') {
+        document.body.classList.add('light-theme');
+    } else {
+        document.body.classList.remove('light-theme');
+    }
+    updateLoginThemeUI(savedTheme);
+}
+
+window.toggleLoginTheme = function() {
+    const isCurrentlyLight = document.body.classList.contains('light-theme');
+    const newTheme = isCurrentlyLight ? 'dark' : 'light';
+    if (newTheme === 'light') {
+        document.body.classList.add('light-theme');
+    } else {
+        document.body.classList.remove('light-theme');
+    }
+    localStorage.setItem('admin_theme', newTheme);
+    updateLoginThemeUI(newTheme);
+};
+
+if (document.body) {
+    initLoginTheme();
+} else {
+    document.addEventListener('DOMContentLoaded', initLoginTheme);
+}
+
 // Auto-redirect if already logged in with a valid token
 (async function checkExistingAuth() {
     const existingToken = localStorage.getItem('admin_token');
