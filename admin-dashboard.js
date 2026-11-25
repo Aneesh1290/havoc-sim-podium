@@ -1447,25 +1447,16 @@ function renderSimFilters() {
     filters.forEach(sim => {
         const btn = document.createElement('button');
         btn.textContent = sim;
+        btn.className = 'sim-filter-btn' + (sim === currentSimFilter ? ' active' : '');
         
         // Base styling for the tabs
         btn.style.padding = '0.6rem 1.2rem';
         btn.style.borderRadius = '8px';
-        btn.style.border = '1px solid transparent';
-        btn.style.background = 'transparent';
-        btn.style.color = '#fff';
         btn.style.cursor = 'pointer';
         btn.style.fontSize = '0.9rem';
         btn.style.fontWeight = '600';
         btn.style.fontFamily = 'Outfit, sans-serif';
         btn.style.transition = 'all 0.2s ease';
-        
-        // Active state styling
-        if (sim === currentSimFilter) {
-            btn.style.background = 'rgba(229, 184, 105, 0.1)';
-            btn.style.border = '1px solid var(--gold)';
-            btn.style.color = 'var(--gold)';
-        }
         
         btn.addEventListener('click', () => {
             currentSimFilter = sim;

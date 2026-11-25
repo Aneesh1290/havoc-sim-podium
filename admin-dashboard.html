@@ -437,6 +437,115 @@
             color: #334155 !important;
         }
 
+        /* 6. Slot Availability & Filter Pills */
+        body.light-theme .sim-filters,
+        body.light-theme #simFilters {
+            background: #ffffff !important;
+            border-color: #e2e8f0 !important;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04) !important;
+        }
+        body.light-theme .sim-filter-btn {
+            background: transparent !important;
+            color: #334155 !important;
+            border: 1px solid transparent !important;
+        }
+        body.light-theme .sim-filter-btn:hover {
+            background: #f1f5f9 !important;
+            color: #0f172a !important;
+        }
+        body.light-theme .sim-filter-btn.active {
+            background: rgba(225, 29, 36, 0.08) !important;
+            border: 1px solid #e11d24 !important;
+            color: #e11d24 !important;
+        }
+        body.light-theme .time-group-header {
+            color: #0f172a !important;
+            border-bottom: 2px solid #e2e8f0 !important;
+        }
+        body.light-theme .avail-card {
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04) !important;
+        }
+        body.light-theme .avail-card:hover {
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08) !important;
+            border-color: #cbd5e1 !important;
+        }
+        body.light-theme .avail-card .card-title,
+        body.light-theme .avail-card .card-status-label {
+            color: #0f172a !important;
+        }
+        body.light-theme .avail-card .card-subtitle,
+        body.light-theme .avail-card .card-footer span:first-child {
+            color: #64748b !important;
+        }
+        body.light-theme .status-bar-container {
+            background: #e2e8f0 !important;
+        }
+        body.light-theme #availDateSelect {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+        }
+
+        /* 7. Block / Disable Slots & Subtab Styling */
+        body.light-theme [id^="slotSubTab-"],
+        body.light-theme [id^="availSubTab"],
+        body.light-theme [id^="bandSubTab-"] {
+            color: #475569 !important;
+            border-color: #cbd5e1 !important;
+        }
+        body.light-theme [id^="slotSubTab-"][style*="var(--gold)"],
+        body.light-theme [id^="availSubTab"][style*="var(--gold)"],
+        body.light-theme [id^="bandSubTab-"][style*="var(--gold)"],
+        body.light-theme button[id^="slotSubTab-"].active,
+        body.light-theme button[id^="availSubTab"].active,
+        body.light-theme button[id^="bandSubTab-"].active {
+            background: rgba(225, 29, 36, 0.08) !important;
+            border-color: #e11d24 !important;
+            color: #e11d24 !important;
+        }
+        body.light-theme #blockScopeCardSpecific,
+        body.light-theme #blockScopeCardDay,
+        body.light-theme #blockScopeCardRecurring {
+            background: #ffffff !important;
+            border-color: #e2e8f0 !important;
+        }
+
+        /* 8. Settings, Inventory, Coupons & Other Dashboards Elements */
+        body.light-theme .switch .slider {
+            background-color: #cbd5e1 !important;
+        }
+        body.light-theme .switch input:checked + .slider {
+            background-color: #e11d24 !important;
+        }
+        body.light-theme #productSearchInput,
+        body.light-theme #productCategoryFilter {
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+            background: #ffffff !important;
+        }
+        body.light-theme #productCategoryFilter option {
+            background: #ffffff !important;
+            color: #0f172a !important;
+        }
+        body.light-theme #plPageCountryCode,
+        body.light-theme #plCountryCode {
+            background-color: #f8fafc !important;
+            color: #0f172a !important;
+            border-color: #cbd5e1 !important;
+        }
+        body.light-theme #plPageCountryCode option,
+        body.light-theme #plCountryCode option {
+            background: #ffffff !important;
+            color: #0f172a !important;
+        }
+        body.light-theme #plPageGeneratedUrl {
+            background: #f1f5f9 !important;
+            border-color: #cbd5e1 !important;
+            color: #0f172a !important;
+        }
+
         html, body { height: 100%; }
 
         body {
@@ -4725,6 +4834,6 @@
     </div>
     <script src="exceljs.min.js"></script>
     <script src="slotColors.js"></script>
-    <script src="admin-dashboard.js?v=50"></script>
+    <script src="admin-dashboard.js?v=51"></script>
 </body>
 </html>
