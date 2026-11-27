@@ -8452,6 +8452,57 @@ app.post('/api/admin/pilot/cancel', verifyToken, (req, res) => {
     });
 });
 
+// 9. Admin Permanently Delete Pilot Record & Free Slots/Locks
+app.delete('/api/admin/pilot/record/:id', verifyToken, (req, res) => {
+    const cardId = req.params.id;
+    if (!cardId) {
+        return res.status(400).json({ error: 'Missing admit card ID' });
+    }
+
+    db.get("SELECT * FROM pilot_admit_cards WHERE id = ?", [cardId], (err, card) => {
+        if (err || !card) {
+            return res.status(404).json({ error: 'Pilot record not found' });
+        }
+
+        const confirmedOid = card.confirmed_order_id;
+        const holdOid = card.hold_order_id;
+        const filePath = card.file_path;
+
+        // Delete associated bookings if confirmed
+        if (confirmedOid) {
+            db.run("DELETE FROM bookings WHERE order_id LIKE ?", [`${confirmedOid}%`], () => { });
+            db.run("DELETE FROM simulator_slot_locks WHERE source_order_id LIKE ?", [`${confirmedOid}%`], () => { });
+        }
+
+        // Delete associated holds
+        if (holdOid) {
+            db.run("DELETE FROM online_checkout_holds WHERE txn_id = ?", [holdOid], () => { });
+            db.run("DELETE FROM simulator_slot_locks WHERE source_order_id = ?", [holdOid], () => { });
+        }
+
+        // Remove private uploaded file if it exists on disk
+        if (filePath && fs.existsSync(filePath)) {
+            try {
+                fs.unlinkSync(filePath);
+            } catch (fileErr) {
+                console.warn('[Pilot Delete] Could not remove file on disk:', fileErr.message);
+            }
+        }
+
+        // Permanently delete admit card record from database
+        db.run("DELETE FROM pilot_admit_cards WHERE id = ?", [cardId], (delErr) => {
+            if (delErr) {
+                return res.status(500).json({ error: 'Failed to delete pilot record from database' });
+            }
+
+            res.json({
+                success: true,
+                message: 'Pilot record and associated bookings/locks have been permanently deleted.'
+            });
+        });
+    });
+});
+
 process.on('uncaughtException', (err) => {
     console.error('[UNCAUGHT EXCEPTION]:', err);
 });
