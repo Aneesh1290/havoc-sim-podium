@@ -493,10 +493,13 @@ db.run(`
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        `, [], () => { });
+        `, [], () => {
+            db.run("CREATE INDEX IF NOT EXISTS idx_holds_archive_txn ON online_checkout_holds_archive(txn_id)", [], () => { });
+        });
+    } else {
+        db.run("CREATE INDEX IF NOT EXISTS idx_holds_archive_txn ON online_checkout_holds_archive(txn_id)", [], () => { });
     }
 });
-db.run("CREATE INDEX IF NOT EXISTS idx_holds_archive_txn ON online_checkout_holds_archive(txn_id)", [], () => { });
 
 
 // Ensure payment_gateway_logs table exists for S2S Audit & Callback Tracking
@@ -515,6 +518,11 @@ db.run(`
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 `, [], (err) => {
+    const createLogsIndexes = () => {
+        db.run("CREATE INDEX IF NOT EXISTS idx_pg_logs_merchant_txn ON payment_gateway_logs(merchant_txn_no)", [], () => { });
+        db.run("CREATE INDEX IF NOT EXISTS idx_pg_logs_gateway_txn ON payment_gateway_logs(gateway_txn_id)", [], () => { });
+    };
+
     if (err) {
         // SQLite fallback
         db.run(`
@@ -531,11 +539,13 @@ db.run(`
                 source TEXT DEFAULT 'CALLBACK',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
-        `, [], () => { });
+        `, [], () => {
+            createLogsIndexes();
+        });
+    } else {
+        createLogsIndexes();
     }
 });
-db.run("CREATE INDEX IF NOT EXISTS idx_pg_logs_merchant_txn ON payment_gateway_logs(merchant_txn_no)", [], () => { });
-db.run("CREATE INDEX IF NOT EXISTS idx_pg_logs_gateway_txn ON payment_gateway_logs(gateway_txn_id)", [], () => { });
 
 // Ensure simulator_slot_locks table exists for cross-platform and booking slot reservation locks
 const slotLocksSql = (db.isPostgres && db.pool) ? `
