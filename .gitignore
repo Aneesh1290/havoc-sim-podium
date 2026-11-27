@@ -11,3 +11,5 @@ PG Direct integration UAT (2)/
 schema-server.js
 schema-visualizer.html
 view-schema.js
+private_uploads/
+eng.traineddata

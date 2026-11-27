@@ -2,7 +2,8 @@
 // HAVOC SIM PODIUM — Cashfree Backend Server
 // =============================================
 
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 const crypto = require('crypto');
 const express = require('express');
 const cors = require('cors');
@@ -14,7 +15,6 @@ const db = require('./database');
 const { sendConfirmationEmail, sendBulkEmail, sendInstructorEmail } = require('./mailer');
 const multer = require('multer');
 const fs = require('fs');
-const path = require('path');
 const { SdkClient } = require('@icici/http-core');
 const { CollectPayRequestDTO } = require('@icici/eazypay');
 const {
@@ -25,6 +25,17 @@ const {
     getSlotWristbandColor,
     getWristbandBadgeStyle
 } = require('./slotColors');
+const { checkIciciPaymentStatus } = require('./src/lib/icici');
+const { getOnlineCheckoutHold, archiveCheckoutHold, confirmOrder, reconcilePendingHold } = require('./src/lib/order-reconciliation');
+const { verifyAdmitCardDocument, normalizeIdentifier, hashIdentifier } = require('./src/lib/admit-card-verifier');
+
+// Ensure private pilot admit card upload directory exists (kept outside public assets)
+const pilotUploadsDir = path.join(__dirname, 'private_uploads', 'pilot_admit_cards');
+if (!fs.existsSync(pilotUploadsDir)) {
+    fs.mkdirSync(pilotUploadsDir, { recursive: true });
+}
+
+
 
 // Ensure uploads directory exists
 const uploadDir = path.join(__dirname, 'assets', 'uploads');
@@ -293,18 +304,34 @@ db.run(`
     )
 `, [], () => { });
 
+// Safe column addition helper for SQLite and PostgreSQL compatibility
+function safeAddColumn(table, colName, colType) {
+    if (db.isPostgres) {
+        db.run(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${colName} ${colType}`, [], () => { });
+    } else {
+        db.all(`PRAGMA table_info(${table})`, [], (err, rows) => {
+            if (!err && rows) {
+                const hasCol = rows.some(r => r.name.toLowerCase() === colName.toLowerCase());
+                if (!hasCol) {
+                    db.run(`ALTER TABLE ${table} ADD COLUMN ${colName} ${colType}`, [], () => { });
+                }
+            }
+        });
+    }
+}
+
 // Ensure columns exist on tables if created previously
-db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS whatsapp_consent INTEGER DEFAULT 1", [], () => { });
-db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_ref TEXT", [], () => { });
-db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS wristband_number TEXT", [], () => { });
-db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS applied_coupon TEXT", [], () => { });
-db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reschedule_count INTEGER DEFAULT 0", [], () => { });
-db.run("ALTER TABLE bookings ADD COLUMN IF NOT EXISTS reschedule_history TEXT DEFAULT '[]'", [], () => { });
-db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS allowed_simulators TEXT", [], () => { });
-db.run("ALTER TABLE coupons ADD COLUMN IF NOT EXISTS max_sessions INTEGER", [], () => { });
-db.run("ALTER TABLE admin_auth ADD COLUMN IF NOT EXISTS permissions TEXT DEFAULT 'all'", [], () => { });
-db.run("ALTER TABLE products ADD COLUMN IF NOT EXISTS images_json TEXT DEFAULT '[]'", [], () => { });
-db.run("ALTER TABLE products ADD COLUMN IF NOT EXISTS two_player_price REAL", [], () => { });
+safeAddColumn('bookings', 'whatsapp_consent', 'INTEGER DEFAULT 1');
+safeAddColumn('bookings', 'payment_ref', 'TEXT');
+safeAddColumn('bookings', 'wristband_number', 'TEXT');
+safeAddColumn('bookings', 'applied_coupon', 'TEXT');
+safeAddColumn('bookings', 'reschedule_count', 'INTEGER DEFAULT 0');
+safeAddColumn('bookings', 'reschedule_history', "TEXT DEFAULT '[]'");
+safeAddColumn('coupons', 'allowed_simulators', 'TEXT');
+safeAddColumn('coupons', 'max_sessions', 'INTEGER');
+safeAddColumn('admin_auth', 'permissions', "TEXT DEFAULT 'all'");
+safeAddColumn('products', 'images_json', "TEXT DEFAULT '[]'");
+safeAddColumn('products', 'two_player_price', 'REAL');
 
 // Ensure payment_links table exists for custom admin payment requests
 db.run(`
@@ -434,6 +461,117 @@ db.run(`
 });
 db.run("ALTER TABLE online_checkout_holds ADD COLUMN IF NOT EXISTS applied_coupon TEXT", [], () => { });
 
+// Ensure online_checkout_holds_archive table exists for permanent retention
+db.run(`
+    CREATE TABLE IF NOT EXISTS online_checkout_holds_archive (
+        id SERIAL PRIMARY KEY,
+        txn_id TEXT UNIQUE NOT NULL,
+        customer_name TEXT,
+        customer_email TEXT,
+        customer_phone TEXT,
+        amount REAL NOT NULL,
+        items_json TEXT NOT NULL,
+        whatsapp_consent INTEGER DEFAULT 1,
+        applied_coupon TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`, [], (err) => {
+    if (err) {
+        // SQLite fallback
+        db.run(`
+            CREATE TABLE IF NOT EXISTS online_checkout_holds_archive (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                txn_id TEXT UNIQUE NOT NULL,
+                customer_name TEXT,
+                customer_email TEXT,
+                customer_phone TEXT,
+                amount REAL NOT NULL,
+                items_json TEXT NOT NULL,
+                whatsapp_consent INTEGER DEFAULT 1,
+                applied_coupon TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `, [], () => { });
+    }
+});
+db.run("CREATE INDEX IF NOT EXISTS idx_holds_archive_txn ON online_checkout_holds_archive(txn_id)", [], () => { });
+
+
+// Ensure payment_gateway_logs table exists for S2S Audit & Callback Tracking
+db.run(`
+    CREATE TABLE IF NOT EXISTS payment_gateway_logs (
+        id SERIAL PRIMARY KEY,
+        gateway TEXT NOT NULL DEFAULT 'ICICI',
+        merchant_txn_no TEXT,
+        gateway_txn_id TEXT,
+        amount REAL,
+        status TEXT,
+        response_code TEXT,
+        raw_payload TEXT,
+        ip_address TEXT,
+        source TEXT DEFAULT 'CALLBACK',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`, [], (err) => {
+    if (err) {
+        // SQLite fallback
+        db.run(`
+            CREATE TABLE IF NOT EXISTS payment_gateway_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                gateway TEXT NOT NULL DEFAULT 'ICICI',
+                merchant_txn_no TEXT,
+                gateway_txn_id TEXT,
+                amount REAL,
+                status TEXT,
+                response_code TEXT,
+                raw_payload TEXT,
+                ip_address TEXT,
+                source TEXT DEFAULT 'CALLBACK',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `, [], () => { });
+    }
+});
+db.run("CREATE INDEX IF NOT EXISTS idx_pg_logs_merchant_txn ON payment_gateway_logs(merchant_txn_no)", [], () => { });
+db.run("CREATE INDEX IF NOT EXISTS idx_pg_logs_gateway_txn ON payment_gateway_logs(gateway_txn_id)", [], () => { });
+
+// Ensure simulator_slot_locks table exists for cross-platform and booking slot reservation locks
+const slotLocksSql = (db.isPostgres && db.pool) ? `
+    CREATE TABLE IF NOT EXISTS simulator_slot_locks (
+        id SERIAL PRIMARY KEY,
+        simulator_name TEXT NOT NULL,
+        booking_date TEXT NOT NULL,
+        booking_time TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        customer_name TEXT,
+        customer_phone TEXT,
+        source_platform TEXT DEFAULT 'HAVOC_SIM_PODIUM',
+        source_order_id TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+` : `
+    CREATE TABLE IF NOT EXISTS simulator_slot_locks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        simulator_name TEXT NOT NULL,
+        booking_date TEXT NOT NULL,
+        booking_time TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'PENDING',
+        customer_name TEXT,
+        customer_phone TEXT,
+        source_platform TEXT DEFAULT 'HAVOC_SIM_PODIUM',
+        source_order_id TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`;
+db.run(slotLocksSql, [], () => { });
+db.run("CREATE INDEX IF NOT EXISTS idx_slot_locks_sim_date ON simulator_slot_locks(simulator_name, booking_date)", [], () => { });
+db.run("CREATE INDEX IF NOT EXISTS idx_slot_locks_source_order ON simulator_slot_locks(source_order_id)", [], () => { });
+
+
 // Ensure common shared band_items table exists (Shared with Havoc RC Fun Zone)
 db.run(`
     CREATE TABLE IF NOT EXISTS band_items (
@@ -495,6 +633,93 @@ db.run(`
             `, [], () => { });
         }
     });
+
+    // Ensure pilot_booking_settings table exists for admin configuration
+    db.run(`
+        CREATE TABLE IF NOT EXISTS pilot_booking_settings (
+            key VARCHAR(100) PRIMARY KEY,
+            value TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `, [], (pSetErr) => {
+        if (pSetErr) {
+            db.run(`
+                CREATE TABLE IF NOT EXISTS pilot_booking_settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `, [], () => { });
+        }
+    });
+
+    // Seed default pilot settings if not exists
+    setTimeout(() => {
+        db.get("SELECT value FROM pilot_booking_settings WHERE key = 'config'", [], (cfgErr, cfgRow) => {
+            if (!cfgErr && !cfgRow) {
+                const defaultConfig = JSON.stringify({
+                    selected_simulators: ["Flight Sim Pro (Airbus Edition)", "Flight Sim Pro (Boeing Edition)"],
+                    eligible_days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                    time_window_start: "11:00 AM",
+                    time_window_end: "10:00 PM",
+                    session_duration_minutes: 30,
+                    max_minutes_per_sim: 180,
+                    coupon_code: "PILOT100"
+                });
+                db.run("INSERT OR IGNORE INTO pilot_booking_settings (key, value) VALUES (?, ?)", ['config', defaultConfig], () => { });
+            }
+        });
+
+        // Ensure promo coupon PILOT100 exists in coupons table
+        db.get("SELECT code FROM coupons WHERE code = 'PILOT100'", [], (cpErr, cpRow) => {
+            if (!cpErr && !cpRow) {
+                db.run("INSERT INTO coupons (code, type, value, active, max_uses, used_count) VALUES ('PILOT100', 'percent', 100, 1, 99999, 0)", [], () => { });
+            }
+        });
+    }, 1000);
+
+    // Ensure pilot_admit_cards table exists for document tracking & duplicate protection
+    const pilotCardsSql = (db.isPostgres && db.pool) ? `
+        CREATE TABLE IF NOT EXISTS pilot_admit_cards (
+            id SERIAL PRIMARY KEY,
+            doc_identifier_hash TEXT UNIQUE NOT NULL,
+            raw_identifier TEXT NOT NULL,
+            candidate_name TEXT,
+            candidate_phone TEXT,
+            candidate_email TEXT,
+            file_name TEXT,
+            file_path TEXT,
+            file_type TEXT,
+            status TEXT NOT NULL DEFAULT 'HELD', -- 'HELD', 'USED', 'SUSPICIOUS_CANCELLED'
+            hold_order_id TEXT,
+            confirmed_order_id TEXT,
+            cancellation_reason TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            used_at TIMESTAMP
+        )
+    ` : `
+        CREATE TABLE IF NOT EXISTS pilot_admit_cards (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            doc_identifier_hash TEXT UNIQUE NOT NULL,
+            raw_identifier TEXT NOT NULL,
+            candidate_name TEXT,
+            candidate_phone TEXT,
+            candidate_email TEXT,
+            file_name TEXT,
+            file_path TEXT,
+            file_type TEXT,
+            status TEXT NOT NULL DEFAULT 'HELD',
+            hold_order_id TEXT,
+            confirmed_order_id TEXT,
+            cancellation_reason TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            used_at TIMESTAMP
+        )
+    `;
+    db.run(pilotCardsSql, [], () => { });
+    db.run("CREATE INDEX IF NOT EXISTS idx_pilot_admit_hash ON pilot_admit_cards(doc_identifier_hash)", [], () => { });
+    db.run("CREATE INDEX IF NOT EXISTS idx_pilot_admit_status ON pilot_admit_cards(status)", [], () => { });
+
 
     // Ensure wristband_number column exists on bookings table
     if (db.isPostgres && db.pool) {
@@ -675,6 +900,18 @@ app.use(express.json());
 
 // Serve static assets with 7-day browser caching
 app.use('/assets', express.static(path.join(__dirname, 'assets'), { maxAge: '7d' }));
+
+// Route guard for /pilot-booking & /pilot-booking.html when offer is disabled by Admin
+app.get(['/pilot-booking', '/pilot-booking.html'], async (req, res, next) => {
+    try {
+        const config = await getPilotConfig();
+        if (config && config.is_active === false) {
+            return res.redirect('/#simulators');
+        }
+    } catch (e) { }
+    next();
+});
+
 // Serve all HTML, CSS, JS, and asset files from the project root
 app.use(express.static(path.join(__dirname), { extensions: ['html'] }));
 
@@ -1989,16 +2226,34 @@ function generateDateVariants(dateStr) {
         const dPad = String(dNum).padStart(2, '0');
         const mNum = monthMap[mPrefix];
         if (mNum) {
+            const shortM = monthNamesShort[mNum];
+            const longM = monthNamesLong[mPrefix];
             const year = new Date().getFullYear();
             set.add(`${year}-${mNum}-${dPad}`);
             set.add(`${textMatch[1]} ${dPad}`);
             set.add(`${textMatch[1]} ${dNum}`);
+            if (shortM) {
+                set.add(`${shortM} ${dPad}`);
+                set.add(`${shortM} ${dNum}`);
+            }
+            if (longM) {
+                set.add(`${longM} ${dPad}`);
+                set.add(`${longM} ${dNum}`);
+            }
             const dt = new Date(year, parseInt(mNum, 10) - 1, dNum);
             if (!isNaN(dt.getTime())) {
                 const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                 const dayName = dayNames[dt.getDay()];
                 set.add(`${textMatch[1]} ${dPad} (${dayName})`);
                 set.add(`${textMatch[1]} ${dNum} (${dayName})`);
+                if (shortM) {
+                    set.add(`${shortM} ${dPad} (${dayName})`);
+                    set.add(`${shortM} ${dNum} (${dayName})`);
+                }
+                if (longM) {
+                    set.add(`${longM} ${dPad} (${dayName})`);
+                    set.add(`${longM} ${dNum} (${dayName})`);
+                }
             }
         }
     }
@@ -2018,7 +2273,7 @@ app.get('/api/availability/:date', (req, res) => {
     let params = [...dateVariants];
 
     if (item) {
-        query += " AND item_name ILIKE ?";
+        query += " AND LOWER(item_name) = LOWER(?)";
         params.push(item);
     }
 
@@ -2033,20 +2288,20 @@ app.get('/api/availability/:date', (req, res) => {
             if (r.status === 'PAID' || r.status === 'ATTENDED' || r.status === 'CASH' || r.status === 'CONFIRMED' || (r.order_id && r.order_id.startsWith('PAYDUE_'))) {
                 if (!bookedSlots.includes(r.booking_time)) bookedSlots.push(r.booking_time);
             } else if (r.status === 'PENDING') {
-                // Online pending: only block if under 2 minutes old
+                // Online pending: only treat holds younger than 15 minutes as active blocks
                 const ageMs = now - new Date(r.created_at).getTime();
-                if (ageMs <= 2 * 60 * 1000) {
+                if (ageMs <= 15 * 60 * 1000) {
                     if (!bookedSlots.includes(r.booking_time)) bookedSlots.push(r.booking_time);
                 }
             }
         });
 
-        // Also check active online checkout holds (< 2 minutes old)
+        // Also check active online checkout holds (< 15 minutes old)
         db.all("SELECT items_json, created_at FROM online_checkout_holds", [], (holdErr, holdRows) => {
             if (!holdErr && holdRows) {
                 holdRows.forEach(hr => {
                     const ageMs = now - new Date(hr.created_at).getTime();
-                    if (ageMs <= 2 * 60 * 1000) {
+                    if (ageMs <= 15 * 60 * 1000) {
                         try {
                             const heldItems = JSON.parse(hr.items_json || '[]');
                             heldItems.forEach(hi => {
@@ -2068,7 +2323,7 @@ app.get('/api/availability/:date', (req, res) => {
             let lockQuery = `SELECT booking_time, booking_date, status, source_order_id, created_at FROM simulator_slot_locks WHERE booking_date IN (${datePlaceholders}) AND status IN ('CONFIRMED', 'PENDING', 'PAID', 'ATTENDED')`;
             let lockParams = [...dateVariants];
             if (item) {
-                lockQuery += " AND simulator_name ILIKE ?";
+                lockQuery += " AND LOWER(simulator_name) = LOWER(?)";
                 lockParams.push(item);
             }
 
@@ -2090,7 +2345,7 @@ app.get('/api/availability/:date', (req, res) => {
                 let blockQuery = `SELECT time_slot, simulator_name FROM blocked_slots WHERE (booking_date IN (${datePlaceholders}) OR booking_date = 'ALL')`;
                 let blockParams = [...dateVariants];
                 if (item) {
-                    blockQuery += " AND (simulator_name ILIKE ? OR simulator_name = 'ALL')";
+                    blockQuery += " AND (LOWER(simulator_name) = LOWER(?) OR simulator_name = 'ALL')";
                     blockParams.push(item);
                 }
 
@@ -2789,14 +3044,14 @@ app.put('/api/admin/bookings/:order_id/status', verifyToken, checkPermission('ed
                 ? [cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`, `%FZ_${rawNum}%`, `%FZ_${rawNum}_%`]
                 : [targetStatus, cleanId, `#${cleanId}`, `##${cleanId}`, `${cleanId}%`, `#${cleanId}%`, `##${cleanId}%`, `%FZ_${rawNum}%`, `%FZ_${rawNum}_%`];
 
-        db.run(lockAction, lockParams, function (lockErr) {
-            const locksUpdated = this?.changes || 0;
-            if (bookingsUpdated === 0 && locksUpdated === 0) {
-                return res.status(404).json({ error: `Order #${order_id} not found.` });
-            }
-            res.json({ success: true, bookingsUpdated, locksUpdated });
+            db.run(lockAction, lockParams, function (lockErr) {
+                const locksUpdated = this?.changes || 0;
+                if (bookingsUpdated === 0 && locksUpdated === 0) {
+                    return res.status(404).json({ error: `Order #${order_id} not found.` });
+                }
+                res.json({ success: true, bookingsUpdated, locksUpdated });
+            });
         });
-    });
 });
 
 // Update Wristband Number for a single booking item (Protected - requires 'edit_orders' permission or Super Admin)
@@ -3303,7 +3558,7 @@ app.post('/api/admin/bookings/:order_id/refund', verifyToken, checkPermission('r
         }
 
         const totalAmount = refundAmount || rows.reduce((sum, r) => sum + (parseFloat(r.price) || 0), 0).toFixed(2);
-        
+
         // Find the gateway transaction ID to refund:
         // ICICI refunds require the original gateway transaction ID (icici_txn_id, e.g. '3000004563830')
         // or the transaction attempt reference (icici_merchant_txn / merchantTxnNo).
@@ -4268,7 +4523,7 @@ app.post('/api/admin/verify/collect-and-fulfill', verifyToken, async (req, res) 
                 order_ids,
                 amount_collected: amt,
                 transaction_ref: txnRef,
-});
+            });
         });
     });
 });
@@ -4644,7 +4899,7 @@ app.put('/api/admin/bookings/:id/update-details', verifyToken, checkPermission('
 
                 if (lockUpd.length > 0) {
                     lockParams.push(orderId, orderId + '%');
-                    db.run("UPDATE simulator_slot_locks SET " + lockUpd.join(', ') + " WHERE source_order_id = ? OR source_order_id LIKE ?", lockParams, () => {});
+                    db.run("UPDATE simulator_slot_locks SET " + lockUpd.join(', ') + " WHERE source_order_id = ? OR source_order_id LIKE ?", lockParams, () => { });
                 }
             }
 
@@ -4747,7 +5002,7 @@ app.put('/api/admin/bookings/order/:order_id/update-details', verifyToken, check
                 if (booking_date !== undefined) { lockUpd.push('booking_date = ?'); lockParams.push(booking_date); }
                 if (booking_time !== undefined) { lockUpd.push('booking_time = ?'); lockParams.push(booking_time); }
                 lockParams.push(orderId, orderId + '%');
-                db.run("UPDATE simulator_slot_locks SET " + lockUpd.join(', ') + " WHERE source_order_id = ? OR source_order_id LIKE ?", lockParams, () => {});
+                db.run("UPDATE simulator_slot_locks SET " + lockUpd.join(', ') + " WHERE source_order_id = ? OR source_order_id LIKE ?", lockParams, () => { });
             }
 
             // If rescheduled, send updated confirmation to the customer via WhatsApp (and email if configured)
@@ -5753,9 +6008,9 @@ app.post('/api/bookings/cod', async (req, res) => {
                                 continue;
                             }
 
-                            // If pending attempt was by someone else, check if older than 2 minutes
+                            // If pending attempt was by someone else, check if older than 15 minutes
                             const bookingAgeMs = Date.now() - new Date(r.created_at).getTime();
-                            if (bookingAgeMs > 2 * 60 * 1000) {
+                            if (bookingAgeMs > 15 * 60 * 1000) {
                                 // Expired abandoned attempt, ignore conflict
                                 continue;
                             }
@@ -5782,7 +6037,7 @@ app.post('/api/bookings/cod', async (req, res) => {
                                     continue;
                                 }
                                 const lockAgeMs = Date.now() - new Date(lr.created_at).getTime();
-                                if (lockAgeMs > 2 * 60 * 1000) {
+                                if (lockAgeMs > 15 * 60 * 1000) {
                                     continue;
                                 }
                                 hasConflict = true;
@@ -5790,7 +6045,7 @@ app.post('/api/bookings/cod', async (req, res) => {
                             }
                         }
 
-                        // Also check active online checkout holds (< 2 minutes old)
+                        // Also check active online checkout holds (< 15 minutes old)
                         db.all("SELECT txn_id, customer_email, customer_phone, items_json, created_at FROM online_checkout_holds", [], (holdErr, holdRows) => {
                             if (!holdErr && holdRows) {
                                 for (const hr of holdRows) {
@@ -5800,7 +6055,7 @@ app.post('/api/bookings/cod', async (req, res) => {
                                     if (isSameCust) continue;
 
                                     const ageMs = Date.now() - new Date(hr.created_at).getTime();
-                                    if (ageMs > 2 * 60 * 1000) continue;
+                                    if (ageMs > 15 * 60 * 1000) continue;
 
                                     try {
                                         const heldItems = JSON.parse(hr.items_json || '[]');
@@ -5980,9 +6235,9 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                                     continue;
                                 }
 
-                                // If pending attempt was by someone else, check if older than 2 minutes
+                                // If pending attempt was by someone else, check if older than 15 minutes
                                 const bookingAgeMs = Date.now() - new Date(r.created_at).getTime();
-                                if (bookingAgeMs > 2 * 60 * 1000) {
+                                if (bookingAgeMs > 15 * 60 * 1000) {
                                     // Expired abandoned attempt, ignore conflict
                                     continue;
                                 }
@@ -6009,7 +6264,7 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                                         continue;
                                     }
                                     const lockAgeMs = Date.now() - new Date(lr.created_at).getTime();
-                                    if (lockAgeMs > 2 * 60 * 1000) {
+                                    if (lockAgeMs > 15 * 60 * 1000) {
                                         continue;
                                     }
                                     hasConflict = true;
@@ -6017,7 +6272,7 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                                 }
                             }
 
-                            // Also check active online checkout holds (< 2 minutes old)
+                            // Also check active online checkout holds (< 15 minutes old)
                             db.all("SELECT txn_id, customer_email, customer_phone, items_json, created_at FROM online_checkout_holds", [], (holdErr, holdRows) => {
                                 if (!holdErr && holdRows) {
                                     for (const hr of holdRows) {
@@ -6027,7 +6282,7 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
                                         if (isSameCust) continue;
 
                                         const ageMs = Date.now() - new Date(hr.created_at).getTime();
-                                        if (ageMs > 2 * 60 * 1000) continue;
+                                        if (ageMs > 15 * 60 * 1000) continue;
 
                                         try {
                                             const heldItems = JSON.parse(hr.items_json || '[]');
@@ -6183,232 +6438,281 @@ app.post('/api/payment/icici/initiate', async (req, res) => {
     }
 });
 
-app.post('/api/payment/icici/callback', express.urlencoded({ extended: true }), async (req, res) => {
+// ==========================================
+// S2S CALLBACK, PAYMENT ADVICE & STATUS RECONCILIATION
+// ==========================================
+
+// Helper: parse body from urlencoded, JSON, or multipart, or query params
+const parseCallbackPayload = (req) => {
+    const raw = Object.assign({}, req.query || {}, req.body || {});
+    // If responseParams is nested JSON or string, flatten
+    if (raw.responseParams && typeof raw.responseParams === 'object') {
+        Object.assign(raw, raw.responseParams);
+    }
+    return raw;
+};
+
+// Helper: log callback to payment_gateway_logs audit table
+const logPaymentGatewayAudit = (gateway, payload, req, status, responseCode, amount) => {
     try {
-        const body = req.body;
-        console.log('ICICI Callback Body:', body);
+        const merchantTxnNo = payload.merchantTxnNo || payload.merchant_txn_no || payload.orderId || null;
+        const gatewayTxnId = payload.txnID || payload.paymentID || payload.gateway_txn_id || null;
+        const numAmount = parseFloat(amount || payload.amount || 0) || null;
+        const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || null;
+        const source = req.method === 'GET' ? 'BROWSER_GET' : (req.headers['user-agent']?.includes('Mozilla') ? 'BROWSER_POST' : 'S2S_ADVICE');
 
-        // Verify Secure Hash
-        const receivedHash = body.secureHash;
-        const computedHash = generateIciciHash(body);
+        db.run(
+            `INSERT INTO payment_gateway_logs 
+                (gateway, merchant_txn_no, gateway_txn_id, amount, status, response_code, raw_payload, ip_address, source)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [gateway, merchantTxnNo, gatewayTxnId, numAmount, status, responseCode, JSON.stringify(payload), ip, source],
+            (err) => {
+                if (err) console.error('[PG Gateway Log Error]:', err.message || err);
+            }
+        );
+    } catch (e) {
+        console.error('[PG Gateway Log Exception]:', e);
+    }
+};
 
-        if (receivedHash !== computedHash) {
-            console.error('ICICI Callback Hash Mismatch!', { receivedHash, computedHash });
-            return res.redirect('/checkout.html?error=Payment Verification Failed');
+// Unified Callback Route: supports POST & GET (Handles browser redirects AND ICICI S2S server advice)
+const handleIciciCallbackRequest = async (req, res) => {
+    try {
+        const payload = parseCallbackPayload(req);
+        console.log(`[ICICI S2S/Callback] Received ${req.method} advice/callback:`, payload);
+
+        const baseOrderId = payload.merchantTxnNo || payload.originalTxnNo || null;
+        const txnID = payload.txnID || payload.paymentID || null;
+        const responseCode = payload.responseCode || payload.respCode || null;
+        const statusVal = (payload.status || '').toUpperCase();
+        const amount = payload.amount || null;
+
+        // Verify Secure Hash if present
+        if (payload.secureHash) {
+            const receivedHash = payload.secureHash;
+            const computedHash = generateIciciHash(payload);
+
+            if (receivedHash !== computedHash) {
+                console.error('[ICICI S2S Callback] Hash Mismatch!', { receivedHash, computedHash, payload });
+                logPaymentGatewayAudit('ICICI', payload, req, 'HASH_MISMATCH', responseCode, amount);
+                if (req.method === 'GET' || req.headers.accept?.includes('text/html')) {
+                    return res.redirect('/checkout.html?error=Payment Verification Failed');
+                }
+                return res.status(400).json({ error: 'Signature verification failed' });
+            }
         }
 
-        const baseOrderId = body.merchantTxnNo;
+        const isSuccess = responseCode === "0000" || responseCode === "000" || statusVal === "SUC";
 
-        if (body.responseCode === "0000") {
-            // Payment success!
-            const txnID = body.txnID || body.paymentID || null;
+        // Log to payment_gateway_logs audit table
+        logPaymentGatewayAudit('ICICI', payload, req, isSuccess ? 'PAID' : 'FAILED', responseCode, amount);
 
-            // Check if this was a custom payment link (starts with PL_)
-            if (baseOrderId.startsWith('PL_')) {
-                // If merchantTxnNo is e.g. PL_A8F2K9_5821, extract original link_id: PL_A8F2K9
-                const parts = baseOrderId.split('_');
-                const linkId = parts.length >= 3 ? `${parts[0]}_${parts[1]}` : baseOrderId;
+        if (!baseOrderId) {
+            console.error('[ICICI S2S Callback] Missing merchantTxnNo in payload');
+            if (req.method === 'GET' || req.headers.accept?.includes('text/html')) {
+                return res.redirect('/checkout.html?error=Invalid payment response');
+            }
+            return res.status(400).json({ error: 'Missing merchantTxnNo' });
+        }
 
-                db.run("UPDATE payment_links SET status = 'PAID', icici_txn_id = ?, icici_merchant_txn = ?, paid_at = CURRENT_TIMESTAMP WHERE link_id = ?", [txnID, baseOrderId, linkId], () => {
-                    db.get("SELECT * FROM payment_links WHERE link_id = ?", [linkId], (err, plRow) => {
-                        if (!err && plRow) {
-                            // If this payment link was created for specific booking orders (Desk Check-in)
-                            if (plRow.order_ids) {
-                                const linkedOrders = plRow.order_ids.split(',').map(s => s.trim()).filter(Boolean);
-                                if (linkedOrders.length > 0) {
-                                    const placeholders = linkedOrders.map(() => '?').join(',');
-                                    db.run(
-                                        `UPDATE bookings SET status = 'ATTENDED', payment_ref = ?, icici_txn_id = ?, icici_merchant_txn = ? WHERE order_id IN (${placeholders})`,
-                                        [txnID || linkId, txnID, baseOrderId, ...linkedOrders],
-                                        () => {
-                                            // Process package/slot upgrade if attached to payment link
-                                            if (plRow.upgrade_data) {
-                                                try {
-                                                    const upg = typeof plRow.upgrade_data === 'string' ? JSON.parse(plRow.upgrade_data) : plRow.upgrade_data;
-                                                    if (upg && (upg.booking_id || upg.order_id)) {
-                                                        const targetId = upg.booking_id;
-                                                        const targetOrderId = upg.order_id;
-                                                        const updates = [];
-                                                        const params = [];
-                                                        if (upg.item_name) { updates.push('item_name = ?'); params.push(upg.item_name); }
-                                                        if (upg.price !== undefined) { updates.push('price = ?'); params.push(parseFloat(upg.price)); }
-                                                        if (upg.players !== undefined) { updates.push('players = ?'); params.push(parseInt(upg.players, 10)); }
-                                                        if (upg.player_two_name !== undefined) { updates.push('player_two_name = ?'); params.push(upg.player_two_name); }
-                                                        if (upg.booking_date) { updates.push('booking_date = ?'); params.push(upg.booking_date); }
-                                                        if (upg.booking_time) { updates.push('booking_time = ?'); params.push(upg.booking_time); }
-                                                        if (updates.length > 0) {
-                                                            let whereSql = '';
-                                                            if (targetId) {
-                                                                whereSql = 'WHERE id = ?';
-                                                                params.push(targetId);
-                                                            } else {
-                                                                whereSql = 'WHERE order_id = ?';
-                                                                params.push(targetOrderId);
-                                                            }
-                                                            db.run("UPDATE bookings SET " + updates.join(', ') + " " + whereSql, params, (upgErr) => {
-                                                                if (!upgErr) {
-                                                                    console.log('[Payment Link Upgrade Applied] Updated booking details:', upg);
-                                                                    if (upg.booking_date || upg.booking_time || upg.item_name) {
-                                                                        const lockUpd = [];
-                                                                        const lockParams = [];
-                                                                        if (upg.item_name) { lockUpd.push('simulator_name = ?'); lockParams.push(upg.item_name); }
-                                                                        if (upg.booking_date) { lockUpd.push('booking_date = ?'); lockParams.push(upg.booking_date); }
-                                                                        if (upg.booking_time) { lockUpd.push('booking_time = ?'); lockParams.push(upg.booking_time); }
-                                                                        if (lockUpd.length > 0 && targetOrderId) {
-                                                                            lockParams.push(targetOrderId, targetOrderId + '%');
-                                                                            db.run("UPDATE simulator_slot_locks SET " + lockUpd.join(', ') + " WHERE source_order_id = ? OR source_order_id LIKE ?", lockParams, () => {});
-                                                                        }
-                                                                    }
-                                                                } else {
-                                                                    console.error('[Payment Link Upgrade Error]:', upgErr);
-                                                                }
-                                                            });
-                                                        }
-                                                    }
-                                                } catch (e) {
-                                                    console.error('[Payment Link Upgrade Parse Error]:', e);
-                                                }
-                                            }
-                                            console.log(`[Payment Link Success] Automatically marked linked bookings as ATTENDED for link ${linkId}:`, linkedOrders);
-                                            // Google review request removed
-                                        }
-                                    );
-                                }
-                            }
+        if (isSuccess) {
+            // Confirm booking via Unified Idempotent Confirmation Engine
+            const confirmationResult = await confirmOrder(
+                db,
+                {
+                    merchantTxnNo: baseOrderId,
+                    txnID: txnID,
+                    amount: amount,
+                    paymentMode: payload.paymentMode,
+                    rawPayload: payload
+                },
+                {
+                    getNextOrderNumber,
+                    mailer: require('./mailer'),
+                    dispatchBookingWhatsAppNotification,
+                    notifyAssignedInstructors
+                }
+            );
 
-                            // For custom payment links (especially Desk Check-in links), suppress the automated
-                            // "New Booking Alert" confirmation email so staff/customer don't get unwanted booking alerts.
-                            // The customer already receives their ICICI transaction receipt and WhatsApp session review.
-                            console.log(`[Payment Link Success] Payment confirmed for link ${linkId}. Booking alert email suppressed.`);
-                        }
-                    });
-                });
-                return res.redirect(`/pay.html?id=${linkId}&status=success`);
+            console.log(`[ICICI S2S Callback] Order confirmation result for ${baseOrderId}:`, confirmationResult);
+
+            // If browser requested or HTML accept, redirect to success
+            const isBrowserNav = req.method === 'GET' || (req.headers.accept && req.headers.accept.includes('text/html'));
+            if (isBrowserNav) {
+                return res.redirect(confirmationResult.redirectUrl || `/success.html?order_id=${confirmationResult.orderId || baseOrderId}`);
             }
 
-            // Check if this was a slot booking initiated via online_checkout_holds (TXN_SP_*)
-            if (baseOrderId.startsWith('TXN_SP_')) {
-                db.get("SELECT * FROM online_checkout_holds WHERE txn_id = ?", [baseOrderId], async (holdErr, holdRow) => {
-                    if (holdErr || !holdRow) {
-                        console.error("Hold record not found for txn_id:", baseOrderId, holdErr);
-                        // If already converted to booking, look up in bookings by icici_txn_id
-                        db.all("SELECT * FROM bookings WHERE icici_txn_id = ? ORDER BY id ASC", [txnID], (bErr, existingRows) => {
-                            if (!bErr && existingRows && existingRows.length > 0) {
-                                return res.redirect(`/success.html?order_id=${existingRows[0].order_id}`);
-                            }
-                            return res.redirect('/checkout.html?error=Hold expired or booking missing');
-                        });
-                        return;
-                    }
-
-                    try {
-                        const items = JSON.parse(holdRow.items_json || '[]');
-                        const totalBaseCost = items.reduce((sum, i) => sum + (Number(i.base_price) || 0) + (Number(i.instructor_fee) || 0), 0);
-                        const orderNo = await getNextOrderNumber();
-                        const finalOrderId = `PAID_SP_${orderNo}`;
-
-                        let insertedCount = 0;
-                        items.forEach((item, index) => {
-                            const rowOrderId = items.length > 1 ? `${finalOrderId}_${index}` : finalOrderId;
-                            let itemPrice = (parseFloat(holdRow.amount) / items.length).toFixed(2);
-                            if (totalBaseCost > 0) {
-                                const itemRatio = ((Number(item.base_price) || 0) + (Number(item.instructor_fee) || 0)) / totalBaseCost;
-                                itemPrice = (parseFloat(holdRow.amount) * itemRatio).toFixed(2);
-                            }
-
-                            db.run(
-                                `INSERT INTO bookings (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, instructor_id, players, player_two_name, whatsapp_consent, icici_txn_id, icici_merchant_txn, applied_coupon)
-                                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PAID', ?, ?, ?, ?, ?, ?, ?)`,
-                                [
-                                    rowOrderId,
-                                    holdRow.customer_name,
-                                    holdRow.customer_email,
-                                    holdRow.customer_phone,
-                                    item.item_name,
-                                    itemPrice,
-                                    item.date,
-                                    item.time,
-                                    item.instructor_id || null,
-                                    item.players || 1,
-                                    item.player_two_name || null,
-                                    holdRow.whatsapp_consent,
-                                    txnID,
-                                    baseOrderId,
-                                    holdRow.applied_coupon || null
-                                ],
-                                function (insErr) {
-                                    if (insErr) console.error("Insert confirmed booking error:", insErr);
-                                    insertedCount++;
-
-                                    if (insertedCount === items.length) {
-                                        // Delete hold now that booking is confirmed
-                                        db.run("DELETE FROM online_checkout_holds WHERE txn_id = ?", [baseOrderId]);
-
-                                        // Fetch confirmed rows and send communications
-                                        db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${finalOrderId}%`], (err, rows) => {
-                                            if (!err && rows && rows.length > 0) {
-                                                try {
-                                                    const mailer = require('./mailer');
-                                                    mailer.sendConfirmationEmail(rows);
-                                                    dispatchBookingWhatsAppNotification(rows, 'Paid Online');
-                                                    notifyAssignedInstructors(rows);
-                                                } catch (e) {
-                                                    console.error("Email/WhatsApp send failed:", e);
-                                                }
-                                            }
-                                        });
-
-                                        return res.redirect(`/success.html?order_id=${finalOrderId}`);
-                                    }
-                                }
-                            );
-                        });
-                    } catch (parseErr) {
-                        console.error("Failed to parse hold items_json:", parseErr);
-                        return res.redirect('/checkout.html?error=Error confirming booking');
-                    }
-                });
-                return;
-            }
-
-            // Fallback for legacy or direct baseOrderId
-            db.run("UPDATE bookings SET status = 'PAID', icici_txn_id = ? WHERE order_id LIKE ?", [txnID, `${baseOrderId}%`], () => {
-                db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${baseOrderId}%`], (err, rows) => {
-                    if (!err && rows && rows.length > 0) {
-                        try {
-                            const mailer = require('./mailer');
-                            mailer.sendConfirmationEmail(rows);
-                            dispatchBookingWhatsAppNotification(rows, 'Paid Online');
-                            notifyAssignedInstructors(rows);
-                        } catch (e) {
-                            console.error("Email/WhatsApp send failed:", e);
-                        }
-                    }
-                });
+            // For Server-to-Server (S2S) advice, return 200 OK JSON
+            return res.status(200).json({
+                status: 'SUCCESS',
+                message: 'Callback processed successfully',
+                orderId: confirmationResult.orderId,
+                alreadyProcessed: confirmationResult.alreadyProcessed
             });
-            return res.redirect(`/success.html?order_id=${baseOrderId}`);
         } else {
             // Payment Failed or Cancelled
-            console.error('ICICI Payment Failed:', body.respDescription);
+            console.warn(`[ICICI S2S Callback] Payment Failed for ${baseOrderId}: ${payload.respDescription || responseCode}`);
+
             if (baseOrderId.startsWith('PL_')) {
                 const parts = baseOrderId.split('_');
                 const linkId = parts.length >= 3 ? `${parts[0]}_${parts[1]}` : baseOrderId;
                 db.run("UPDATE payment_links SET status = 'FAILED' WHERE link_id = ?", [linkId]);
-                return res.redirect(`/pay.html?id=${linkId}&status=failed&error=${encodeURIComponent(body.respDescription || 'Payment Failed')}`);
+                if (req.method === 'GET' || req.headers.accept?.includes('text/html')) {
+                    return res.redirect(`/pay.html?id=${linkId}&status=failed&error=${encodeURIComponent(payload.respDescription || 'Payment Failed')}`);
+                }
+                return res.status(200).json({ status: 'FAILED', message: payload.respDescription || 'Payment Failed' });
             }
+
             if (baseOrderId.startsWith('TXN_SP_')) {
-                // Delete temporary hold immediately - slot is released, no order number burned!
+                // Archive hold permanently for audit/recovery, then release active hold and locks
+                await archiveCheckoutHold(db, baseOrderId);
                 db.run("DELETE FROM online_checkout_holds WHERE txn_id = ?", [baseOrderId]);
+                db.run("DELETE FROM simulator_slot_locks WHERE source_order_id = ? OR source_order_id LIKE ?", [baseOrderId, `${baseOrderId}%`]);
+                if (req.method === 'GET' || req.headers.accept?.includes('text/html')) {
+                    return res.redirect('/checkout.html?error=Payment Failed or Cancelled');
+                }
+                return res.status(200).json({ status: 'FAILED', message: 'Hold released' });
+            }
+
+            db.run("UPDATE bookings SET status = 'FAILED' WHERE order_id LIKE ?", [`${baseOrderId}%`]);
+            db.run("DELETE FROM simulator_slot_locks WHERE source_order_id LIKE ?", [`${baseOrderId}%`]);
+            if (req.method === 'GET' || req.headers.accept?.includes('text/html')) {
                 return res.redirect('/checkout.html?error=Payment Failed or Cancelled');
             }
-            db.run("UPDATE bookings SET status = 'FAILED' WHERE order_id LIKE ?", [`${baseOrderId}%`]);
-            return res.redirect('/checkout.html?error=Payment Failed or Cancelled');
+            return res.status(200).json({ status: 'FAILED', message: 'Payment recorded as failed' });
         }
     } catch (err) {
-        console.error('ICICI Callback Processing Error:', err);
-        return res.redirect('/checkout.html?error=Error processing payment callback');
+        console.error('[ICICI S2S Callback] Processing Error:', err);
+        if (req.method === 'GET' || req.headers.accept?.includes('text/html')) {
+            return res.redirect('/checkout.html?error=Error processing payment callback');
+        }
+        return res.status(500).json({ error: 'Internal callback processing error' });
     }
-});
+};
+
+// Route support: POST and GET with multipart/form-data, application/x-www-form-urlencoded, and application/json
+app.post('/api/payment/icici/callback', upload.none(), express.urlencoded({ extended: true }), handleIciciCallbackRequest);
+app.get('/api/payment/icici/callback', handleIciciCallbackRequest);
+
+// S2S Reconcile Endpoint (GET & POST)
+// Allows checking a specific txn_id or scanning recent unconfirmed holds (> 2 min) against ICICI /command API
+const handleIciciReconcile = async (req, res) => {
+    try {
+        const queryTxnId = req.query.txn_id || req.body.txn_id || req.body.merchantTxnNo || null;
+
+        if (queryTxnId) {
+            console.log(`[ICICI Reconcile] Manual status reconciliation requested for: ${queryTxnId}`);
+            const result = await reconcilePendingHold(
+                db,
+                queryTxnId,
+                {
+                    getNextOrderNumber,
+                    mailer: require('./mailer'),
+                    dispatchBookingWhatsAppNotification,
+                    notifyAssignedInstructors
+                }
+            );
+
+            logPaymentGatewayAudit(
+                'ICICI',
+                { queryTxnId, result },
+                req,
+                result.isPaid ? 'RECONCILED_PAID' : 'RECONCILED_UNPAID',
+                result.statusResult?.responseCode || null,
+                result.statusResult?.amount || null
+            );
+
+            return res.json({
+                success: result.success,
+                txn_id: queryTxnId,
+                isPaid: result.isPaid,
+                orderId: result.orderId,
+                message: result.message,
+                details: result.statusResult
+            });
+        }
+
+        // Auto-scan unconfirmed holds older than 2 minutes
+        const isProd = process.env.NODE_ENV === 'production';
+        const scanQuery = isProd
+            ? `SELECT * FROM online_checkout_holds WHERE created_at <= NOW() - INTERVAL '2 minutes' ORDER BY created_at ASC LIMIT 25`
+            : `SELECT * FROM online_checkout_holds WHERE datetime(created_at) <= datetime('now', '-2 minutes') ORDER BY created_at ASC LIMIT 25`;
+
+        db.all(scanQuery, [], async (err, holds) => {
+            if (err) {
+                console.error('[ICICI Reconcile] Error fetching unconfirmed holds:', err);
+                return res.status(500).json({ error: 'Database error reading holds' });
+            }
+
+            if (!holds || holds.length === 0) {
+                return res.json({
+                    success: true,
+                    message: 'No pending holds older than 2 minutes requiring reconciliation',
+                    scanned: 0,
+                    reconciled: 0
+                });
+            }
+
+            console.log(`[ICICI Reconcile] Scanning ${holds.length} unconfirmed hold(s)...`);
+            const reconciliationSummary = [];
+
+            for (const hold of holds) {
+                try {
+                    const rec = await reconcilePendingHold(
+                        db,
+                        hold.txn_id,
+                        {
+                            getNextOrderNumber,
+                            mailer: require('./mailer'),
+                            dispatchBookingWhatsAppNotification,
+                            notifyAssignedInstructors
+                        }
+                    );
+
+                    reconciliationSummary.push({
+                        txn_id: hold.txn_id,
+                        isPaid: rec.isPaid,
+                        orderId: rec.orderId,
+                        message: rec.message
+                    });
+
+                    logPaymentGatewayAudit(
+                        'ICICI',
+                        { txn_id: hold.txn_id, rec },
+                        req,
+                        rec.isPaid ? 'AUTO_RECONCILED_PAID' : 'AUTO_RECONCILED_EXPIRED',
+                        rec.statusResult?.responseCode || null,
+                        rec.statusResult?.amount || null
+                    );
+
+                    // If gateway confirms transaction is NOT paid or failed, archive hold before deleting to free slot
+                    if (!rec.isPaid) {
+                        await archiveCheckoutHold(db, hold.txn_id);
+                        db.run("DELETE FROM online_checkout_holds WHERE txn_id = ?", [hold.txn_id]);
+                        db.run("DELETE FROM simulator_slot_locks WHERE source_order_id = ? OR source_order_id LIKE ?", [hold.txn_id, `${hold.txn_id}%`]);
+                    }
+                } catch (recErr) {
+                    console.error(`[ICICI Reconcile] Error reconciling hold ${hold.txn_id}:`, recErr);
+                }
+            }
+
+            const paidCount = reconciliationSummary.filter(r => r.isPaid).length;
+            res.json({
+                success: true,
+                scanned: holds.length,
+                reconciledPaid: paidCount,
+                results: reconciliationSummary
+            });
+        });
+    } catch (e) {
+        console.error('[ICICI Reconcile Route Error]:', e);
+        res.status(500).json({ error: 'Reconciliation failed', details: String(e.message || e) });
+    }
+};
+
+app.get('/api/payment/icici/reconcile', handleIciciReconcile);
+app.post('/api/payment/icici/reconcile', handleIciciReconcile);
+
 
 // ==========================================
 // PAYMENT LINKS (Custom Admin Payment Requests)
@@ -6658,9 +6962,9 @@ app.get('/', (req, res) => {
     res.json({ status: 'Havoc Sim Podium backend running (Custom)', timestamp: new Date().toISOString() });
 });
 
-// ---- Background Cleanup Job ----
-// Auto-delete abandoned online pending bookings older than 2 minutes (runs every 60 seconds)
-setInterval(() => {
+// ---- Background Cleanup & S2S Auto-Reconciliation Job ----
+// Auto-reconciles pending holds with ICICI and releases expired abandoned slots (runs every 60 seconds)
+setInterval(async () => {
     const isProd = process.env.NODE_ENV === 'production';
     const query = isProd
         ? `DELETE FROM bookings WHERE status = 'PENDING' AND order_id NOT LIKE 'PAYDUE%' AND created_at <= NOW() - INTERVAL '2 minutes'`
@@ -6673,14 +6977,44 @@ setInterval(() => {
         }
     });
 
-    // Also auto-delete expired temporary holds older than 2 minutes
-    const holdCleanupQuery = isProd
-        ? `DELETE FROM online_checkout_holds WHERE created_at <= NOW() - INTERVAL '2 minutes'`
-        : `DELETE FROM online_checkout_holds WHERE datetime(created_at) <= datetime('now', '-2 minutes')`;
-    db.run(holdCleanupQuery, function (err) {
-        if (err) console.error("Hold Cleanup Error:", err);
+    // Zero-Drop Auto-Reconciliation:
+    // Before simply deleting unconfirmed holds older than 2 minutes, query ICICI Gateway status!
+    // If the customer actually paid (but closed their browser before redirect), automatically confirm their order!
+    const pendingHoldScanQuery = isProd
+        ? `SELECT * FROM online_checkout_holds WHERE created_at <= NOW() - INTERVAL '2 minutes' ORDER BY created_at ASC LIMIT 10`
+        : `SELECT * FROM online_checkout_holds WHERE datetime(created_at) <= datetime('now', '-2 minutes') ORDER BY created_at ASC LIMIT 10`;
+
+    db.all(pendingHoldScanQuery, [], async (err, holds) => {
+        if (err || !holds || holds.length === 0) return;
+
+        for (const hold of holds) {
+            try {
+                // Inquiry ICICI status
+                const rec = await reconcilePendingHold(
+                    db,
+                    hold.txn_id,
+                    {
+                        getNextOrderNumber,
+                        mailer: require('./mailer'),
+                        dispatchBookingWhatsAppNotification,
+                        notifyAssignedInstructors
+                    }
+                );
+
+                if (rec.isPaid) {
+                    console.log(`[Zero-Drop Auto-Reconcile] Successfully rescued & confirmed paid booking for hold ${hold.txn_id} -> ${rec.orderId}`);
+                } else {
+                    // Gateway confirmed payment was never made or failed - archive metadata for audit & release temporary hold and locks
+                    await archiveCheckoutHold(db, hold.txn_id);
+                    db.run("DELETE FROM online_checkout_holds WHERE txn_id = ?", [hold.txn_id]);
+                    db.run("DELETE FROM simulator_slot_locks WHERE source_order_id = ? OR source_order_id LIKE ?", [hold.txn_id, `${hold.txn_id}%`]);
+                }
+            } catch (recErr) {
+                console.error(`[Zero-Drop Auto-Reconcile] Error checking hold ${hold.txn_id}:`, recErr);
+            }
+        }
     });
-}, 60 * 1000); // Check every minute so abandoned slots release promptly
+}, 60 * 1000); // Check every minute so abandoned slots release promptly and paid orders are never dropped
 
 // ==========================================
 // ADVANCE BOOKING NOTIFICATIONS WITH PAYMENT LINKS
@@ -7129,7 +7463,7 @@ setInterval(async () => {
                             const totalBookingsCount = uniqueOrderIds.size;
                             const totalDrivers = slotBookings.reduce((sum, b) => sum + (Number(b.players) || 1), 0);
                             const totalAmount = slotBookings.reduce((sum, b) => sum + (parseFloat(b.price) || 0), 0);
-                            
+
                             const isPaidCount = slotBookings.filter(b => b.status === 'PAID' || b.status === 'SUCCESS').length;
                             const deskDueCount = slotBookings.length - isPaidCount;
 
@@ -7217,9 +7551,9 @@ app.post('/api/upi/collect', async (req, res) => {
                                     continue;
                                 }
 
-                                // If pending attempt was by someone else, check if older than 2 minutes
+                                // If pending attempt was by someone else, check if older than 15 minutes
                                 const bookingAgeMs = Date.now() - new Date(r.created_at).getTime();
-                                if (bookingAgeMs > 2 * 60 * 1000) {
+                                if (bookingAgeMs > 15 * 60 * 1000) {
                                     // Expired abandoned attempt, ignore conflict
                                     continue;
                                 }
@@ -7246,7 +7580,7 @@ app.post('/api/upi/collect', async (req, res) => {
                                         continue;
                                     }
                                     const lockAgeMs = Date.now() - new Date(lr.created_at).getTime();
-                                    if (lockAgeMs > 2 * 60 * 1000) {
+                                    if (lockAgeMs > 15 * 60 * 1000) {
                                         continue;
                                     }
                                     hasConflict = true;
@@ -7254,7 +7588,7 @@ app.post('/api/upi/collect', async (req, res) => {
                                 }
                             }
 
-                            // Also check active online checkout holds (< 2 minutes old)
+                            // Also check active online checkout holds (< 15 minutes old)
                             db.all("SELECT txn_id, customer_email, customer_phone, items_json, created_at FROM online_checkout_holds", [], (holdErr, holdRows) => {
                                 if (!holdErr && holdRows) {
                                     for (const hr of holdRows) {
@@ -7264,7 +7598,7 @@ app.post('/api/upi/collect', async (req, res) => {
                                         if (isSameCust) continue;
 
                                         const ageMs = Date.now() - new Date(hr.created_at).getTime();
-                                        if (ageMs > 2 * 60 * 1000) continue;
+                                        if (ageMs > 15 * 60 * 1000) continue;
 
                                         try {
                                             const heldItems = JSON.parse(hr.items_json || '[]');
@@ -7405,6 +7739,715 @@ app.get('/api/upi/status/:orderId', (req, res) => {
         if (err || !row) return res.status(404).json({ error: 'Order not found' });
         res.json({ success: true, status: row.status });
     });
+});
+
+// =========================================================================
+// PILOT SIMULATOR BOOKING FLOW ENDPOINTS
+// =========================================================================
+
+// Configure multer specifically for admit cards (PDF & image formats, max 12MB)
+const pilotAdmitCardUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+        fileSize: 12 * 1024 * 1024 // 12MB
+    },
+    fileFilter: (req, file, cb) => {
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+        if (allowedTypes.includes(file.mimetype) || /\.(pdf|jpe?g|png|webp)$/i.test(file.originalname)) {
+            cb(null, true);
+        } else {
+            cb(new Error('Invalid file type. Please upload a PDF or an Image (JPG/PNG/WEBP) of your Pilot Admit Card.'));
+        }
+    }
+});
+
+// Helper to get active pilot configuration
+function getPilotConfig() {
+    return new Promise((resolve) => {
+        db.get("SELECT value FROM pilot_booking_settings WHERE key = 'config'", [], (err, row) => {
+            if (!err && row && row.value) {
+                try {
+                    return resolve(JSON.parse(row.value));
+                } catch (e) { }
+            }
+            // Default configuration fallback
+            resolve({
+                is_active: true,
+                selected_simulators: ["Flight Sim Pro (Airbus Edition)", "Flight Sim Pro (Boeing Edition)"],
+                eligible_days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                time_window_start: "11:00 AM",
+                time_window_end: "10:00 PM",
+                session_duration_minutes: 30,
+                max_minutes_per_sim: 180,
+                coupon_code: "PILOT100"
+            });
+        });
+    });
+}
+
+// Helper to safely parse database timestamps (handling UTC strings from SQLite CURRENT_TIMESTAMP)
+function parseDbTimestamp(ts) {
+    if (!ts) return 0;
+    if (typeof ts === 'number') return ts;
+    const str = String(ts).trim();
+    if (str.includes('T')) return new Date(str).getTime();
+    // SQLite format: "YYYY-MM-DD HH:MM:SS" -> treat as UTC
+    return new Date(str.replace(' ', 'T') + 'Z').getTime();
+}
+
+// 1. Public Pilot Booking Config (Returns the 2 admin-selected simulators and scheduling rules)
+app.get('/api/pilot/config', async (req, res) => {
+    try {
+        const config = await getPilotConfig();
+        // Fetch details of selected simulators from products catalog
+        db.all("SELECT id, name, price, image_url, description, options FROM products", [], (pErr, products) => {
+            if (pErr) return res.status(500).json({ error: 'Failed to retrieve products' });
+
+            const selectedSims = config.selected_simulators || [];
+            const matchedProducts = (products || []).filter(p => selectedSims.includes(p.name));
+
+            res.json({
+                success: true,
+                config: {
+                    is_active: config.is_active !== false,
+                    eligible_days: config.eligible_days,
+                    time_window_start: config.time_window_start,
+                    time_window_end: config.time_window_end,
+                    session_duration_minutes: config.session_duration_minutes || 30,
+                    max_minutes_per_sim: Math.min(config.max_minutes_per_sim || 180, 180),
+                    coupon_code: config.coupon_code || "PILOT100"
+                },
+                simulators: matchedProducts
+            });
+        });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to load pilot configuration' });
+    }
+});
+
+// 2. Admin Get Pilot Config
+app.get('/api/admin/pilot/config', verifyToken, async (req, res) => {
+    try {
+        const config = await getPilotConfig();
+        db.all("SELECT id, name, type, price, image_url FROM products ORDER BY name ASC", [], (pErr, allProducts) => {
+            if (pErr) return res.status(500).json({ error: 'Failed to retrieve products catalog' });
+            res.json({
+                success: true,
+                config,
+                catalog: allProducts || []
+            });
+        });
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch admin pilot config' });
+    }
+});
+
+// 3. Admin Update Pilot Config (Admin selects exactly 2 simulators and schedules)
+app.post('/api/admin/pilot/config', verifyToken, async (req, res) => {
+    try {
+        const {
+            is_active,
+            selected_simulators,
+            eligible_days,
+            time_window_start,
+            time_window_end,
+            session_duration_minutes,
+            max_minutes_per_sim,
+            coupon_code
+        } = req.body;
+
+        if (!Array.isArray(selected_simulators) || selected_simulators.length !== 2) {
+            return res.status(400).json({ error: 'You must select exactly two simulators from the catalog for Pilot Booking.' });
+        }
+
+        // Limit promotion to at most 180 minutes per selected simulator (server-enforced)
+        const parsedMaxMinutes = Math.min(Math.max(parseInt(max_minutes_per_sim, 10) || 180, 30), 180);
+
+        const newConfig = {
+            is_active: is_active !== false,
+            selected_simulators,
+            eligible_days: Array.isArray(eligible_days) && eligible_days.length > 0 ? eligible_days : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+            time_window_start: time_window_start || "11:00 AM",
+            time_window_end: time_window_end || "10:00 PM",
+            session_duration_minutes: parseInt(session_duration_minutes, 10) || 30,
+            max_minutes_per_sim: parsedMaxMinutes,
+            coupon_code: (coupon_code || "PILOT100").trim().toUpperCase()
+        };
+
+        const jsonStr = JSON.stringify(newConfig);
+
+        db.run(
+            `INSERT INTO pilot_booking_settings (key, value, updated_at) VALUES ('config', ?, CURRENT_TIMESTAMP)
+             ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP`,
+            [jsonStr],
+            (upsertErr) => {
+                if (upsertErr) {
+                    // SQLite fallback
+                    db.run(`INSERT OR REPLACE INTO pilot_booking_settings (key, value, updated_at) VALUES ('config', ?, CURRENT_TIMESTAMP)`, [jsonStr], () => {
+                        res.json({ success: true, message: 'Pilot booking configuration updated successfully', config: newConfig });
+                    });
+                } else {
+                    res.json({ success: true, message: 'Pilot booking configuration updated successfully', config: newConfig });
+                }
+            }
+        );
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to update pilot configuration' });
+    }
+});
+
+// 4. Pilot Admit Card Verification & Slot Hold Creation
+app.post('/api/pilot/verify-and-hold', pilotAdmitCardUpload.single('admit_card'), async (req, res) => {
+    try {
+        const {
+            name,
+            email,
+            phone,
+            selected_slots // JSON string array of { item_name, date, time }
+        } = req.body;
+
+        // Strict customer field validation (Full Name, Phone, Email - no enrollment number)
+        if (!name || !email || !phone) {
+            return res.status(400).json({ error: 'Please provide your Full Name, Phone Number, and Email Address.' });
+        }
+
+        let slots = [];
+        try {
+            slots = typeof selected_slots === 'string' ? JSON.parse(selected_slots) : selected_slots;
+        } catch (e) {
+            return res.status(400).json({ error: 'Invalid slot selection payload format.' });
+        }
+
+        if (!Array.isArray(slots) || slots.length === 0) {
+            return res.status(400).json({ error: 'Please select at least one simulator time slot.' });
+        }
+
+        // Validate against admin pilot configuration
+        const config = await getPilotConfig();
+        const selectedSims = config.selected_simulators || [];
+        const maxMinutes = Math.min(config.max_minutes_per_sim || 180, 180);
+        const slotDuration = config.session_duration_minutes || 30;
+
+        // Group slots by simulator and enforce promotion limit (<= 180 minutes per simulator)
+        const simDurations = {};
+        for (const slot of slots) {
+            if (!slot.item_name || !slot.date || !slot.time) {
+                return res.status(400).json({ error: 'One or more selected slots is missing date/time information.' });
+            }
+            if (!selectedSims.includes(slot.item_name)) {
+                return res.status(400).json({ error: `Selected simulator "${slot.item_name}" is not eligible for Pilot Booking.` });
+            }
+            simDurations[slot.item_name] = (simDurations[slot.item_name] || 0) + slotDuration;
+        }
+
+        for (const [simName, totalMins] of Object.entries(simDurations)) {
+            if (totalMins > maxMinutes) {
+                return res.status(400).json({
+                    error: `Promotion limit exceeded for ${simName}. Maximum allowed duration is ${maxMinutes} minutes (you selected ${totalMins} minutes).`
+                });
+            }
+        }
+
+        // Verify Admit Card file
+        if (!req.file || !req.file.buffer) {
+            return res.status(400).json({ error: 'Please upload your Pilot Admit Card document (PDF or Image).' });
+        }
+
+        const verificationResult = await verifyAdmitCardDocument(
+            req.file.buffer,
+            req.file.mimetype,
+            req.file.originalname,
+            null,
+            name // Validate applicant name against admit card
+        );
+        if (!verificationResult.isValid) {
+            return res.status(422).json({
+                error: verificationResult.error || 'Admit card verification failed. Please upload a clear official Pilot Admit Card.',
+                canRetry: true
+            });
+        }
+
+        const { docHash, rawIdentifier, normalizedId } = verificationResult;
+
+        // Check for prior usage of this document identifier
+        const existingCard = await new Promise((resolve) => {
+            db.get("SELECT * FROM pilot_admit_cards WHERE doc_identifier_hash = ?", [docHash], (err, row) => {
+                if (err) return resolve(null);
+                resolve(row);
+            });
+        });
+
+        if (existingCard) {
+            if (existingCard.status === 'USED') {
+                return res.status(409).json({
+                    error: 'This Pilot Admit Card has already been used for a confirmed booking. Each admit card is valid for a single booking promotion.',
+                    canRetry: false
+                });
+            }
+            if (existingCard.status === 'SUSPICIOUS_CANCELLED') {
+                return res.status(409).json({
+                    error: 'This admit card was flagged and cancelled by staff. It cannot be reused.',
+                    canRetry: false
+                });
+            }
+            if (existingCard.status === 'HELD') {
+                // If it's held, check hold expiry (15 minutes)
+                const holdAgeMs = Date.now() - parseDbTimestamp(existingCard.created_at);
+                if (holdAgeMs <= 15 * 60 * 1000) {
+                    // Check if it's the same applicant retrying
+                    const cleanPhone = phone.replace(/\D/g, '');
+                    const existingPhone = (existingCard.candidate_phone || '').replace(/\D/g, '');
+                    if (cleanPhone && existingPhone && cleanPhone !== existingPhone) {
+                        return res.status(409).json({
+                            error: 'This Pilot Admit Card currently has an active checkout in progress. Please wait 15 minutes before retrying if you did not complete checkout.',
+                            canRetry: true
+                        });
+                    }
+                }
+                // If hold expired or same applicant, release prior hold record and proceed
+            }
+        }
+
+        // Recheck live slot availability & lock slots
+        const cleanEmail = email.trim().toLowerCase();
+        const cleanPhone = phone.replace(/\D/g, '');
+
+        let hasConflict = false;
+        for (const slot of slots) {
+            const checkResult = await new Promise((resolve) => {
+                const query = "SELECT id, status, email, phone, created_at, order_id FROM bookings WHERE booking_date = ? AND booking_time = ? AND item_name = ? AND status IN ('PAID', 'SUCCESS', 'CASH', 'PENDING', 'CONFIRMED')";
+                db.all(query, [slot.date, slot.time, slot.item_name], (bErr, bRows) => {
+                    if (bErr || !bRows || bRows.length === 0) return resolve(false);
+                    for (const r of bRows) {
+                        if (r.status === 'PAID' || r.status === 'SUCCESS' || r.status === 'CASH' || (r.order_id && r.order_id.startsWith('PAYDUE_'))) {
+                            return resolve(true);
+                        }
+                        const rEmail = (r.email || '').trim().toLowerCase();
+                        const rPhone = (r.phone || '').replace(/[^\d]/g, '');
+                        if ((cleanEmail && rEmail === cleanEmail) || (cleanPhone && rPhone && rPhone === cleanPhone)) {
+                            continue; // Same applicant
+                        }
+                        const bAge = Date.now() - new Date(r.created_at).getTime();
+                        if (bAge <= 15 * 60 * 1000) return resolve(true);
+                    }
+                    resolve(false);
+                });
+            });
+
+            if (checkResult) {
+                hasConflict = true;
+                break;
+            }
+        }
+
+        if (hasConflict) {
+            return res.status(409).json({
+                error: 'One or more of your selected slots was just booked by another customer. Please choose different slots.',
+                canRetry: true
+            });
+        }
+
+        // Save file privately to disk (kept outside public web root, contents excluded from application logs)
+        const fileExt = path.extname(req.file.originalname) || (req.file.mimetype === 'application/pdf' ? '.pdf' : '.jpg');
+        const safeFileName = `pilot_${Date.now()}_${Math.floor(Math.random() * 10000)}${fileExt}`;
+        const safeFilePath = path.join(pilotUploadsDir, safeFileName);
+        fs.writeFileSync(safeFilePath, req.file.buffer);
+
+        // Generate temporary checkout transaction ID
+        const holdTxnId = `PILOT_HOLD_${Date.now()}_${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+        // Format items for cart / checkout
+        const cartItems = slots.map((s, idx) => ({
+            itemName: s.item_name,
+            dateLabel: s.date,
+            slot: s.time,
+            itemPrice: '₹1500', // Standard catalog price
+            instructorFee: 0,
+            players: 1,
+            isPilotBooking: true
+        }));
+
+        // Insert or update admit card record with status = 'HELD'
+        await new Promise((resolve, reject) => {
+            db.run(
+                `INSERT INTO pilot_admit_cards 
+                    (doc_identifier_hash, raw_identifier, candidate_name, candidate_phone, candidate_email, file_name, file_path, file_type, status, hold_order_id, created_at)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'HELD', ?, CURRENT_TIMESTAMP)
+                 ON CONFLICT(doc_identifier_hash) DO UPDATE SET
+                    candidate_name = excluded.candidate_name,
+                    candidate_phone = excluded.candidate_phone,
+                    candidate_email = excluded.candidate_email,
+                    file_name = excluded.file_name,
+                    file_path = excluded.file_path,
+                    file_type = excluded.file_type,
+                    status = 'HELD',
+                    hold_order_id = excluded.hold_order_id,
+                    created_at = CURRENT_TIMESTAMP`,
+                [docHash, rawIdentifier, name.trim(), phone.trim(), email.trim(), safeFileName, safeFilePath, req.file.mimetype, holdTxnId],
+                (insErr) => {
+                    if (insErr) {
+                        // SQLite fallback without ON CONFLICT
+                        db.run(
+                            `INSERT OR REPLACE INTO pilot_admit_cards 
+                                (doc_identifier_hash, raw_identifier, candidate_name, candidate_phone, candidate_email, file_name, file_path, file_type, status, hold_order_id, created_at)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'HELD', ?, CURRENT_TIMESTAMP)`,
+                            [docHash, rawIdentifier, name.trim(), phone.trim(), email.trim(), safeFileName, safeFilePath, req.file.mimetype, holdTxnId],
+                            (rErr) => {
+                                if (rErr) return reject(rErr);
+                                resolve();
+                            }
+                        );
+                    } else {
+                        resolve();
+                    }
+                }
+            );
+        });
+
+        // Store temporary checkout hold so slots are reserved during checkout
+        const bookingHoldData = slots.map(s => ({
+            item_name: s.item_name,
+            date: s.date,
+            time: s.time,
+            base_price: 1500,
+            instructor_fee: 0,
+            players: 1,
+            isPilotBooking: true
+        }));
+
+        db.run(
+            `INSERT INTO online_checkout_holds (txn_id, customer_name, customer_email, customer_phone, amount, items_json, whatsapp_consent, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP)`,
+            [holdTxnId, name.trim(), email.trim(), phone.trim(), 0, JSON.stringify(bookingHoldData)],
+            () => { }
+        );
+
+        // Also place slot locks in simulator_slot_locks
+        slots.forEach(slot => {
+            const altDate = slot.date.replace(/ \([A-Za-z]+\)/, '');
+            db.run(
+                `INSERT INTO simulator_slot_locks 
+                    (simulator_name, booking_date, booking_time, status, customer_name, customer_phone, source_platform, source_order_id, created_at)
+                 VALUES (?, ?, ?, 'PENDING', ?, ?, 'PILOT_BOOKING', ?, CURRENT_TIMESTAMP)`,
+                [slot.item_name, slot.date, slot.time, name.trim(), phone.trim(), holdTxnId],
+                () => { }
+            );
+        });
+
+        res.json({
+            success: true,
+            message: 'Pilot Admit Card verified successfully. Slots temporarily held for checkout.',
+            hold_txn_id: holdTxnId,
+            customer: {
+                name: name.trim(),
+                email: email.trim(),
+                phone: phone.trim()
+            },
+            cart_items: cartItems,
+            promo_coupon_code: config.coupon_code || "PILOT100"
+        });
+
+    } catch (err) {
+        res.status(500).json({ error: 'Server error during admit card verification and hold creation.' });
+    }
+});
+
+// 5. Pilot ₹0 Checkout Confirmation Endpoint
+app.post('/api/pilot/checkout-confirm', async (req, res) => {
+    try {
+        const {
+            hold_txn_id,
+            coupon_code,
+            customer_details,
+            booking_data
+        } = req.body;
+
+        if (!hold_txn_id) {
+            return res.status(400).json({ error: 'Missing checkout hold identifier.' });
+        }
+
+        // Check if hold exists in pilot_admit_cards
+        const admitCard = await new Promise((resolve) => {
+            db.get("SELECT * FROM pilot_admit_cards WHERE hold_order_id = ?", [hold_txn_id], (err, row) => {
+                if (err || !row) return resolve(null);
+                resolve(row);
+            });
+        });
+
+        if (!admitCard) {
+            return res.status(404).json({ error: 'No active verification hold found for this session. Please re-verify your admit card.' });
+        }
+
+        // If already confirmed with order_id, return existing confirmation idempotently
+        if (admitCard.status === 'USED' && admitCard.confirmed_order_id) {
+            return res.json({
+                success: true,
+                already_confirmed: true,
+                order_id: admitCard.confirmed_order_id,
+                message: 'Booking already confirmed.'
+            });
+        }
+
+        if (admitCard.status === 'SUSPICIOUS_CANCELLED') {
+            return res.status(403).json({ error: 'This admit card reservation was cancelled by administrator.' });
+        }
+
+        // Validate coupon code
+        const config = await getPilotConfig();
+        const expectedCoupon = (config.coupon_code || "PILOT100").trim().toUpperCase();
+        const providedCoupon = (coupon_code || '').trim().toUpperCase();
+
+        if (providedCoupon !== expectedCoupon) {
+            return res.status(400).json({ error: `Invalid promotion coupon code. Please enter the valid pilot coupon code.` });
+        }
+
+        // Recheck hold expiry (15 minutes)
+        const holdAgeMs = Date.now() - parseDbTimestamp(admitCard.created_at);
+        if (holdAgeMs > 15 * 60 * 1000) {
+            // Expired hold: release slots and admit card back to available
+            db.run("DELETE FROM online_checkout_holds WHERE txn_id = ?", [hold_txn_id], () => { });
+            db.run("DELETE FROM simulator_slot_locks WHERE source_order_id = ?", [hold_txn_id], () => { });
+            db.run("DELETE FROM pilot_admit_cards WHERE id = ?", [admitCard.id], () => { });
+            return res.status(410).json({ error: 'Your temporary slot hold has expired (15 minutes limit). Please select slots again to re-verify.' });
+        }
+
+        // Prepare bookings data
+        const items = Array.isArray(booking_data) && booking_data.length > 0 ? booking_data : [];
+        if (items.length === 0) {
+            return res.status(400).json({ error: 'No booking slot items provided.' });
+        }
+
+        // Generate final confirmed order number
+        const orderNo = await getNextOrderNumber();
+        const confirmedOrderId = `PAID_PILOT_${orderNo}`;
+
+        const custName = (customer_details && customer_details.name) || admitCard.candidate_name || 'Pilot Applicant';
+        const custEmail = (customer_details && customer_details.email) || admitCard.candidate_email || '';
+        const custPhone = (customer_details && customer_details.phone) || admitCard.candidate_phone || '';
+
+        // Atomic confirmation: Insert confirmed bookings, update simulator_slot_locks, mark admit card USED
+        let insertErr = null;
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const rowOrderId = items.length > 1 ? `${confirmedOrderId}_${i}` : confirmedOrderId;
+
+            await new Promise((resolve) => {
+                db.run(
+                    `INSERT INTO bookings 
+                        (order_id, name, email, phone, item_name, price, booking_date, booking_time, status, payment_ref, advance_reminder_sent, created_at)
+                     VALUES (?, ?, ?, ?, ?, '0.00', ?, ?, 'PAID', ?, 0, CURRENT_TIMESTAMP)`,
+                    [
+                        rowOrderId,
+                        custName,
+                        custEmail,
+                        custPhone,
+                        item.item_name || item.itemName,
+                        item.date || item.dateLabel,
+                        item.time || item.slot,
+                        `PILOT_ADMIT_CARD:${admitCard.raw_identifier}`
+                    ],
+                    (insErr) => {
+                        if (insErr) insertErr = insErr;
+                        resolve();
+                    }
+                );
+            });
+            if (insertErr) break;
+        }
+
+        if (insertErr) {
+            return res.status(500).json({ error: 'Failed to record confirmed bookings.' });
+        }
+
+        // Mark admit card as USED with confirmed_order_id
+        await new Promise((resolve) => {
+            db.run(
+                `UPDATE pilot_admit_cards 
+                 SET status = 'USED', confirmed_order_id = ?, used_at = CURRENT_TIMESTAMP 
+                 WHERE id = ?`,
+                [confirmedOrderId, admitCard.id],
+                () => resolve()
+            );
+        });
+
+        // Update slot locks to CONFIRMED
+        db.run(
+            `UPDATE simulator_slot_locks 
+             SET status = 'CONFIRMED', source_order_id = ? 
+             WHERE source_order_id = ?`,
+            [confirmedOrderId, hold_txn_id],
+            () => { }
+        );
+
+        // Clean up temporary online checkout hold
+        db.run("DELETE FROM online_checkout_holds WHERE txn_id = ?", [hold_txn_id], () => { });
+
+        // Fetch inserted rows and dispatch WhatsApp / Email notifications
+        db.all("SELECT * FROM bookings WHERE order_id LIKE ?", [`${confirmedOrderId}%`], (err, rows) => {
+            if (!err && rows && rows.length > 0) {
+                try {
+                    sendConfirmationEmail(rows);
+                    dispatchBookingWhatsAppNotification(rows, 'Pilot Promotion (Free)');
+                    notifyAssignedInstructors(rows);
+                } catch (notifErr) { }
+            }
+        });
+
+        res.json({
+            success: true,
+            order_id: confirmedOrderId,
+            amount: 0,
+            message: 'Pilot Booking confirmed successfully at ₹0 total balance.'
+        });
+
+    } catch (err) {
+        res.status(500).json({ error: 'Server error during pilot checkout confirmation.' });
+    }
+});
+
+// 6. Admin Pilot Bookings List (Staff view with status, applicant details, slots, admit card link)
+app.get('/api/admin/pilot/bookings', verifyToken, (req, res) => {
+    const query = `
+        SELECT 
+            c.id AS admit_card_id,
+            c.raw_identifier,
+            c.candidate_name,
+            c.candidate_phone,
+            c.candidate_email,
+            c.file_name,
+            c.file_type,
+            c.status AS verification_status,
+            c.hold_order_id,
+            c.confirmed_order_id,
+            c.cancellation_reason,
+            c.created_at,
+            c.used_at,
+            b.order_id,
+            b.item_name,
+            b.booking_date,
+            b.booking_time,
+            b.status AS booking_status
+        FROM pilot_admit_cards c
+        LEFT JOIN bookings b ON (b.order_id LIKE c.confirmed_order_id || '%')
+        ORDER BY c.created_at DESC, c.id DESC
+    `;
+
+    db.all(query, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Failed to fetch pilot bookings' });
+
+        // Group rows by admit_card_id
+        const cardMap = {};
+        (rows || []).forEach(r => {
+            if (!cardMap[r.admit_card_id]) {
+                cardMap[r.admit_card_id] = {
+                    admit_card_id: r.admit_card_id,
+                    raw_identifier: r.raw_identifier,
+                    candidate_name: r.candidate_name,
+                    candidate_phone: r.candidate_phone,
+                    candidate_email: r.candidate_email,
+                    verification_status: r.verification_status,
+                    confirmed_order_id: r.confirmed_order_id,
+                    cancellation_reason: r.cancellation_reason,
+                    created_at: r.created_at,
+                    used_at: r.used_at,
+                    has_document: !!r.file_name,
+                    slots: []
+                };
+            }
+            if (r.item_name && r.booking_date && r.booking_time) {
+                cardMap[r.admit_card_id].slots.push({
+                    order_id: r.order_id,
+                    item_name: r.item_name,
+                    date: r.booking_date,
+                    time: r.booking_time,
+                    status: r.booking_status
+                });
+            }
+        });
+
+        res.json({
+            success: true,
+            pilot_bookings: Object.values(cardMap)
+        });
+    });
+});
+
+// 7. Admin Secure View of Admit Card File (Authorized staff only, stream private file)
+app.get('/api/admin/pilot/admit-card/:id', verifyToken, (req, res) => {
+    const cardId = req.params.id;
+    db.get("SELECT file_path, file_type, file_name, raw_identifier FROM pilot_admit_cards WHERE id = ?", [cardId], (err, row) => {
+        if (err || !row || !row.file_path) {
+            return res.status(404).json({ error: 'Admit card document not found' });
+        }
+
+        if (!fs.existsSync(row.file_path)) {
+            return res.status(404).json({ error: 'File on disk not found' });
+        }
+
+        res.setHeader('Content-Type', row.file_type || 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="pilot_admit_card_${row.raw_identifier || cardId}${path.extname(row.file_name || '')}"`);
+        res.setHeader('Cache-Control', 'private, no-cache, no-store, must-revalidate');
+
+        const stream = fs.createReadStream(row.file_path);
+        stream.pipe(res);
+    });
+});
+
+// 8. Admin Cancel Suspicious Reservation (Releases slots, marks card SUSPICIOUS_CANCELLED to prevent reuse)
+app.post('/api/admin/pilot/cancel', verifyToken, (req, res) => {
+    const { admit_card_id, reason } = req.body;
+    if (!admit_card_id) {
+        return res.status(400).json({ error: 'Missing admit card ID' });
+    }
+
+    db.get("SELECT * FROM pilot_admit_cards WHERE id = ?", [admit_card_id], (err, card) => {
+        if (err || !card) {
+            return res.status(404).json({ error: 'Pilot admit card record not found' });
+        }
+
+        const cancelReason = (reason || 'Staff cancelled suspicious reservation').trim();
+        const confirmedOid = card.confirmed_order_id;
+        const holdOid = card.hold_order_id;
+
+        // 1. Release bookings if any exist
+        if (confirmedOid) {
+            db.run(
+                "UPDATE bookings SET status = 'CANCELLED', payment_ref = COALESCE(payment_ref || ' | ', '') || ? WHERE order_id LIKE ?",
+                [`CANCELLED_BY_STAFF: ${cancelReason}`, `${confirmedOid}%`],
+                () => { }
+            );
+            db.run("UPDATE simulator_slot_locks SET status = 'CANCELLED' WHERE source_order_id LIKE ?", [`${confirmedOid}%`], () => { });
+        }
+
+        if (holdOid) {
+            db.run("UPDATE simulator_slot_locks SET status = 'CANCELLED' WHERE source_order_id = ?", [holdOid], () => { });
+            db.run("DELETE FROM online_checkout_holds WHERE txn_id = ?", [holdOid], () => { });
+        }
+
+        // 2. Mark card as SUSPICIOUS_CANCELLED with reason so it CANNOT BE REUSED
+        db.run(
+            `UPDATE pilot_admit_cards 
+             SET status = 'SUSPICIOUS_CANCELLED', cancellation_reason = ? 
+             WHERE id = ?`,
+            [cancelReason, admit_card_id],
+            (upErr) => {
+                if (upErr) return res.status(500).json({ error: 'Failed to update admit card status' });
+
+                res.json({
+                    success: true,
+                    message: 'Reservation cancelled successfully. Slots have been freed, and the admit card remains permanently locked against reuse.'
+                });
+            }
+        );
+    });
+});
+
+process.on('uncaughtException', (err) => {
+    console.error('[UNCAUGHT EXCEPTION]:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('[UNHANDLED REJECTION]:', reason);
 });
 
 app.listen(PORT, () => {

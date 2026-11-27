@@ -3008,10 +3008,28 @@ document.addEventListener('DOMContentLoaded', () => {
             return timeA.localeCompare(timeB);
         });
 
+        // Helper to normalize date strings (e.g. 'November 27 (Fri)' -> 'Nov 27 (Fri)') so all slots group in the same sheet
+        function normalizeSheetDate(str) {
+            if (!str) return 'UNKNOWN DATE';
+            let s = String(str).trim();
+            const fullMonths = {
+                'JANUARY': 'Jan', 'FEBRUARY': 'Feb', 'MARCH': 'Mar', 'APRIL': 'Apr',
+                'MAY': 'May', 'JUNE': 'Jun', 'JULY': 'Jul', 'AUGUST': 'Aug',
+                'SEPTEMBER': 'Sep', 'OCTOBER': 'Oct', 'NOVEMBER': 'Nov', 'DECEMBER': 'Dec'
+            };
+            for (const [full, short] of Object.entries(fullMonths)) {
+                if (s.toUpperCase().startsWith(full + ' ')) {
+                    s = short + s.slice(full.length);
+                    break;
+                }
+            }
+            return s;
+        }
+
         // Group by date
         const grouped = {};
         sorted.forEach(b => {
-            const d = b.booking_date || 'UNKNOWN DATE';
+            const d = normalizeSheetDate(b.booking_date);
             if (!grouped[d]) grouped[d] = [];
             grouped[d].push(b);
         });
@@ -3286,10 +3304,28 @@ document.addEventListener('DOMContentLoaded', () => {
                     return timeA.localeCompare(timeB);
                 });
 
+                // Helper to normalize date strings (e.g. 'November 27 (Fri)' -> 'Nov 27 (Fri)') so all slots group in the same sheet
+                function normalizeSheetDate(str) {
+                    if (!str) return 'UNKNOWN DATE';
+                    let s = String(str).trim();
+                    const fullMonths = {
+                        'JANUARY': 'Jan', 'FEBRUARY': 'Feb', 'MARCH': 'Mar', 'APRIL': 'Apr',
+                        'MAY': 'May', 'JUNE': 'Jun', 'JULY': 'Jul', 'AUGUST': 'Aug',
+                        'SEPTEMBER': 'Sep', 'OCTOBER': 'Oct', 'NOVEMBER': 'Nov', 'DECEMBER': 'Dec'
+                    };
+                    for (const [full, short] of Object.entries(fullMonths)) {
+                        if (s.toUpperCase().startsWith(full + ' ')) {
+                            s = short + s.slice(full.length);
+                            break;
+                        }
+                    }
+                    return s;
+                }
+
                 // Group by date
                 const grouped = {};
                 sorted.forEach(b => {
-                    const d = b.booking_date || 'UNKNOWN DATE';
+                    const d = normalizeSheetDate(b.booking_date);
                     if (!grouped[d]) grouped[d] = [];
                     grouped[d].push(b);
                 });
@@ -8837,3 +8873,358 @@ document.addEventListener('DOMContentLoaded', () => {
     window.setupAdminPhoneValidation('plPhone', 'plCountryCode');
     window.setupAdminPhoneValidation('plPagePhone', 'plPageCountryCode');
 });
+
+// =========================================================================
+// PILOT BOOKING ADMIN MANAGEMENT
+// =========================================================================
+
+let _allPilotBookings = [];
+let _pilotAdminCatalog = [];
+
+// Initialize Pilot Bookings listener on tab click
+document.querySelector('.nav-btn[data-target="tab-pilot-bookings"]')?.addEventListener('click', () => {
+    loadPilotAdminData();
+});
+
+async function loadPilotAdminData() {
+    await Promise.all([
+        loadPilotAdminConfig(),
+        loadPilotBookingsList()
+    ]);
+}
+
+// 1. Load Admin Pilot Config & Products Catalog
+async function loadPilotAdminConfig() {
+    try {
+        const res = await fetchAuth('/api/admin/pilot/config');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data.success) return;
+
+        const config = data.config || {};
+        _pilotAdminCatalog = data.catalog || [];
+
+        // Set inputs
+        const isActive = config.is_active !== false;
+        const toggleEl = document.getElementById('pilotPromoActiveToggle');
+        if (toggleEl) {
+            toggleEl.checked = isActive;
+            onPilotActiveToggleChange();
+        }
+
+        const maxMinsInput = document.getElementById('pilotMaxMinutesInput');
+        if (maxMinsInput) maxMinsInput.value = config.max_minutes_per_sim || 180;
+
+        const durationSelect = document.getElementById('pilotSlotDurationSelect');
+        if (durationSelect) durationSelect.value = String(config.session_duration_minutes || 30);
+
+        const couponInput = document.getElementById('pilotCouponCodeInput');
+        if (couponInput) couponInput.value = config.coupon_code || 'PILOT100';
+
+        // Render simulator checkboxes (exactly 2 must be chosen)
+        renderPilotSimulatorCheckboxes(config.selected_simulators || []);
+
+    } catch (err) {
+        console.error('Error loading pilot admin config:', err);
+    }
+}
+
+function renderPilotSimulatorCheckboxes(selectedNames) {
+    const container = document.getElementById('pilotSimulatorCheckboxes');
+    if (!container) return;
+
+    if (!_pilotAdminCatalog || _pilotAdminCatalog.length === 0) {
+        container.innerHTML = '<span style="color: var(--muted);">No products found in catalog.</span>';
+        return;
+    }
+
+    container.innerHTML = _pilotAdminCatalog.map(prod => {
+        const isChecked = selectedNames.includes(prod.name);
+        return `
+            <label class="pilot-sim-checkbox-card" style="display: flex; align-items: center; gap: 8px; padding: 0.65rem 0.85rem; background: rgba(255,255,255,0.04); border-radius: 8px; cursor: pointer; border: 1px solid var(--border); transition: all 0.2s ease;">
+                <input type="checkbox" name="pilotSimulatorChoice" value="${escapeHtml(prod.name)}" ${isChecked ? 'checked' : ''} onchange="onPilotSimCheckboxChange()">
+                <span style="font-size: 0.88rem; font-weight: 600; color: #fff;">${escapeHtml(prod.name)}</span>
+            </label>
+        `;
+    }).join('');
+
+    updatePilotSimCountLabel();
+}
+
+function onPilotSimCheckboxChange() {
+    const checked = Array.from(document.querySelectorAll('input[name="pilotSimulatorChoice"]:checked'));
+    if (checked.length > 2) {
+        alert('You can select a maximum of exactly two simulators for Pilot Booking.');
+        // Uncheck the last one
+        event.target.checked = false;
+    }
+    updatePilotSimCountLabel();
+}
+
+function onPilotActiveToggleChange() {
+    const toggleEl = document.getElementById('pilotPromoActiveToggle');
+    const labelEl = document.getElementById('pilotActiveStatusLabel');
+    if (toggleEl && labelEl) {
+        if (toggleEl.checked) {
+            labelEl.textContent = 'Offer Active';
+            labelEl.style.color = 'var(--gold)';
+        } else {
+            labelEl.textContent = 'Offer Inactive';
+            labelEl.style.color = '#ef4444';
+        }
+    }
+}
+
+function updatePilotSimCountLabel() {
+    const checked = Array.from(document.querySelectorAll('input[name="pilotSimulatorChoice"]:checked'));
+    const countEl = document.getElementById('pilotSimSelectionCount');
+    if (countEl) {
+        countEl.textContent = `Selected: ${checked.length} of 2 (Exactly two required)`;
+        countEl.style.color = checked.length === 2 ? '#10B981' : '#F59E0B';
+    }
+}
+
+// 2. Save Pilot Config
+async function savePilotConfig(e) {
+    e.preventDefault();
+    const checked = Array.from(document.querySelectorAll('input[name="pilotSimulatorChoice"]:checked')).map(cb => cb.value);
+
+    if (checked.length !== 2) {
+        alert('Please select exactly two simulators from the catalog.');
+        return;
+    }
+
+    const maxMins = parseInt(document.getElementById('pilotMaxMinutesInput')?.value, 10) || 180;
+    const duration = parseInt(document.getElementById('pilotSlotDurationSelect')?.value, 10) || 30;
+    const coupon = (document.getElementById('pilotCouponCodeInput')?.value || 'PILOT100').trim().toUpperCase();
+    const isActive = document.getElementById('pilotPromoActiveToggle')?.checked ?? true;
+
+    const saveBtn = document.getElementById('savePilotConfigBtn');
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerText = 'Saving...';
+    }
+
+    try {
+        const res = await fetchAuth('/api/admin/pilot/config', {
+            method: 'POST',
+            body: JSON.stringify({
+                is_active: isActive,
+                selected_simulators: checked,
+                max_minutes_per_sim: Math.min(maxMins, 180),
+                session_duration_minutes: duration,
+                coupon_code: coupon
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            alert('Pilot Booking configuration updated successfully!');
+        } else {
+            alert(data.error || 'Failed to update pilot configuration');
+        }
+    } catch (err) {
+        alert('Network error while saving pilot configuration');
+    } finally {
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span>💾</span> Save Configuration';
+        }
+    }
+}
+
+// 3. Load Pilot Bookings List
+async function loadPilotBookingsList() {
+    const tbody = document.getElementById('pilotBookingsTableBody');
+    if (!tbody) return;
+
+    try {
+        const res = await fetchAuth('/api/admin/pilot/bookings');
+        if (!res.ok) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #f87171;">Failed to load pilot bookings.</td></tr>';
+            return;
+        }
+
+        const data = await res.json();
+        _allPilotBookings = data.pilot_bookings || [];
+        renderPilotBookingsTable(_allPilotBookings);
+
+    } catch (err) {
+        console.error('Error fetching pilot bookings:', err);
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: #f87171;">Network error loading pilot bookings.</td></tr>';
+    }
+}
+
+function renderPilotBookingsTable(bookings) {
+    const tbody = document.getElementById('pilotBookingsTableBody');
+    if (!tbody) return;
+
+    if (!bookings || bookings.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--muted);">No pilot bookings found.</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = bookings.map(b => {
+        // Verification badge
+        let badgeHtml = '';
+        if (b.verification_status === 'USED') {
+            badgeHtml = '<span style="background: rgba(16,185,129,0.15); color: #10B981; border: 1px solid rgba(16,185,129,0.3); padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 0.78rem;">✓ Confirmed</span>';
+        } else if (b.verification_status === 'HELD') {
+            badgeHtml = '<span style="background: rgba(245,158,11,0.15); color: #F59E0B; border: 1px solid rgba(245,158,11,0.3); padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 0.78rem;">⏳ Checkout Hold</span>';
+        } else if (b.verification_status === 'SUSPICIOUS_CANCELLED') {
+            badgeHtml = '<span style="background: rgba(239,68,68,0.15); color: #EF4444; border: 1px solid rgba(239,68,68,0.3); padding: 3px 8px; border-radius: 6px; font-weight: 700; font-size: 0.78rem;">🚫 Flagged & Cancelled</span>';
+        } else {
+            badgeHtml = `<span style="background: rgba(255,255,255,0.08); color: #fff; padding: 3px 8px; border-radius: 6px; font-size: 0.78rem;">${escapeHtml(b.verification_status)}</span>`;
+        }
+
+        // Slots summary
+        let slotsHtml = '<span style="color: var(--muted); font-size: 0.8rem;">No slots active</span>';
+        if (b.slots && b.slots.length > 0) {
+            slotsHtml = b.slots.map(s => `
+                <div style="font-size: 0.82rem; margin-bottom: 2px;">
+                    <strong>${escapeHtml(s.item_name)}</strong> &bull; ${escapeHtml(s.date)} (${escapeHtml(s.time)})
+                </div>
+            `).join('');
+        }
+
+        // Document button
+        let docBtnHtml = '<span style="color: var(--muted); font-size: 0.8rem;">No file</span>';
+        if (b.has_document) {
+            docBtnHtml = `
+                <button type="button" onclick="viewPilotAdmitCard(${b.admit_card_id})" class="btn" style="background: rgba(59,130,246,0.12); color: #3B82F6; border: 1px solid rgba(59,130,246,0.3); font-size: 0.8rem; font-weight: 700; padding: 0.4rem 0.8rem; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px;">
+                    📄 View Card
+                </button>
+            `;
+        }
+
+        // Actions: Cancel suspicious reservation & Delete Record
+        let actionBtnHtml = '<div style="display: flex; gap: 6px; justify-content: flex-end; align-items: center;">';
+        
+        if (b.verification_status !== 'SUSPICIOUS_CANCELLED') {
+            actionBtnHtml += `
+                <button type="button" onclick="cancelSuspiciousPilotBooking(${b.admit_card_id}, '${escapeHtml(b.candidate_name || '')}')" class="btn" style="background: rgba(239,68,68,0.12); color: #EF4444; border: 1px solid rgba(239,68,68,0.3); font-size: 0.78rem; font-weight: 700; padding: 0.35rem 0.7rem; border-radius: 6px; cursor: pointer;">
+                    Cancel
+                </button>
+            `;
+        } else {
+            actionBtnHtml += `<span style="font-size: 0.72rem; color: var(--muted); max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(b.cancellation_reason || 'Cancelled')}">${escapeHtml(b.cancellation_reason || 'Cancelled')}</span>`;
+        }
+
+        actionBtnHtml += `
+            <button type="button" onclick="deletePilotRecord(${b.admit_card_id}, '${escapeHtml(b.candidate_name || '')}')" class="btn" title="Delete record and free slots" style="background: rgba(255,255,255,0.06); color: #94a3b8; border: 1px solid rgba(255,255,255,0.15); font-size: 0.78rem; font-weight: 700; padding: 0.35rem 0.6rem; border-radius: 6px; cursor: pointer;">
+                🗑️
+            </button>
+        </div>`;
+
+        return `
+            <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                <td style="padding: 0.85rem;">
+                    <div style="font-weight: 700; color: #fff;">${escapeHtml(b.candidate_name || 'Pilot')}</div>
+                    <div style="font-size: 0.78rem; color: var(--muted);">${escapeHtml(b.candidate_phone || '')} &bull; ${escapeHtml(b.candidate_email || '')}</div>
+                </td>
+                <td style="padding: 0.85rem;">
+                    <code style="background: rgba(229,184,105,0.1); color: var(--gold); padding: 2px 6px; border-radius: 4px; font-size: 0.82rem;">${escapeHtml(b.raw_identifier || 'N/A')}</code>
+                </td>
+                <td style="padding: 0.85rem;">${slotsHtml}</td>
+                <td style="padding: 0.85rem;">${badgeHtml}</td>
+                <td style="padding: 0.85rem;">${docBtnHtml}</td>
+                <td style="padding: 0.85rem; text-align: right;">${actionBtnHtml}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+function filterPilotBookingsTable() {
+    const query = (document.getElementById('pilotBookingSearchInput')?.value || '').trim().toLowerCase();
+    if (!query) {
+        renderPilotBookingsTable(_allPilotBookings);
+        return;
+    }
+
+    const filtered = _allPilotBookings.filter(b => {
+        const name = (b.candidate_name || '').toLowerCase();
+        const email = (b.candidate_email || '').toLowerCase();
+        const phone = (b.candidate_phone || '').toLowerCase();
+        const id = (b.raw_identifier || '').toLowerCase();
+        return name.includes(query) || email.includes(query) || phone.includes(query) || id.includes(query);
+    });
+
+    renderPilotBookingsTable(filtered);
+}
+
+// 4. View Pilot Admit Card (Privately streams authenticated file)
+async function viewPilotAdmitCard(cardId) {
+    const adminToken = localStorage.getItem('admin_token') || localStorage.getItem('havoc_admin_token') || sessionStorage.getItem('admin_token') || sessionStorage.getItem('havoc_admin_token');
+    if (!adminToken) {
+        alert('Authentication expired. Please log in again.');
+        return;
+    }
+
+    try {
+        const res = await fetch(`/api/admin/pilot/admit-card/${cardId}`, {
+            headers: { 'Authorization': `Bearer ${adminToken}` }
+        });
+
+        if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            alert(errData.error || 'Failed to retrieve admit card document.');
+            return;
+        }
+
+        const blob = await res.blob();
+        const fileUrl = URL.createObjectURL(blob);
+        window.open(fileUrl, '_blank');
+    } catch (e) {
+        alert('Error viewing admit card document.');
+    }
+}
+
+// 5. Cancel Suspicious Pilot Reservation
+async function cancelSuspiciousPilotBooking(cardId, pilotName) {
+    const reason = prompt(`Reason for cancelling suspicious reservation for ${pilotName || 'this applicant'}?\n(Slots will be released; admit card will remain permanently locked from reuse):`, 'Invalid or forged admit card details');
+    if (reason === null) return; // user cancelled prompt
+
+    try {
+        const res = await fetchAuth('/api/admin/pilot/cancel', {
+            method: 'POST',
+            body: JSON.stringify({
+                admit_card_id: cardId,
+                reason: reason.trim() || 'Suspicious admit card cancelled by staff'
+            })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            alert(data.message || 'Reservation cancelled and card locked.');
+            await loadPilotBookingsList();
+        } else {
+            alert(data.error || 'Failed to cancel reservation');
+        }
+    } catch (e) {
+        alert('Network error while cancelling reservation');
+    }
+}
+
+// 6. Delete Pilot Admit Card Record & Free Locks
+async function deletePilotRecord(cardId, pilotName) {
+    if (!confirm(`Are you sure you want to permanently delete the pilot record for "${pilotName || 'this applicant'}"?\n\nThis will remove the record and clear any slot holds or admit card locks.`)) {
+        return;
+    }
+
+    try {
+        const res = await fetchAuth(`/api/admin/pilot/record/${cardId}`, {
+            method: 'DELETE'
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+            alert(data.message || 'Record deleted successfully.');
+            await loadPilotBookingsList();
+        } else {
+            alert(data.error || 'Failed to delete record');
+        }
+    } catch (e) {
+        alert('Network error while deleting record');
+    }
+}
+

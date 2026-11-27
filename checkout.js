@@ -146,6 +146,25 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     }
 
+    // Prefill pilot details if coming from pilot verification
+    try {
+        const pilotCustRaw = localStorage.getItem("havoc_pilot_customer");
+        if (pilotCustRaw) {
+            const pCust = JSON.parse(pilotCustRaw);
+            if (pCust.name && document.getElementById('co-name')) {
+                document.getElementById('co-name').value = pCust.name;
+            }
+            if (pCust.email && document.getElementById('co-email')) {
+                document.getElementById('co-email').value = pCust.email;
+            }
+            if (pCust.phone && document.getElementById('co-phone')) {
+                let cleanPhone = pCust.phone.replace(/\D/g, '');
+                if (cleanPhone.length > 10) cleanPhone = cleanPhone.slice(-10);
+                document.getElementById('co-phone').value = cleanPhone;
+            }
+        }
+    } catch(e) {}
+
     // ---- 1. Load cart from localStorage & Render IMMEDIATELY (Instant 0ms display) ----
     let raw = localStorage.getItem("havoc_cart");
     let cart = raw ? JSON.parse(raw) : [];
@@ -227,11 +246,26 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (gstEl) gstEl.innerText = `₹${gstAmount.toFixed(2)}`;
         if (totalEl) totalEl.innerText = `₹${finalAmount.toFixed(2)}`;
         
-        if (payBtnLabelEl) {
-            if (selectedPaymentMethod === 'cod') {
-                payBtnLabelEl.innerText = "BOOK & PAY AT DESK";
-            } else {
-                payBtnLabelEl.innerText = `PAY ₹${finalAmount.toFixed(2)}`;
+        const paymentSection = document.getElementById('co-payment-section');
+
+        // If coupon makes it 100% free (₹0.00) or HAVOCPILOT coupon applied
+        if (finalAmount <= 0) {
+            if (paymentSection) {
+                paymentSection.style.display = 'none';
+            }
+            if (payBtnLabelEl) {
+                payBtnLabelEl.innerText = "BOOK NOW";
+            }
+        } else {
+            if (paymentSection) {
+                paymentSection.style.display = 'block';
+            }
+            if (payBtnLabelEl) {
+                if (selectedPaymentMethod === 'cod') {
+                    payBtnLabelEl.innerText = "BOOK & PAY AT DESK";
+                } else {
+                    payBtnLabelEl.innerText = `PAY ₹${finalAmount.toFixed(2)}`;
+                }
             }
         }
     }
@@ -314,6 +348,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             const coupon = coupons.find(c => c.code === code);
 
             if (coupon) {
+                // Check if this is the exclusive Pilot Offer coupon (e.g. HAVOCPILOT / PILOT100)
+                const isPilotCoupon = (code === 'HAVOCPILOT' || code === 'PILOT100');
+                const pilotHoldTxnId = localStorage.getItem("havoc_pilot_hold_txn_id");
+                const hasPilotCartItem = cart.some(i => i.isPilotBooking);
+
+                if (isPilotCoupon && (!pilotHoldTxnId || !hasPilotCartItem)) {
+                    msgEl.textContent = "This coupon is exclusively for verified pilots. Please upload your Pilot Admit Card on the Pilot Booking page to access this offer.";
+                    msgEl.className = "discount-message error";
+                    return;
+                }
+
                 // 1. Verify allowed simulators
                 let allowedSims = null;
                 if (coupon.allowed_simulators) {
@@ -472,6 +517,42 @@ document.addEventListener("DOMContentLoaded", async () => {
             }));
 
             const appliedCode = (codeInput?.value?.trim()?.toUpperCase() && appliedDiscount > 0) ? codeInput.value.trim().toUpperCase() : null;
+
+            // Pilot Simulator ₹0 Checkout Confirmation
+            const pilotHoldTxnId = localStorage.getItem("havoc_pilot_hold_txn_id");
+            if (pilotHoldTxnId && cart.some(i => i.isPilotBooking) && amount <= 0) {
+                bookingDetails.status = 'confirmed';
+                bookingDetails.paymentMethod = 'pilot_promo';
+                if (appliedCode) bookingDetails.applied_coupon = appliedCode;
+                localStorage.setItem("havoc_recent_booking", JSON.stringify(bookingDetails));
+
+                const pilotRes = await fetch(BACKEND_URL + "/api/pilot/checkout-confirm", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        hold_txn_id: pilotHoldTxnId,
+                        coupon_code: appliedCode,
+                        customer_details: { name, email, phone, whatsapp_consent: whatsappConsent },
+                        booking_data
+                    })
+                });
+
+                if (!pilotRes.ok) {
+                    const pErrData = await pilotRes.json();
+                    throw new Error(pErrData.error || "Failed to confirm pilot booking");
+                }
+
+                const pilotData = await pilotRes.json();
+                if (pilotData.success) {
+                    bookingDetails.orderId = pilotData.order_id;
+                    localStorage.setItem("havoc_recent_booking", JSON.stringify(bookingDetails));
+                    localStorage.removeItem("havoc_pilot_hold_txn_id");
+                    localStorage.removeItem("havoc_cart");
+                }
+
+                window.location.href = `/success?order_id=${pilotData.order_id || ''}`;
+                return;
+            }
 
             if (selectedPaymentMethod === 'cod') {
                 // COD Flow

@@ -512,7 +512,75 @@
             border-color: #e2e8f0 !important;
         }
 
-        /* 8. Settings, Inventory, Coupons & Other Dashboards Elements */
+        /* 8. Settings, Inventory, Coupons, Pilot Bookings & Other Dashboards Elements */
+        body.light-theme #tab-pilot-bookings .table-card {
+            background: #ffffff !important;
+            border: 1px solid #e2e8f0 !important;
+            box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04) !important;
+            padding: 1.5rem !important;
+            border-radius: 14px !important;
+        }
+        body.light-theme #tab-pilot-bookings .table-card-title {
+            color: #0f172a !important;
+        }
+        body.light-theme #tab-pilot-bookings .table-card > div:first-child {
+            border-bottom-color: #e2e8f0 !important;
+        }
+        body.light-theme #tab-pilot-bookings thead tr {
+            border-bottom-color: #e2e8f0 !important;
+        }
+        body.light-theme #tab-pilot-bookings thead th {
+            color: #64748b !important;
+        }
+        body.light-theme #tab-pilot-bookings .page-title {
+            color: #0f172a !important;
+        }
+        body.light-theme #tab-pilot-bookings .page-title span {
+            color: #e11d24 !important;
+        }
+        body.light-theme #openPilotBookingBtn,
+        body.light-theme #tab-pilot-bookings a[href="/pilot-booking"] {
+            background: rgba(225, 29, 36, 0.08) !important;
+            color: #e11d24 !important;
+            border-color: rgba(225, 29, 36, 0.25) !important;
+        }
+        body.light-theme #pilotRefreshBtn,
+        body.light-theme #tab-pilot-bookings button[onclick="loadPilotAdminData()"] {
+            background: #ffffff !important;
+            color: #334155 !important;
+            border: 1px solid #cbd5e1 !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05) !important;
+        }
+        body.light-theme #pilotSimulatorCheckboxes {
+            background: #f8fafc !important;
+            border: 1px solid #e2e8f0 !important;
+        }
+        body.light-theme .pilot-sim-checkbox-card {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #0f172a !important;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.03) !important;
+        }
+        body.light-theme .pilot-sim-checkbox-card span {
+            color: #0f172a !important;
+        }
+        body.light-theme #pilotMaxMinutesInput,
+        body.light-theme #pilotSlotDurationSelect,
+        body.light-theme #pilotCouponCodeInput,
+        body.light-theme #pilotBookingSearchInput {
+            background: #ffffff !important;
+            border: 1px solid #cbd5e1 !important;
+            color: #0f172a !important;
+        }
+        body.light-theme #pilotBookingsTableBody tr {
+            border-bottom-color: #e2e8f0 !important;
+        }
+        body.light-theme #pilotBookingsTableBody td div[style*="#fff"] {
+            color: #0f172a !important;
+        }
+        body.light-theme #pilotBookingsTableBody td {
+            color: #334155 !important;
+        }
         body.light-theme .switch .slider {
             background-color: #cbd5e1 !important;
         }
@@ -2041,6 +2109,9 @@
             <button class="nav-btn" data-target="tab-block-slots" id="nav-block-slots">
                 <span class="icon">🛡️</span> Block / Disable Slots
             </button>
+            <button class="nav-btn" data-target="tab-pilot-bookings" id="nav-pilot-bookings">
+                <span class="icon">✈️</span> Pilot Bookings
+            </button>
             <button class="nav-btn" data-target="tab-coupons" id="nav-coupons">
                 <span class="icon">🎟️</span> Coupons
             </button>
@@ -3203,7 +3274,126 @@
             </div>
         </div>
 
-<!-- COUPONS TAB -->
+        <!-- PILOT BOOKINGS TAB -->
+        <div id="tab-pilot-bookings" class="tab-content">
+            <div class="page-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h1 class="page-title">Pilot <span>Bookings</span></h1>
+                    <p style="color: var(--muted); font-size: 0.88rem; margin: 0.3rem 0 0;">Manage pilot applicant admit card verifications, slot allocations, and promotion settings.</p>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <a href="/pilot-booking" target="_blank" class="btn" style="background: rgba(229,184,105,0.15); color: var(--gold); border: 1px solid var(--border); font-size: 0.85rem; font-weight: 700; padding: 0.65rem 1.2rem; border-radius: 8px; text-decoration: none; display: flex; align-items: center; gap: 6px;">
+                        ↗ Open Pilot Booking Page
+                    </a>
+                    <button type="button" onclick="loadPilotAdminData()" class="btn" style="background: rgba(255,255,255,0.06); color: #fff; border: 1px solid var(--border); font-size: 0.85rem; padding: 0.65rem 1rem; border-radius: 8px; cursor: pointer;">
+                        🔄 Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pilot Promotion Configuration Card -->
+            <div class="table-card pilot-promo-config-card" style="margin-bottom: 2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; border-bottom: 1px solid var(--border); padding-bottom: 0.8rem; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h3 class="table-card-title" style="margin: 0; font-size: 1.15rem;">⚙️ Pilot Booking Configuration</h3>
+                        <p style="color: var(--muted); font-size: 0.8rem; margin: 3px 0 0;">Select exactly two simulators from the catalog and configure eligible time windows & session lengths.</p>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.06); padding: 6px 14px; border-radius: 20px; border: 1px solid var(--border);">
+                        <span style="font-size: 0.85rem; font-weight: 700; color: var(--gold);" id="pilotActiveStatusLabel">Offer Active</span>
+                        <label class="switch" style="position: relative; display: inline-block; width: 44px; height: 24px; margin: 0;">
+                            <input type="checkbox" id="pilotPromoActiveToggle" checked onchange="onPilotActiveToggleChange()">
+                            <span class="slider round" style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 24px;"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <form id="pilotConfigForm" onsubmit="savePilotConfig(event)">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 1.5rem;">
+                        
+                        <!-- Selected Simulators (Exactly 2) -->
+                        <div style="grid-column: 1 / -1;">
+                            <label style="display: block; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; color: var(--gold); margin-bottom: 0.6rem; letter-spacing: 0.8px;">
+                                Eligible Simulators (Choose Exactly 2) *
+                            </label>
+                            <div id="pilotSimulatorCheckboxes" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; background: rgba(0,0,0,0.15); padding: 1rem; border-radius: 10px; border: 1px solid var(--border);">
+                                Loading simulator catalog...
+                            </div>
+                            <span id="pilotSimSelectionCount" style="display: block; font-size: 0.8rem; color: var(--muted); margin-top: 0.4rem;">Selected: 0 of 2</span>
+                        </div>
+
+                        <!-- Promotion Duration Limit (Up to 180 mins) -->
+                        <div>
+                            <label style="display: block; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 0.4rem; letter-spacing: 0.8px;">
+                                Max Promotion Limit Per Sim (Minutes) *
+                            </label>
+                            <input type="number" id="pilotMaxMinutesInput" min="30" max="180" step="30" value="180" style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; outline: none;">
+                            <span style="font-size: 0.75rem; color: var(--muted); margin-top: 2px; display: block;">Enforced on server up to 180 minutes (3.0 hours).</span>
+                        </div>
+
+                        <!-- Session Duration -->
+                        <div>
+                            <label style="display: block; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 0.4rem; letter-spacing: 0.8px;">
+                                Session Slot Length (Minutes) *
+                            </label>
+                            <select id="pilotSlotDurationSelect" style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit'; font-size: 0.95rem; outline: none;">
+                                <option value="30">30 Minutes</option>
+                                <option value="60">60 Minutes</option>
+                            </select>
+                        </div>
+
+                        <!-- Promo Coupon Code -->
+                        <div>
+                            <label style="display: block; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; color: var(--muted); margin-bottom: 0.4rem; letter-spacing: 0.8px;">
+                                Promotion Coupon Code (100% Off) *
+                            </label>
+                            <input type="text" id="pilotCouponCodeInput" value="PILOT100" style="width: 100%; padding: 0.75rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-family: 'Outfit'; font-weight: 700; font-size: 0.95rem; text-transform: uppercase; outline: none;">
+                        </div>
+
+                    </div>
+
+                    <div style="display: flex; justify-content: flex-end;">
+                        <button type="submit" id="savePilotConfigBtn" class="btn" style="background: linear-gradient(135deg, var(--gold), #c9952f); color: #000; font-weight: 800; padding: 0.75rem 2rem; border-radius: 8px; border: none; cursor: pointer; display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(229,184,105,0.3);">
+                            <span>💾</span> Save Configuration
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Pilot Bookings Table Card -->
+            <div class="table-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; flex-wrap: wrap; gap: 10px;">
+                    <div>
+                        <h3 class="table-card-title" style="margin: 0; font-size: 1.15rem;">📋 Verified Pilot Reservations</h3>
+                        <p style="color: var(--muted); font-size: 0.8rem; margin: 3px 0 0;">Review applicant details, slot reservations, and privately inspect admit cards.</p>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="pilotBookingSearchInput" oninput="filterPilotBookingsTable()" placeholder="Search pilot name, email, roll no..." style="padding: 0.55rem 0.9rem; background: var(--input-bg); border: 1px solid var(--border); border-radius: 8px; color: #fff; font-size: 0.85rem; font-family: 'Outfit'; outline: none; width: 260px;">
+                    </div>
+                </div>
+
+                <div class="table-container">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border); text-align: left; color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.8px;">
+                                <th style="padding: 0.8rem;">Applicant</th>
+                                <th style="padding: 0.8rem;">Admit Card / Roll No</th>
+                                <th style="padding: 0.8rem;">Booked Simulator Slots</th>
+                                <th style="padding: 0.8rem;">Verification</th>
+                                <th style="padding: 0.8rem;">Admit Card Document</th>
+                                <th style="padding: 0.8rem; text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pilotBookingsTableBody">
+                            <tr>
+                                <td colspan="6" style="text-align: center; padding: 2.5rem; color: var(--muted);">Loading pilot bookings...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- COUPONS TAB -->
         <div id="tab-coupons" class="tab-content">
             <div class="page-header">
                 <h1 class="page-title">Manage <span>Coupons</span></h1>

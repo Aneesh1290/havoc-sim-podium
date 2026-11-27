@@ -1,5 +1,22 @@
 document.addEventListener('DOMContentLoaded', () => {
 
+    // Pilot Offer Top Ribbon Visibility Check
+    const pilotRibbon = document.querySelector('.pilot-top-ribbon');
+    if (pilotRibbon) {
+        fetch('/api/pilot/config')
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.success && data.config) {
+                    if (data.config.is_active === false) {
+                        pilotRibbon.style.display = 'none';
+                    } else {
+                        pilotRibbon.style.display = '';
+                    }
+                }
+            })
+            .catch(() => {});
+    }
+
     // Mobile Menu Toggle
     const hamburger = document.querySelector('.hamburger-menu');
     const navLinks = document.querySelector('.nav-links');

@@ -1,0 +1,1311 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pilot Booking - Havoc Sim Podium</title>
+    <meta name="description"
+        content="Dedicated Pilot Simulator Booking with Admit Card Verification at Havoc Sim Podium.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Orbitron:wght@600;700;800;900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="checkout.css?v=4">
+    <link rel="icon" type="image/png" href="havoc_logo.png">
+    <style>
+        :root {
+            --accent-red: #e11d24;
+            --accent-red-hover: #c8161d;
+            --navy: #0f172a;
+            --text-primary: #0f172a;
+            --text-muted: #64748b;
+            --border-light: #e2e8f0;
+            --border-subtle: #f1f5f9;
+            --bg-page: #f8fafc;
+            --bg-card: #ffffff;
+            --card-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+            --card-shadow-hover: 0 10px 30px rgba(225, 29, 36, 0.12);
+        }
+
+        body.pilot-page {
+            background-color: var(--bg-page);
+            color: var(--text-primary);
+            font-family: 'Outfit', sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        .pilot-hero {
+            text-align: center;
+            padding: 7rem 1.5rem 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .pilot-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(225, 29, 36, 0.08);
+            border: 1px solid rgba(225, 29, 36, 0.25);
+            padding: 0.4rem 1.1rem;
+            border-radius: 50px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--accent-red);
+            margin-bottom: 1rem;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+        }
+
+        .pilot-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin: 0 0 0.8rem;
+            color: var(--navy);
+        }
+
+        .pilot-title span {
+            color: var(--accent-red);
+        }
+
+        .pilot-subtitle {
+            color: var(--text-muted);
+            font-size: 1.05rem;
+            line-height: 1.6;
+            max-width: 680px;
+            margin: 0 auto;
+            font-weight: 400;
+        }
+
+        .pilot-container {
+            max-width: 1140px;
+            margin: 0 auto;
+            padding: 0 1.5rem 4rem;
+        }
+
+        /* Step Progress Indicator */
+        .step-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .step-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .step-item.active {
+            color: var(--accent-red);
+            font-weight: 700;
+        }
+
+        .step-item.done {
+            color: #10B981;
+        }
+
+        .step-circle {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #ffffff;
+            border: 2px solid var(--border-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+        }
+
+        .step-item.active .step-circle {
+            background: var(--accent-red);
+            color: #ffffff;
+            border-color: var(--accent-red);
+            box-shadow: 0 4px 14px rgba(225, 29, 36, 0.3);
+        }
+
+        .step-item.done .step-circle {
+            background: #10B981;
+            color: #FFF;
+            border-color: #10B981;
+        }
+
+        .step-line {
+            width: 40px;
+            height: 2px;
+            background: var(--border-light);
+        }
+
+        /* Simulator Selection Cards */
+        .sim-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 1.8rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .sim-card {
+            background: #ffffff;
+            border: 1px solid var(--border-light);
+            border-radius: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--card-shadow);
+            transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+        }
+
+        .sim-card:hover {
+            border-color: var(--accent-red);
+            transform: translateY(-4px);
+            box-shadow: var(--card-shadow-hover);
+        }
+
+        .sim-img-wrap {
+            position: relative;
+            width: 100%;
+            height: 220px;
+            background: #f1f5f9;
+            overflow: hidden;
+        }
+
+        .sim-img-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: transform 0.3s ease;
+        }
+
+        .sim-card:hover .sim-img-wrap img {
+            transform: scale(1.04);
+        }
+
+        .sim-body {
+            padding: 1.6rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sim-name {
+            font-size: 1.3rem;
+            font-weight: 800;
+            margin: 0 0 0.4rem;
+            color: var(--navy);
+        }
+
+        .sim-meta-info {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .sim-meta-pill {
+            background: rgba(225, 29, 36, 0.08);
+            color: var(--accent-red);
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            border: 1px solid rgba(225, 29, 36, 0.2);
+        }
+
+        .slot-section-title {
+            font-size: 0.8rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--navy);
+            margin: 0 0 0.6rem;
+        }
+
+        .date-select-wrap select {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            background: #ffffff;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            color: var(--navy);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            outline: none;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+            transition: border-color 0.2s;
+        }
+
+        .date-select-wrap select:focus {
+            border-color: var(--accent-red);
+        }
+
+        .time-slots-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+            gap: 8px;
+            max-height: 220px;
+            overflow-y: auto;
+            padding-right: 4px;
+            margin-bottom: 1rem;
+        }
+
+        .time-slot-btn {
+            background: #f8fafc;
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            padding: 0.6rem 0.4rem;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--navy);
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .time-slot-btn:hover:not(:disabled):not(.selected) {
+            border-color: var(--accent-red);
+            background: #fff;
+            color: var(--accent-red);
+        }
+
+        /* High specificity to guarantee bold red selected state */
+        .time-slots-grid .time-slot-btn.selected,
+        .time-slot-btn.selected {
+            background-color: #e11d24 !important;
+            background: #e11d24 !important;
+            color: #ffffff !important;
+            border-color: #e11d24 !important;
+            font-weight: 800 !important;
+            box-shadow: 0 4px 12px rgba(225, 29, 36, 0.35) !important;
+        }
+
+        .time-slot-btn:disabled:not(.pilot-slot-conflict) {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: #e2e8f0;
+            border-color: transparent;
+            text-decoration: line-through;
+            color: #94a3b8;
+        }
+
+        /* Month Cards (Matching /book "CHOOSE YOUR MONTH") */
+        .pilot-month-view {
+            text-align: center;
+            padding: 1.5rem 0 3rem;
+        }
+
+        .pilot-month-title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 2.5rem;
+            color: var(--navy);
+            letter-spacing: -0.5px;
+        }
+
+        .pilot-month-title .accent-text {
+            color: var(--accent-red);
+        }
+
+        .month-selector {
+            display: flex;
+            justify-content: center;
+            gap: 2.5rem;
+            flex-wrap: wrap;
+        }
+
+        .month-card-btn {
+            width: 320px;
+            height: 380px;
+            background: #ffffff;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.06);
+        }
+
+        .month-card-btn::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 5px;
+            background: linear-gradient(90deg, #e11d24, #c8161d);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .month-card-btn:hover {
+            transform: translateY(-8px);
+            border-color: rgba(225, 29, 36, 0.35);
+            box-shadow: 0 14px 35px rgba(225, 29, 36, 0.12);
+        }
+
+        .month-card-btn:hover::before {
+            opacity: 1;
+        }
+
+        .month-card-btn.active {
+            border-color: var(--accent-red);
+            box-shadow: 0 14px 35px rgba(225, 29, 36, 0.18);
+        }
+
+        .month-card-btn.active::before {
+            opacity: 1;
+        }
+
+        .mc-content {
+            position: relative;
+            z-index: 2;
+            text-align: center;
+        }
+
+        .mc-content h2 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            letter-spacing: 2px;
+            color: #0f172a;
+        }
+
+        .mc-year {
+            display: block;
+            font-size: 3.5rem;
+            font-weight: 800;
+            color: #94a3b8;
+            margin-bottom: 2rem;
+            transition: color 0.3s ease;
+        }
+
+        .month-card-btn:hover .mc-year,
+        .month-card-btn.active .mc-year {
+            color: var(--accent-red, #e11d24);
+        }
+
+        .mc-explore {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #ffffff;
+            background: linear-gradient(135deg, #e11d24, #c8161d);
+            padding: 0.75rem 1.6rem;
+            border-radius: 30px;
+            letter-spacing: 1.5px;
+            transition: all 0.3s ease;
+            display: inline-block;
+            box-shadow: 0 4px 14px rgba(225, 29, 36, 0.3);
+        }
+
+        .month-card-btn:hover .mc-explore {
+            transform: scale(1.04);
+            box-shadow: 0 6px 18px rgba(225, 29, 36, 0.4);
+        }
+
+        /* Embedded Calendar Widget for Simulator Dates */
+        .sim-calendar-card {
+            background: #ffffff;
+            border: 1.5px solid var(--border-light);
+            border-radius: 18px;
+            padding: 1.25rem 1.25rem;
+            margin-bottom: 1.25rem;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+        }
+
+        .calendar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.1rem;
+        }
+
+        .calendar-month-title {
+            font-size: 1.12rem;
+            font-weight: 800;
+            color: var(--navy);
+            letter-spacing: -0.2px;
+        }
+
+        .calendar-nav-btn {
+            background: #f1f5f9;
+            border: 1px solid var(--border-light);
+            color: var(--navy);
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.15rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .calendar-nav-btn:hover {
+            background: var(--accent-red);
+            border-color: var(--accent-red);
+            color: #ffffff;
+        }
+
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: 800;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 7px;
+        }
+
+        .cal-day-cell {
+            aspect-ratio: 1;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            border: 1.5px solid transparent;
+            transition: all 0.15s ease;
+            position: relative;
+            background: #f8fafc;
+            color: var(--navy);
+        }
+
+        .cal-day-cell.empty {
+            background: transparent;
+            cursor: default;
+            border: none;
+        }
+
+        .cal-day-cell.available {
+            background: #ffffff;
+            border-color: #cbd5e1;
+            color: #0f172a;
+            font-weight: 800;
+        }
+
+        .cal-day-cell.available:hover {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(225, 29, 36, 0.15);
+        }
+
+        .cal-day-cell.selected {
+            background: var(--accent-red) !important;
+            border-color: var(--accent-red) !important;
+            color: #ffffff !important;
+            box-shadow: 0 4px 14px rgba(225, 29, 36, 0.4);
+            transform: scale(1.05);
+        }
+
+        .cal-day-cell.disabled {
+            background: #f8fafc;
+            color: #cbd5e1;
+            cursor: not-allowed;
+            border-color: transparent;
+        }
+
+        .calendar-legend {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            margin-top: 0.75rem;
+            padding-top: 0.6rem;
+            border-top: 1px dashed var(--border-light);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .legend-dot.available { background: var(--accent-red); }
+        .legend-dot.disabled { background: #cbd5e1; }
+
+        /* Month Selector Bar */
+        .pilot-month-bar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: #ffffff;
+            border: 1px solid var(--border-light);
+            border-radius: 16px;
+            padding: 0.75rem 1.25rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+            flex-wrap: wrap;
+        }
+
+        .pilot-month-label {
+            font-size: 0.85rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--navy);
+        }
+
+        .pilot-month-chips {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pilot-month-btn {
+            background: #f8fafc;
+            border: 1px solid var(--border-light);
+            color: var(--navy);
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .pilot-month-btn:hover {
+            border-color: var(--accent-red);
+            color: var(--accent-red);
+        }
+
+        .pilot-month-btn.active {
+            background: var(--accent-red);
+            border-color: var(--accent-red);
+            color: #ffffff;
+            box-shadow: 0 2px 8px rgba(225, 29, 36, 0.25);
+        }
+
+        .time-slot-btn.is-booked-hidden {
+            display: none !important;
+        }
+
+        .time-slot-btn.pilot-slot-conflict {
+            opacity: 0.35 !important;
+            cursor: not-allowed !important;
+            background: #f1f5f9 !important;
+            border-color: #e2e8f0 !important;
+            text-decoration: line-through !important;
+            color: #94a3b8 !important;
+        }
+
+        .time-slots-empty-notice {
+            grid-column: 1 / -1;
+            padding: 1.2rem;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            background: #f8fafc;
+            border: 1px dashed var(--border-light);
+            border-radius: 10px;
+        }
+
+        .time-slot-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            background: #e2e8f0;
+            border-color: transparent;
+            text-decoration: line-through;
+            color: #94a3b8;
+        }
+
+        .sim-duration-badge {
+            margin-top: auto;
+            padding: 0.7rem 0.9rem;
+            background: #f8fafc;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .sim-duration-badge strong {
+            color: var(--accent-red);
+        }
+
+        /* Form & Document Verification Card */
+        .details-card {
+            background: #ffffff;
+            border: 1px solid var(--border-light);
+            border-radius: 20px;
+            padding: 2.2rem;
+            max-width: 760px;
+            margin: 0 auto 2.5rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .details-card-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+            color: var(--navy);
+            margin: 0 0 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .details-card-sub {
+            color: var(--text-muted);
+            font-size: 0.92rem;
+            margin-bottom: 1.8rem;
+            line-height: 1.5;
+        }
+
+        .form-grid-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.2rem;
+            margin-bottom: 1.8rem;
+        }
+
+        .form-field-full {
+            grid-column: span 2;
+        }
+
+        .pilot-label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--navy);
+            margin-bottom: 0.5rem;
+        }
+
+        .pilot-input {
+            width: 100%;
+            padding: 0.85rem 1rem;
+            background: #ffffff;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            color: var(--navy);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            outline: none;
+            box-sizing: border-box;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .pilot-input:focus {
+            border-color: var(--accent-red);
+            box-shadow: 0 0 0 3px rgba(225, 29, 36, 0.1);
+        }
+
+        /* Upload Zone */
+        .upload-dropzone {
+            border: 2px dashed #cbd5e1;
+            border-radius: 16px;
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            background: #f8fafc;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            position: relative;
+        }
+
+        .upload-dropzone:hover,
+        .upload-dropzone.dragover {
+            border-color: var(--accent-red);
+            background: rgba(225, 29, 36, 0.03);
+        }
+
+        .upload-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.8rem;
+            display: block;
+        }
+
+        .upload-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            margin: 0 0 0.3rem;
+            color: var(--navy);
+        }
+
+        .upload-sub {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        .upload-file-info {
+            display: none;
+            margin-top: 1rem;
+            padding: 0.85rem 1.2rem;
+            background: #f8fafc;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        /* Live Feedback Alert */
+        .pilot-alert {
+            display: none;
+            padding: 1rem 1.3rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            font-size: 0.92rem;
+            line-height: 1.4;
+        }
+
+        .pilot-alert.error {
+            display: block;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            color: #991b1b;
+        }
+
+        .pilot-alert.success {
+            display: block;
+            background: #ecfdf5;
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+        }
+
+        .pilot-btn-primary {
+            width: 100%;
+            background-color: var(--accent-red);
+            color: #ffffff;
+            border: none;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 800;
+            padding: 1.05rem;
+            border-radius: 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 14px rgba(225, 29, 36, 0.28);
+            transition: all 0.2s ease;
+        }
+
+        .pilot-btn-primary:hover:not(:disabled) {
+            background-color: var(--accent-red-hover);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(225, 29, 36, 0.4);
+        }
+
+        .pilot-btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Selected Slots Bar in Light Theme */
+        .selected-slots-bar {
+            background: #ffffff;
+            border: 1px solid var(--border-light);
+            border-radius: 16px;
+            padding: 1.2rem 1.6rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 2.5rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        @media (max-width: 768px) {
+            .pilot-hero {
+                padding-top: 5.5rem;
+                padding-bottom: 1.5rem;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            .pilot-container {
+                padding: 0 1rem 3rem;
+            }
+
+            .pilot-title {
+                font-size: 2rem;
+            }
+
+            .pilot-subtitle {
+                font-size: 0.95rem;
+                padding: 0 0.25rem;
+            }
+
+            /* Step Indicator - responsive horizontal compact layout */
+            .step-indicator {
+                gap: 0.4rem;
+                margin-bottom: 2rem;
+                justify-content: space-between;
+                width: 100%;
+            }
+
+            .step-item {
+                font-size: 0.75rem;
+                gap: 5px;
+                flex-direction: column;
+                text-align: center;
+                flex: 1;
+                min-width: 0;
+            }
+
+            .step-item span {
+                font-size: 0.72rem;
+                line-height: 1.2;
+                white-space: normal;
+                word-break: break-word;
+            }
+
+            .step-circle {
+                width: 28px;
+                height: 28px;
+                font-size: 0.75rem;
+            }
+
+            .step-line {
+                width: 16px;
+                height: 2px;
+                margin-top: -14px;
+                flex-shrink: 0;
+            }
+
+            /* Month selector cards on phone */
+            .pilot-month-view {
+                padding: 1rem 0 2rem;
+            }
+
+            .pilot-month-title {
+                font-size: 1.6rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .month-selector {
+                gap: 1.25rem;
+            }
+
+            .month-card-btn {
+                width: 100%;
+                max-width: 290px;
+                height: 300px;
+            }
+
+            .mc-content h2 {
+                font-size: 1.8rem;
+            }
+
+            .mc-year {
+                font-size: 2.8rem;
+                margin-bottom: 1.5rem;
+            }
+
+            .mc-explore {
+                font-size: 0.8rem;
+                padding: 0.65rem 1.3rem;
+            }
+
+            /* Simulator Cards & Calendar */
+            .sim-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .sim-card {
+                border-radius: 16px;
+            }
+
+            .sim-body {
+                padding: 1.25rem 1rem;
+            }
+
+            .sim-name {
+                font-size: 1.2rem;
+            }
+
+            .sim-calendar-card {
+                padding: 1.1rem 0.9rem;
+            }
+
+            .calendar-header {
+                flex-direction: row;
+                gap: 8px;
+                margin-bottom: 0.9rem;
+            }
+
+            .calendar-month-title {
+                font-size: 1.05rem;
+            }
+
+            .calendar-nav-btn {
+                width: 38px;
+                height: 38px;
+                font-size: 1.2rem;
+                border-radius: 10px;
+            }
+
+            .cal-day-cell {
+                font-size: 0.95rem;
+                font-weight: 800;
+                border-radius: 10px;
+                min-height: 42px;
+            }
+
+            .calendar-weekdays {
+                font-size: 0.78rem;
+                font-weight: 800;
+                gap: 6px;
+                margin-bottom: 6px;
+            }
+
+            .calendar-grid {
+                gap: 6px;
+            }
+
+            /* Time slots grid - clean comfortable 2-column touch targets */
+            .time-slots-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 10px !important;
+                max-height: 300px;
+            }
+
+            .time-slot-btn {
+                padding: 0.85rem 0.5rem !important;
+                font-size: 0.9rem !important;
+                font-weight: 700 !important;
+                min-height: 46px !important;
+                border-radius: 10px !important;
+            }
+
+            /* Details verification card */
+            .details-card {
+                padding: 1.5rem 1rem;
+                border-radius: 16px;
+            }
+
+            .details-card-title {
+                font-size: 1.2rem;
+            }
+
+            .form-grid-3 {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .form-field-full {
+                grid-column: span 1;
+            }
+
+            .pilot-phone-row {
+                flex-direction: row;
+                gap: 6px;
+            }
+
+            #pilotCountryCode {
+                width: 105px !important;
+                padding: 0.85rem 0.4rem !important;
+                font-size: 0.85rem !important;
+                flex-shrink: 0;
+            }
+
+            .pilot-input {
+                padding: 0.85rem 0.85rem;
+                font-size: 0.92rem;
+            }
+
+            .selected-slots-bar {
+                flex-direction: column;
+                align-items: stretch;
+                text-align: center;
+                gap: 0.85rem;
+                padding: 1.1rem 1rem;
+            }
+
+            .selected-slots-bar button {
+                width: 100% !important;
+            }
+
+            .upload-dropzone {
+                padding: 1.5rem 1rem;
+            }
+
+            .pilot-btn-primary {
+                padding: 0.9rem 1.2rem;
+                font-size: 0.95rem;
+            }
+
+            /* Step 2 action button stacking */
+            .details-card div[style*="display: flex; gap: 1rem;"] {
+                flex-direction: column-reverse;
+                gap: 0.75rem !important;
+            }
+
+            .details-card div[style*="display: flex; gap: 1rem;"] button {
+                width: 100% !important;
+            }
+        }
+    </style>
+</head>
+
+<body class="pilot-page">
+
+    <!-- Original Navbar (Matching Site & Logo) -->
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <img src="havoc_logo.png" alt="Havoc Logo" class="logo-icon">
+                <div class="logo-text">
+                    <div class="logo-main">HAVOC</div>
+                    <div class="logo-sub">SIM PODIUM</div>
+                    <div class="logo-unit-text" style="margin-top: 2px; display: block;">A Unit of Havoc Hobby Center
+                        Pvt. Ltd</div>
+                </div>
+            </a>
+
+            <nav class="nav-links">
+                <a href="/#home">HOME</a>
+                <a href="/#simulators">SIMULATORS</a>
+                <a href="/#about">ABOUT</a>
+                <a href="/team">OUR TEAM</a>
+                <a href="/#contact">CONTACT</a>
+                <a href="/book">🛒 CART</a>
+                <a href="/book" class="cta-button nav-cta">BOOK NOW &rarr;</a>
+            </nav>
+
+            <button class="hamburger-menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="pilot-hero">
+        <div class="pilot-badge">✈️ Professional Flight Program</div>
+        <h1 class="pilot-title">Pilot Booking</h1>
+        <p class="pilot-subtitle">
+            Welcome, Aviator. Book your simulator sessions across our certified flight simulators.
+            Verify your Pilot Admit Card below to unlock your complimentary promotional flight sessions.
+        </p>
+    </section>
+
+    <!-- Main Container -->
+    <main class="pilot-container">
+
+        <!-- Step Indicator -->
+        <div class="step-indicator">
+            <div class="step-item active" id="stepIndicator1">
+                <div class="step-circle">1</div>
+                <span>Select Slots</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step-item" id="stepIndicator2">
+                <div class="step-circle">2</div>
+                <span>Pilot Details & Admit Card</span>
+            </div>
+            <div class="step-line"></div>
+            <div class="step-item" id="stepIndicator3">
+                <div class="step-circle">3</div>
+                <span>₹0 Checkout</span>
+            </div>
+        </div>
+
+        <!-- Notification Banner -->
+        <div id="pilotAlertBox" class="pilot-alert"></div>
+
+        <!-- Month Selection View (Exact match to /book "CHOOSE YOUR MONTH") -->
+        <section id="pilotMonthView" class="pilot-month-view">
+            <h2 class="pilot-month-title">CHOOSE YOUR <span class="accent-text">MONTH</span></h2>
+            <div class="month-selector" id="dynamicPilotMonthCards">
+                <!-- Dynamically injected: NOVEMBER 2026, DECEMBER 2026 -->
+            </div>
+        </section>
+
+        <!-- STEP 1: Two Admin-Selected Simulators with Slots -->
+        <div id="step1Container" style="display: none;">
+            <div style="margin-bottom: 1.5rem;">
+                <button type="button" onclick="showMonthPickerView()" style="background: none; border: none; color: var(--accent-red); font-size: 0.95rem; font-weight: 700; cursor: pointer; padding: 0; display: inline-flex; align-items: center; gap: 6px;">
+                    ← Change Month (<span id="activeMonthHeaderDisplay">November 2026</span>)
+                </button>
+            </div>
+
+            <div
+                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <h2 style="font-size: 1.45rem; margin: 0; font-weight: 800; color: var(--navy);">Select Simulator
+                        Sessions</h2>
+                    <p style="margin: 4px 0 0; font-size: 0.88rem; color: var(--text-muted);">Choose your flight date and reserve your complimentary sessions.</p>
+                </div>
+                <span
+                    style="font-size: 0.85rem; color: var(--accent-red); font-weight: 700; background: rgba(225, 29, 36, 0.08); padding: 6px 14px; border-radius: 20px; border: 1px solid rgba(225, 29, 36, 0.2);"
+                    id="simPromotionRuleText">
+                    Max 180 Minutes (3.0 Hours) per selected simulator
+                </span>
+            </div>
+
+            <!-- Month Selection Tabs -->
+            <div class="pilot-month-bar" id="pilotMonthBar">
+                <span class="pilot-month-label">Filter Month:</span>
+                <div class="pilot-month-chips" id="pilotMonthChips">
+                    <!-- Populated dynamically: November 2026, December 2026 -->
+                </div>
+            </div>
+
+            <div class="sim-grid" id="simulatorsContainer">
+                <!-- Dynamically populated with exactly the 2 admin-selected simulators -->
+                <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">
+                    Loading eligible simulators and live availability...
+                </div>
+            </div>
+
+            <!-- Selected Slots Bar -->
+            <div class="selected-slots-bar">
+                <div>
+                    <div
+                        style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--text-muted); font-weight: 700;">
+                        Selected Sessions</div>
+                    <div id="selectedSlotsCountText"
+                        style="font-size: 1.15rem; font-weight: 800; color: var(--navy); margin-top: 2px;">
+                        0 slots selected (0 mins)
+                    </div>
+                </div>
+                <button type="button" id="proceedToDetailsBtn" class="pilot-btn-primary"
+                    style="width: auto; padding: 0.85rem 2.2rem;" disabled>
+                    Next: Enter Details & Verify →
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 2: Pilot Details & Admit Card Upload -->
+        <div id="step2Container" style="display: none;">
+            <div class="details-card">
+                <div class="details-card-title">
+                    <span>🪪</span> Pilot Verification & Details
+                </div>
+                <p class="details-card-sub">
+                    Please provide your contact information and upload your official Pilot Admit Card for instant verification.
+                </p>
+
+                <!-- Personal Details Form (Strictly omit enrollment number) -->
+                <div class="form-grid-3">
+                    <div class="form-field-full">
+                        <label class="pilot-label" for="pilotName">Full Name *</label>
+                        <input type="text" id="pilotName" class="pilot-input" placeholder="e.g. Capt. Vikram Sharma"
+                            required>
+                    </div>
+
+                    <div>
+                        <label class="pilot-label" for="pilotPhone">Phone Number *</label>
+                        <div class="pilot-phone-row" style="display: flex; gap: 8px; align-items: center;">
+                            <select id="pilotCountryCode" class="pilot-input" style="width: 120px; flex-shrink: 0; padding: 0.85rem 0.6rem; cursor: pointer;">
+                                <option value="+91" selected>🇮🇳 +91</option>
+                                <option value="+1">🇺🇸 +1</option>
+                                <option value="+44">🇬🇧 +44</option>
+                                <option value="+971">🇦🇪 +971</option>
+                                <option value="+61">🇦🇺 +61</option>
+                                <option value="+65">🇸🇬 +65</option>
+                                <option value="+966">🇸🇦 +966</option>
+                                <option value="+974">🇶🇦 +974</option>
+                                <option value="+968">🇴🇲 +968</option>
+                            </select>
+                            <input type="tel" id="pilotPhone" class="pilot-input" placeholder="e.g. 9876543210" style="flex: 1;" required>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="pilot-label" for="pilotEmail">Email Address *</label>
+                        <input type="email" id="pilotEmail" class="pilot-input" placeholder="e.g. vikram@airline.com"
+                            required>
+                    </div>
+                </div>
+
+                <!-- Admit Card Upload Zone -->
+                <div style="margin-bottom: 1.8rem;">
+                    <label class="pilot-label">Pilot Admit Card (PDF or Image) *</label>
+                    <div class="upload-dropzone" id="admitCardDropzone"
+                        onclick="document.getElementById('admitCardFileInput').click()">
+                        <span class="upload-icon">📄</span>
+                        <div class="upload-title">Click or drag & drop your Pilot Admit Card</div>
+                        <p class="upload-sub">Supports PDF, JPG, or PNG (Max 12MB). Format & Roll No / Identifier are
+                            verified automatically.</p>
+                        <input type="file" id="admitCardFileInput" accept=".pdf,image/jpeg,image/png,image/webp"
+                            style="display: none;">
+                    </div>
+
+                    <div id="uploadFileInfo" class="upload-file-info">
+                        <div style="display: flex; align-items: center; gap: 10px; overflow: hidden;">
+                            <span style="font-size: 1.4rem;">📎</span>
+                            <div style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <div id="uploadFileName"
+                                    style="font-weight: 700; font-size: 0.95rem; color: var(--navy);">filename.pdf</div>
+                                <div id="uploadFileSize" style="font-size: 0.78rem; color: var(--text-muted);">0 KB
+                                </div>
+                            </div>
+                        </div>
+                        <button type="button" onclick="clearSelectedFile(event)"
+                            style="background: none; border: none; color: #EF4444; font-size: 0.85rem; font-weight: 700; cursor: pointer;">Remove</button>
+                    </div>
+                </div>
+
+                <!-- Navigation buttons -->
+                <div style="display: flex; gap: 1rem;">
+                    <button type="button" id="backToSlotsBtn" class="pilot-btn-primary"
+                        style="flex: 1; background: #f1f5f9; color: var(--navy); box-shadow: none; border: 1px solid var(--border-light);">
+                        ← Back to Slots
+                    </button>
+                    <button type="button" id="verifyAndProceedBtn" class="pilot-btn-primary" style="flex: 2;">
+                        Verify Admit Card & Proceed to Checkout →
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script src="pilot-booking.js?v=20261126g"></script>
+</body>
+
+</html>

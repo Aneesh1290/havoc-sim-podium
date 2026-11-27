@@ -1,7 +1,7 @@
 const { Pool } = require('pg');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 
 const DB_URL = process.env.DATABASE_URL;
 
@@ -25,8 +25,9 @@ if (DB_URL) {
 
         // SQLite date/time conversions to PostgreSQL
         converted = converted.replace(/datetime\(created_at\)\s*<=\s*datetime\('now',\s*'-2 minutes'\)/gi, "created_at <= NOW() - INTERVAL '2 minutes'");
-        converted = converted.replace(/datetime\(created_at\)\s*<=\s*datetime\('now',\s*'-5 minutes'\)/gi, "created_at <= NOW() - INTERVAL '2 minutes'");
-        converted = converted.replace(/datetime\(created_at\)\s*<=\s*datetime\('now',\s*'-15 minutes'\)/gi, "created_at <= NOW() - INTERVAL '2 minutes'");
+        converted = converted.replace(/datetime\(created_at\)\s*<=\s*datetime\('now',\s*'-5 minutes'\)/gi, "created_at <= NOW() - INTERVAL '5 minutes'");
+        converted = converted.replace(/datetime\(created_at\)\s*<=\s*datetime\('now',\s*'-15 minutes'\)/gi, "created_at <= NOW() - INTERVAL '15 minutes'");
+        converted = converted.replace(/datetime\(created_at\)\s*<=\s*datetime\('now',\s*'-30 minutes'\)/gi, "created_at <= NOW() - INTERVAL '30 minutes'");
         converted = converted.replace(/created_at\s*>=\s*date\('now',\s*\$([0-9]+)\)/gi, (m, g1) => `created_at >= NOW() - ($${g1}::text || ' days')::interval`);
         converted = converted.replace(/booking_date\s*>=\s*date\('now',\s*'-1 day'\)/gi, "1=1");
         converted = converted.replace(/date_str\s*>=\s*date\('now',\s*'-1 day'\)/gi, "1=1");
